@@ -29,7 +29,7 @@ The project follows a **Client-Server** architecture, internally structured usin
 * **Backend:** Python 3.12, Django 5.x
 * **Frontend:** HTML5, CSS3, JavaScript ES6+, Bootstrap 5
 * **Database:** SQL
-* **AI/ML:** Machine Learning libraries (Demand Forecasting), OpenRouter/LLM APIs (Virtual Assistant)
+* **AI/ML:** Machine Learning libraries like scikit-learn or keras, including the use of API's for a LLM agent integration
 * **Deployment Roadmap:** Currently a local prototype, architecturally prepared for future cloud deployment (e.g., Microsoft Azure App Service).
 
 ## 🔒 Security & Optimization

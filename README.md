@@ -40,6 +40,6 @@ The project follows a **Client-Server** architecture, internally structured usin
 
 ## 👥 Authors
 * **Jorge Arif Diaz Jimenez** - *Artificial Intelligence Engineering*
-* **Bernardo** - *Artificial Intelligence Engineering*
+* **Luis Bernardo Delgado Acosta** - *Artificial Intelligence Engineering*
 
 *Developed at the Escuela Superior de Cómputo (ESCOM) - Instituto Politécnico Nacional (IPN).*

@@ -1,0 +1,1424 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Auxiliar de Inventario</title>
+<style>
+/* ══════════════════════════════════════
+   DESIGN TOKENS
+   ══════════════════════════════════════ */
+:root {
+  --bg-page:            #F0F1F3;
+  --bg-white:           #ffffff;
+  --bg-light:           #f9fafb;
+  --bg-muted:           #f3f4f6;
+
+  --border:             #e5e7eb;
+  --border-light:       #f3f4f6;
+
+  --text-primary:       #1a1a2e;
+  --text-secondary:     #374151;
+  --text-muted:         #6b7280;
+  --text-faint:         #9ca3af;
+
+  /* Brand */
+  --color-primary:      #4f46e5;
+  --color-primary-bg:   #ede9fe;
+  --color-primary-border: #ddd6fe;
+  --color-primary-dark: #6d28d9;
+  --color-primary-deep: #7c3aed;
+
+  /* Success */
+  --color-success:      #16a34a;
+  --color-success-dark: #15803d;
+  --color-success-bg:   #f0fdf4;
+  --color-success-text: #166534;
+
+  /* Danger */
+  --color-danger:       #dc2626;
+  --color-danger-bg:    #fef2f2;
+  --color-danger-text:  #991b1b;
+
+  /* Warning */
+  --color-warning:      #d97706;
+  --color-warning-bg:   #fffbeb;
+  --color-warning-text: #92400e;
+  --color-warning-border: #fcd34d;
+
+  /* Info / cyan */
+  --color-info:         #0891b2;
+  --color-info-bg:      #ecfeff;
+  --color-info-text:    #164e63;
+
+  /* Orange */
+  --color-orange:       #ea580c;
+  --color-orange-bg:    #fff7ed;
+
+  /* AVI */
+  --avi-header-bg:      #7c3aed;
+  --avi-panel-bg:       #ede9fe;
+  --avi-border:         #ddd6fe;
+  --avi-input-bg:       #f5f3ff;
+
+  /* Nav */
+  --nav-bg:             #ffffff;
+  --nav-border:         #e2e4e9;
+  --nav-tab-active:     #4f46e5;
+
+  /* Demo bar */
+  --demo-bg:            #1a1a2e;
+  --demo-btn-bg:        #374151;
+  --demo-btn-active:    #7c3aed;
+
+  /* Alert banner */
+  --alert-banner-bg:    #fee2e2;
+  --alert-banner-border:#fca5a5;
+  --alert-banner-text:  #991b1b;
+
+  --radius-sm:   6px;
+  --radius-md:   8px;
+  --radius-lg:   10px;
+  --radius-xl:   12px;
+  --radius-2xl:  14px;
+  --radius-full: 9999px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+
+/* ── DEMO BAR ── */
+.demo-bar {
+  background: var(--demo-bg);
+  color: var(--bg-white);
+  padding: 7px 14px;
+  font-size: 11px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  align-items: center;
+}
+.demo-bar span { color: var(--text-faint); }
+.demo-btn {
+  background: var(--demo-btn-bg);
+  color: var(--bg-white);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background .15s;
+  white-space: nowrap;
+}
+.demo-btn.active-demo { background: var(--demo-btn-active); }
+.demo-btn:hover { background: #4b5563; }
+
+/* ── NAV ── */
+nav {
+  background: var(--nav-bg);
+  border-bottom: 1px solid var(--nav-border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  height: 50px;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+nav::-webkit-scrollbar { display: none; }
+.tab {
+  padding: 13px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all .2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.tab.active {
+  color: var(--nav-tab-active);
+  border-bottom: 3px solid var(--nav-tab-active);
+  font-weight: 600;
+}
+.tab:hover:not(.active) { color: var(--text-secondary); }
+.nav-spacer { flex: 1; min-width: 8px; }
+.avatar {
+  width: 32px; height: 32px;
+  background: var(--bg-muted);
+  border-radius: var(--radius-full);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: var(--text-muted); cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* ── LAYOUT ── */
+.layout {
+  display: flex;
+  height: calc(100vh - 50px - 34px);
+  overflow: hidden;
+}
+
+/* ── AVI PANEL ── */
+.avi-panel {
+  width: 230px;
+  min-width: 230px;
+  background: var(--avi-panel-bg);
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--avi-border);
+}
+.avi-title {
+  background: var(--avi-header-bg);
+  color: var(--bg-white);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 11px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.avi-close-btn {
+  background: none; border: none;
+  color: rgba(255,255,255,.7);
+  font-size: 16px; cursor: pointer;
+  display: none;
+}
+.avi-chat {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bubble {
+  max-width: 88%;
+  padding: 8px 11px;
+  border-radius: var(--radius-2xl);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.bubble.bot {
+  background: var(--bg-white);
+  color: var(--text-secondary);
+  border-bottom-left-radius: 4px;
+  align-self: flex-start;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+.bubble.user {
+  background: var(--color-primary-deep);
+  color: var(--bg-white);
+  border-bottom-right-radius: 4px;
+  align-self: flex-end;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 0 10px 8px;
+}
+.chip {
+  background: var(--bg-white);
+  border: 1px solid var(--avi-border);
+  color: var(--color-primary-deep);
+  font-size: 10px;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: background .15s;
+}
+.chip:hover { background: var(--avi-input-bg); }
+.avi-input {
+  border-top: 1px solid var(--avi-border);
+  padding: 9px 10px;
+  display: flex;
+  gap: 6px;
+  background: var(--avi-input-bg);
+}
+.avi-input input {
+  flex: 1;
+  border: 1px solid var(--color-primary-border);
+  border-radius: var(--radius-md);
+  padding: 6px 9px;
+  font-size: 12px;
+  outline: none;
+  background: var(--bg-white);
+  min-width: 0;
+}
+.avi-input input:focus { border-color: var(--color-primary-deep); }
+.avi-input button {
+  background: var(--color-primary-deep);
+  color: var(--bg-white);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 6px 11px;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background .15s;
+}
+.avi-input button:hover { background: var(--color-primary-dark); }
+
+/* ── MAIN CONTENT ── */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* ── ALERT BANNER ── */
+.alert-banner {
+  background: var(--alert-banner-bg);
+  border-bottom: 1px solid var(--alert-banner-border);
+  color: var(--alert-banner-text);
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background .15s;
+  flex-shrink: 0;
+}
+.alert-banner:hover { background: #fecaca; }
+.alert-badge {
+  background: var(--color-danger);
+  color: var(--bg-white);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+}
+.alert-banner .arrow { margin-left: auto; font-size: 12px; }
+
+/* ── ACTION BUTTONS ROW ── */
+.action-row {
+  display: flex;
+  gap: 10px;
+  padding: 12px 16px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.btn-action {
+  flex: 1;
+  min-width: 120px;
+  padding: 11px 14px;
+  border: none;
+  border-radius: var(--radius-lg);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .15s;
+  text-align: center;
+}
+.btn-alta    { background: #06b6d4; color: var(--bg-white); }
+.btn-alta:hover { background: #0891b2; }
+.btn-modificar { background: var(--color-primary-deep); color: var(--bg-white); }
+.btn-modificar:hover { background: var(--color-primary-dark); }
+.btn-proveedores { background: #1d4ed8; color: var(--bg-white); }
+.btn-proveedores:hover { background: #1e40af; }
+.btn-action.active-action {
+  box-shadow: 0 0 0 3px rgba(255,255,255,.5), 0 0 0 5px currentColor;
+  transform: translateY(-1px);
+}
+
+/* ── SEARCH / FILTER ROW ── */
+.search-filter-row {
+  display: flex;
+  gap: 0;
+  padding: 0 16px 10px;
+  flex-shrink: 0;
+}
+.search-inv {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  background: #FFF176;
+  border: 2px solid #F9A825;
+  border-right: none;
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  padding: 0 12px;
+  height: 38px;
+  gap: 7px;
+}
+.search-inv input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  outline: none;
+  color: var(--text-secondary);
+  min-width: 0;
+}
+.search-inv input::placeholder { color: var(--text-faint); }
+.filter-select {
+  height: 38px;
+  border: 2px solid var(--color-primary);
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  background: var(--color-primary);
+  color: var(--bg-white);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 14px;
+  cursor: pointer;
+  outline: none;
+  min-width: 160px;
+}
+
+/* ── CATALOG TABLE ── */
+.catalog-wrap {
+  flex: 1;
+  overflow: hidden;
+  padding: 0 16px 12px;
+  display: flex;
+  flex-direction: column;
+}
+.catalog-card {
+  flex: 1;
+  background: var(--bg-white);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.catalog-scroll { flex: 1; overflow-y: auto; }
+.catalog-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.catalog-table thead tr {
+  background: var(--bg-light);
+  border-bottom: 2px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.catalog-table th {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.catalog-table th.right { text-align: right; }
+.catalog-table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-secondary);
+}
+.catalog-table td.right { text-align: right; }
+.catalog-table tbody tr:hover { background: var(--bg-light); }
+
+.badge-cat {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+}
+.cat-bebidas   { background: #dbeafe; color: #1e40af; }
+.cat-lacteos   { background: #fce7f3; color: #9d174d; }
+.cat-abarrotes { background: #d1fae5; color: #065f46; }
+.cat-verduras  { background: #ecfdf5; color: #047857; }
+.cat-botanas   { background: #fef3c7; color: #92400e; }
+
+.stock-ok   { color: var(--color-success); font-weight: 700; }
+.stock-low  { color: var(--color-danger);  font-weight: 700; }
+.stock-warn { color: var(--color-warning); font-weight: 700; }
+
+.btn-edit-row {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all .15s;
+}
+.btn-edit-row:hover { background: var(--bg-muted); color: var(--text-secondary); }
+
+/* ── PANEL OVERLAY (Alta / Modificar / Proveedores / Alertas) ── */
+.panel-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.35);
+  z-index: 300;
+  display: none;
+  align-items: flex-start;
+  justify-content: flex-end;
+}
+.panel-overlay.open { display: flex; }
+
+.side-panel {
+  width: min(420px, 100vw);
+  height: 100%;
+  background: var(--bg-white);
+  display: flex;
+  flex-direction: column;
+  box-shadow: -8px 0 32px rgba(0,0,0,.15);
+  animation: panelIn .25s ease;
+}
+@keyframes panelIn {
+  from { transform: translateX(40px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+.panel-header {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-light);
+}
+.panel-header h3 { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+.panel-close {
+  background: none; border: none;
+  font-size: 20px; color: var(--text-muted);
+  cursor: pointer; line-height: 1;
+}
+.panel-close:hover { color: var(--text-primary); }
+.panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.panel-footer {
+  padding: 14px 18px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+}
+
+/* Form elements */
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+.form-group input,
+.form-group select,
+.form-group textarea {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 9px 12px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  outline: none;
+  background: var(--bg-white);
+  transition: border-color .15s;
+  font-family: inherit;
+}
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus { border-color: var(--color-primary-deep); }
+.form-group textarea { resize: vertical; min-height: 70px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.form-group input.highlight {
+  border-color: var(--color-primary-deep);
+  background: var(--color-primary-bg);
+}
+
+/* Buttons */
+.btn-primary {
+  flex: 1;
+  background: var(--color-primary-deep);
+  color: var(--bg-white);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 11px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+.btn-primary:hover { background: var(--color-primary-dark); }
+.btn-success {
+  flex: 1;
+  background: var(--color-success);
+  color: var(--bg-white);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 11px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+.btn-success:hover { background: var(--color-success-dark); }
+.btn-ghost {
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 11px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+.btn-ghost:hover { background: var(--border); }
+
+/* Product card in modify panel */
+.product-card-mini {
+  background: var(--bg-light);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.product-card-mini .prod-icon {
+  width: 40px; height: 40px;
+  background: var(--color-primary-bg);
+  border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.product-card-mini .prod-info { flex: 1; min-width: 0; }
+.product-card-mini .prod-name { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.product-card-mini .prod-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+/* Price comparison */
+.price-compare {
+  background: var(--bg-light);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.price-compare .val { font-weight: 700; color: var(--text-primary); font-size: 15px; }
+
+/* Margin indicator */
+.margin-bar-wrap { display: flex; flex-direction: column; gap: 5px; }
+.margin-bar-wrap label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.margin-bar {
+  height: 8px;
+  background: var(--bg-muted);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+.margin-fill {
+  height: 100%;
+  background: var(--color-success);
+  border-radius: var(--radius-full);
+  transition: width .4s ease;
+}
+.margin-label { font-size: 13px; font-weight: 700; color: var(--color-success); }
+
+/* Provider card */
+.provider-card {
+  background: var(--bg-light);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: background .15s;
+}
+.provider-card:hover { background: var(--color-primary-bg); border-color: var(--color-primary-border); }
+.provider-card.selected { background: var(--color-primary-bg); border-color: var(--color-primary-deep); }
+.prov-avatar {
+  width: 40px; height: 40px;
+  background: var(--color-primary-deep);
+  border-radius: var(--radius-full);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--bg-white);
+  font-size: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.prov-info { flex: 1; min-width: 0; }
+.prov-name { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.prov-contact { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.prov-cats { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+
+/* Category tags (multi-select) */
+.cat-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.cat-tag {
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all .15s;
+  background: var(--bg-muted);
+  color: var(--text-muted);
+}
+.cat-tag.selected { border-color: var(--color-primary-deep); background: var(--color-primary-bg); color: var(--color-primary-deep); }
+
+/* ── ALERT PANEL ── */
+.alert-list { display: flex; flex-direction: column; gap: 10px; }
+.alert-item {
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border: 1px solid;
+}
+.alert-item.critical {
+  background: var(--color-danger-bg);
+  border-color: #fca5a5;
+}
+.alert-item.warning {
+  background: var(--color-warning-bg);
+  border-color: var(--color-warning-border);
+}
+.alert-item.info {
+  background: var(--color-info-bg);
+  border-color: #a5f3fc;
+}
+.alert-icon { font-size: 22px; flex-shrink: 0; margin-top: 1px; }
+.alert-body { flex: 1; min-width: 0; }
+.alert-title { font-size: 13px; font-weight: 700; }
+.alert-item.critical .alert-title { color: var(--color-danger-text); }
+.alert-item.warning  .alert-title { color: var(--color-warning-text); }
+.alert-item.info     .alert-title { color: var(--color-info-text); }
+.alert-desc { font-size: 12px; color: var(--text-muted); margin-top: 3px; line-height: 1.5; }
+.alert-meta { font-size: 11px; color: var(--text-faint); margin-top: 4px; }
+.alert-priority {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 2px;
+}
+.priority-alta   { background: var(--color-danger);  color: var(--bg-white); }
+.priority-media  { background: var(--color-warning);  color: var(--bg-white); }
+.priority-baja   { background: var(--color-info);     color: var(--bg-white); }
+
+.alert-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  padding: 4px 0 2px;
+}
+
+/* Divider */
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+/* ── STATES ── */
+.state { display: none; }
+.state.active { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+/* ── MOBILE ── */
+.fab-avi {
+  display: none;
+  position: fixed;
+  bottom: 72px; left: 14px;
+  width: 46px; height: 46px;
+  background: var(--color-primary-deep);
+  color: var(--bg-white);
+  border: none;
+  border-radius: var(--radius-full);
+  font-size: 20px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(124,58,237,.4);
+  z-index: 150;
+  align-items: center; justify-content: center;
+}
+.avi-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.4);
+  z-index: 200;
+}
+
+@media (max-width: 768px) {
+  .avi-panel {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    z-index: 250;
+    transform: translateX(-100%);
+    width: 260px; min-width: 260px;
+  }
+  .avi-panel.open { transform: translateX(0); }
+  .avi-overlay.open { display: block; }
+  .avi-close-btn { display: flex; }
+  .fab-avi { display: flex; }
+  .catalog-table th:nth-child(4),
+  .catalog-table td:nth-child(4) { display: none; }
+}
+@media (max-width: 480px) {
+  .action-row { gap: 7px; padding: 10px 10px; }
+  .btn-action { font-size: 12px; padding: 9px 8px; min-width: 90px; }
+  .search-filter-row { padding: 0 10px 8px; }
+  .filter-select { min-width: 120px; font-size: 12px; }
+  .catalog-wrap { padding: 0 10px 10px; }
+  .catalog-table { font-size: 12px; }
+  .catalog-table th:nth-child(5),
+  .catalog-table td:nth-child(5) { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- Demo bar -->
+<div class="demo-bar">
+  <span>Estado:</span>
+  <button class="demo-btn active-demo" onclick="showState('normal',this)">1 · Vista normal</button>
+  <button class="demo-btn" onclick="showState('alta',this)">2 · Alta producto</button>
+  <button class="demo-btn" onclick="showState('modificar',this)">3 · Modificar producto</button>
+  <button class="demo-btn" onclick="showState('proveedores',this)">4 · Proveedores</button>
+  <button class="demo-btn" onclick="showState('alertas',this)">5 · Alertas inteligentes</button>
+</div>
+
+<!-- NAV -->
+<nav>
+  <div class="tab">Módulo de ventas</div>
+  <div class="tab active">Auxiliar de inventario</div>
+  <div class="tab">Agente financiero</div>
+  <div class="nav-spacer"></div>
+  <div class="avatar">👤</div>
+</nav>
+
+<!-- AVI overlay mobile -->
+<div class="avi-overlay" id="aviOverlay" onclick="closeAvi()"></div>
+<button class="fab-avi" onclick="openAvi()">🤖</button>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- AVI PANEL -->
+  <div class="avi-panel" id="aviPanel">
+    <div class="avi-title">
+      🤖 Asistente Virtual
+      <button class="avi-close-btn" onclick="closeAvi()">✕</button>
+    </div>
+    <div class="avi-chat" id="aviChat">
+      <div class="bubble bot">Hola 👋 Soy tu auxiliar de inventario. Puedo ayudarte a dar de alta productos, revisar stock o buscar proveedores.</div>
+      <div class="bubble bot" id="avi-alta" style="display:none">📦 Voy a ayudarte a dar de alta un nuevo producto. ¿Cuál es el nombre?</div>
+      <div class="bubble user" id="avi-alta-u" style="display:none">quiero dar de alta una coca cola 2lt</div>
+      <div class="bubble user" id="avi-mod-u" style="display:none">modifica el precio de la coca cola</div>
+      <div class="bubble bot" id="avi-mod" style="display:none">✏️ Seleccioné <strong>Coca Cola 600ml</strong>. Puedes actualizar el costo y precio de venta.</div>
+      <div class="bubble user" id="avi-prov-u" style="display:none">ver proveedores</div>
+      <div class="bubble bot" id="avi-prov" style="display:none">🏭 Aquí puedes gestionar tus proveedores y asociarlos a categorías de productos.</div>
+      <div class="bubble user" id="avi-alert-u" style="display:none">¿qué productos necesito surtir?</div>
+      <div class="bubble bot" id="avi-alert" style="display:none">🚨 Tienes <strong>3 productos críticos</strong> con stock bajo. Te muestro la lista ordenada por prioridad.</div>
+      
+    </div>
+    <div class="chips">
+      <span class="chip">Stock bajo</span>
+      <span class="chip">Alta rápida</span>
+      <span class="chip">Ver alertas</span>
+      <span class="chip">Proveedores</span>
+    </div>
+    <div class="avi-input">
+      <input type="text" placeholder="Escribe aquí…"/>
+      <button>Enviar</button>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-content">
+
+    <!-- ══ STATE 1: NORMAL ══ -->
+    <div class="state active" id="state-normal">
+      <div class="alert-banner" onclick="showState('alertas', document.querySelectorAll('.demo-btn')[4])">
+        🔔 ¡Alertas de reabastecimiento!
+        <span class="alert-badge">3</span>
+        <span class="arrow">Ver todas →</span>
+      </div>
+      <div class="action-row">
+        <button class="btn-action btn-alta" onclick="showState('alta', document.querySelectorAll('.demo-btn')[1])">📦 Alta de productos</button>
+        <button class="btn-action btn-modificar" onclick="showState('modificar', document.querySelectorAll('.demo-btn')[2])">✏️ Modificar productos</button>
+        <button class="btn-action btn-proveedores" onclick="showState('proveedores', document.querySelectorAll('.demo-btn')[3])">🏭 Proveedores</button>
+      </div>
+      <div class="search-filter-row">
+        <div class="search-inv">
+          <span style="color:#F9A825;font-size:14px;">🔍</span>
+          <input type="text" placeholder="Buscar por nombre…"/>
+        </div>
+        <select class="filter-select">
+          <option>Filtrar por categoría</option>
+          <option>Bebidas</option>
+          <option>Lácteos</option>
+          <option>Abarrotes</option>
+          <option>Verduras</option>
+          <option>Botanas</option>
+        </select>
+      </div>
+      <div class="catalog-wrap">
+        <div class="catalog-card">
+          <div class="catalog-scroll">
+            <table class="catalog-table">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Categoría</th>
+                  <th>Existencias</th>
+                  <th>Mín.</th>
+                  <th class="right">Costo / Precio</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>🥤 Coca Cola 600ml</td>
+                  <td><span class="badge-cat cat-bebidas">Bebidas</span></td>
+                  <td class="stock-ok">48 pzas</td>
+                  <td>10</td>
+                  <td class="right">$18 / $25</td>
+                  <td><button class="btn-edit-row" onclick="showState('modificar', document.querySelectorAll('.demo-btn')[2])">Editar</button></td>
+                </tr>
+                <tr>
+                  <td>🥛 Leche Lala 1lt</td>
+                  <td><span class="badge-cat cat-lacteos">Lácteos</span></td>
+                  <td class="stock-warn">8 pzas</td>
+                  <td>10</td>
+                  <td class="right">$22 / $28</td>
+                  <td><button class="btn-edit-row" onclick="showState('modificar', document.querySelectorAll('.demo-btn')[2])">Editar</button></td>
+                </tr>
+                <tr>
+                  <td>🍚 Arroz 1kg</td>
+                  <td><span class="badge-cat cat-abarrotes">Abarrotes</span></td>
+                  <td class="stock-low">3 pzas</td>
+                  <td>12</td>
+                  <td class="right">$28 / $35</td>
+                  <td><button class="btn-edit-row" onclick="showState('modificar', document.querySelectorAll('.demo-btn')[2])">Editar</button></td>
+                </tr>
+                <tr>
+                  <td>🍅 Jitomate (kg)</td>
+                  <td><span class="badge-cat cat-verduras">Verduras</span></td>
+                  <td class="stock-low">2 kg</td>
+                  <td>5</td>
+                  <td class="right">$20 / $28</td>
+                  <td><button class="btn-edit-row" onclick="showState('modificar', document.querySelectorAll('.demo-btn')[2])">Editar</button></td>
+                </tr>
+                <tr>
+                  <td>🍪 Galletas Marias 200gr</td>
+                  <td><span class="badge-cat cat-botanas">Botanas</span></td>
+                  <td class="stock-ok">24 pzas</td>
+                  <td>6</td>
+                  <td class="right">$8 / $12</td>
+                  <td><button class="btn-edit-row" onclick="showState('modificar', document.querySelectorAll('.demo-btn')[2])">Editar</button></td>
+                </tr>
+                <tr>
+                  <td>🧃 Jugo Del Valle 1lt</td>
+                  <td><span class="badge-cat cat-bebidas">Bebidas</span></td>
+                  <td class="stock-ok">18 pzas</td>
+                  <td>8</td>
+                  <td class="right">$20 / $27</td>
+                  <td><button class="btn-edit-row" onclick="showState('modificar', document.querySelectorAll('.demo-btn')[2])">Editar</button></td>
+                </tr>
+                <tr>
+                  <td>🧀 Queso Oaxaca 400gr</td>
+                  <td><span class="badge-cat cat-lacteos">Lácteos</span></td>
+                  <td class="stock-low">4 pzas</td>
+                  <td>6</td>
+                  <td class="right">$65 / $85</td>
+                  <td><button class="btn-edit-row" onclick="showState('modificar', document.querySelectorAll('.demo-btn')[2])">Editar</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ STATE 2: ALTA ══ -->
+    <div class="state" id="state-alta">
+      <div class="alert-banner" onclick="showState('alertas', document.querySelectorAll('.demo-btn')[4])">
+        🔔 ¡Alertas de reabastecimiento!
+        <span class="alert-badge">3</span>
+        <span class="arrow">Ver todas →</span>
+      </div>
+      <div class="action-row">
+        <button class="btn-action btn-alta active-action" onclick="showState('alta', document.querySelectorAll('.demo-btn')[1])">📦 Alta de productos</button>
+        <button class="btn-action btn-modificar" onclick="showState('modificar', document.querySelectorAll('.demo-btn')[2])">✏️ Modificar productos</button>
+        <button class="btn-action btn-proveedores" onclick="showState('proveedores', document.querySelectorAll('.demo-btn')[3])">🏭 Proveedores</button>
+      </div>
+      <div class="search-filter-row">
+        <div class="search-inv">
+          <span style="color:#F9A825;font-size:14px;">🔍</span>
+          <input type="text" placeholder="Buscar por nombre…"/>
+        </div>
+        <select class="filter-select">
+          <option>Filtrar por categoría</option>
+          <option>Bebidas</option><option>Lácteos</option>
+          <option>Abarrotes</option><option>Verduras</option><option>Botanas</option>
+        </select>
+      </div>
+      <div class="catalog-wrap">
+        <div class="catalog-card">
+          <div class="catalog-scroll">
+            <table class="catalog-table">
+              <thead><tr><th>Producto</th><th>Categoría</th><th>Existencias</th><th>Mín.</th><th class="right">Costo / Precio</th><th></th></tr></thead>
+              <tbody>
+                <tr><td>🥤 Coca Cola 600ml</td><td><span class="badge-cat cat-bebidas">Bebidas</span></td><td class="stock-ok">48</td><td>10</td><td class="right">$18 / $25</td><td><button class="btn-edit-row">Editar</button></td></tr>
+                <tr><td>🥛 Leche Lala 1lt</td><td><span class="badge-cat cat-lacteos">Lácteos</span></td><td class="stock-warn">8</td><td>10</td><td class="right">$22 / $28</td><td><button class="btn-edit-row">Editar</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ STATE 3: MODIFICAR ══ -->
+    <div class="state" id="state-modificar">
+      <div class="alert-banner" onclick="showState('alertas', document.querySelectorAll('.demo-btn')[4])">
+        🔔 ¡Alertas de reabastecimiento!
+        <span class="alert-badge">3</span>
+        <span class="arrow">Ver todas →</span>
+      </div>
+      <div class="action-row">
+        <button class="btn-action btn-alta" onclick="showState('alta', document.querySelectorAll('.demo-btn')[1])">📦 Alta de productos</button>
+        <button class="btn-action btn-modificar active-action" onclick="showState('modificar', document.querySelectorAll('.demo-btn')[2])">✏️ Modificar productos</button>
+        <button class="btn-action btn-proveedores" onclick="showState('proveedores', document.querySelectorAll('.demo-btn')[3])">🏭 Proveedores</button>
+      </div>
+      <div class="search-filter-row">
+        <div class="search-inv">
+          <span style="color:#F9A825;font-size:14px;">🔍</span>
+          <input type="text" placeholder="Buscar por nombre…"/>
+        </div>
+        <select class="filter-select">
+          <option>Filtrar por categoría</option>
+          <option>Bebidas</option><option>Lácteos</option>
+          <option>Abarrotes</option><option>Verduras</option><option>Botanas</option>
+        </select>
+      </div>
+      <div class="catalog-wrap">
+        <div class="catalog-card">
+          <div class="catalog-scroll">
+            <table class="catalog-table">
+              <thead><tr><th>Producto</th><th>Categoría</th><th>Existencias</th><th>Mín.</th><th class="right">Costo / Precio</th><th></th></tr></thead>
+              <tbody>
+                <tr style="background:var(--color-primary-bg);">
+                  <td><strong>🥤 Coca Cola 600ml</strong></td>
+                  <td><span class="badge-cat cat-bebidas">Bebidas</span></td>
+                  <td class="stock-ok">48</td><td>10</td>
+                  <td class="right" style="color:var(--color-primary-deep);"><strong>$18 / $25</strong></td>
+                  <td><button class="btn-edit-row" style="background:var(--color-primary-bg);border-color:var(--color-primary-deep);color:var(--color-primary-deep);">✏️ Editando</button></td>
+                </tr>
+                <tr><td>🥛 Leche Lala 1lt</td><td><span class="badge-cat cat-lacteos">Lácteos</span></td><td class="stock-warn">8</td><td>10</td><td class="right">$22 / $28</td><td><button class="btn-edit-row">Editar</button></td></tr>
+                <tr><td>🍚 Arroz 1kg</td><td><span class="badge-cat cat-abarrotes">Abarrotes</span></td><td class="stock-low">3</td><td>12</td><td class="right">$28 / $35</td><td><button class="btn-edit-row">Editar</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ STATE 4: PROVEEDORES ══ -->
+    <div class="state" id="state-proveedores">
+      <div class="alert-banner" onclick="showState('alertas', document.querySelectorAll('.demo-btn')[4])">
+        🔔 ¡Alertas de reabastecimiento!
+        <span class="alert-badge">3</span>
+        <span class="arrow">Ver todas →</span>
+      </div>
+      <div class="action-row">
+        <button class="btn-action btn-alta" onclick="showState('alta', document.querySelectorAll('.demo-btn')[1])">📦 Alta de productos</button>
+        <button class="btn-action btn-modificar" onclick="showState('modificar', document.querySelectorAll('.demo-btn')[2])">✏️ Modificar productos</button>
+        <button class="btn-action btn-proveedores active-action" onclick="showState('proveedores', document.querySelectorAll('.demo-btn')[3])">🏭 Proveedores</button>
+      </div>
+      <div class="search-filter-row">
+        <div class="search-inv">
+          <span style="color:#F9A825;font-size:14px;">🔍</span>
+          <input type="text" placeholder="Buscar por nombre…"/>
+        </div>
+        <select class="filter-select">
+          <option>Filtrar por categoría</option>
+          <option>Bebidas</option><option>Lácteos</option>
+          <option>Abarrotes</option><option>Verduras</option><option>Botanas</option>
+        </select>
+      </div>
+      <div class="catalog-wrap">
+        <div class="catalog-card">
+          <div class="catalog-scroll">
+            <table class="catalog-table">
+              <thead><tr><th>Producto</th><th>Categoría</th><th>Existencias</th><th>Mín.</th><th class="right">Costo / Precio</th><th></th></tr></thead>
+              <tbody>
+                <tr><td>🥤 Coca Cola 600ml</td><td><span class="badge-cat cat-bebidas">Bebidas</span></td><td class="stock-ok">48</td><td>10</td><td class="right">$18 / $25</td><td><button class="btn-edit-row">Editar</button></td></tr>
+                <tr><td>🥛 Leche Lala 1lt</td><td><span class="badge-cat cat-lacteos">Lácteos</span></td><td class="stock-warn">8</td><td>10</td><td class="right">$22 / $28</td><td><button class="btn-edit-row">Editar</button></td></tr>
+                <tr><td>🍚 Arroz 1kg</td><td><span class="badge-cat cat-abarrotes">Abarrotes</span></td><td class="stock-low">3</td><td>12</td><td class="right">$28 / $35</td><td><button class="btn-edit-row">Editar</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ STATE 5: ALERTAS ══ -->
+    <div class="state" id="state-alertas">
+      <div class="alert-banner" style="background:#fecaca; cursor:default;">
+        🚨 Alertas inteligentes activas
+        <span class="alert-badge">3 críticas</span>
+      </div>
+      <div class="action-row">
+        <button class="btn-action btn-alta" onclick="showState('alta', document.querySelectorAll('.demo-btn')[1])">📦 Alta de productos</button>
+        <button class="btn-action btn-modificar" onclick="showState('modificar', document.querySelectorAll('.demo-btn')[2])">✏️ Modificar productos</button>
+        <button class="btn-action btn-proveedores" onclick="showState('proveedores', document.querySelectorAll('.demo-btn')[3])">🏭 Proveedores</button>
+      </div>
+      <div class="catalog-wrap" style="padding-top:4px;">
+        <div class="catalog-card">
+          <div class="catalog-scroll" style="padding:16px;">
+            <div class="alert-list">
+              <div class="alert-section-title">🔴 Crítico — Stock por debajo del mínimo</div>
+              <div class="alert-item critical">
+                <div class="alert-icon">🍚</div>
+                <div class="alert-body">
+                  <div class="alert-title">Arroz 1kg — Stock crítico</div>
+                  <div class="alert-desc">Solo quedan <strong>3 pzas</strong> de 12 mínimas. Alta rotación: se venden ~8 pzas/día. Proveedor: Abarrotes Martínez.</div>
+                  <div class="alert-meta">⏱ Estimado de agotamiento: <strong>hoy mismo</strong></div>
+                </div>
+                <span class="alert-priority priority-alta">ALTA</span>
+              </div>
+              <div class="alert-item critical">
+                <div class="alert-icon">🍅</div>
+                <div class="alert-body">
+                  <div class="alert-title">Jitomate (kg) — Stock crítico</div>
+                  <div class="alert-desc">Solo quedan <strong>2 kg</strong> de 5 mínimos. Producto perecedero de alta demanda. Proveedor: Verduras del Valle.</div>
+                  <div class="alert-meta">⏱ Estimado de agotamiento: <strong>mañana</strong></div>
+                </div>
+                <span class="alert-priority priority-alta">ALTA</span>
+              </div>
+              <div class="alert-item critical">
+                <div class="alert-icon">🧀</div>
+                <div class="alert-body">
+                  <div class="alert-title">Queso Oaxaca 400gr — Stock crítico</div>
+                  <div class="alert-desc">Solo quedan <strong>4 pzas</strong> de 6 mínimas. Margen alto ($20/pza). Proveedor: Lácteos del Norte.</div>
+                  <div class="alert-meta">⏱ Estimado de agotamiento: <strong>2 días</strong></div>
+                </div>
+                <span class="alert-priority priority-alta">ALTA</span>
+              </div>
+
+              <div class="divider"></div>
+              <div class="alert-section-title">🟡 Advertencia — Cerca del mínimo</div>
+              <div class="alert-item warning">
+                <div class="alert-icon">🥛</div>
+                <div class="alert-body">
+                  <div class="alert-title">Leche Lala 1lt — Stock bajo</div>
+                  <div class="alert-desc">Quedan <strong>8 pzas</strong>, mínimo es 10. Rotación media. Considera pedir en tu próxima visita al proveedor.</div>
+                  <div class="alert-meta">⏱ Estimado de agotamiento: <strong>3–4 días</strong></div>
+                </div>
+                <span class="alert-priority priority-media">MEDIA</span>
+              </div>
+
+              <div class="divider"></div>
+              <div class="alert-section-title">🔵 Informativo</div>
+              <div class="alert-item info">
+                <div class="alert-icon">📊</div>
+                <div class="alert-body">
+                  <div class="alert-title">Resumen semanal de rotación</div>
+                  <div class="alert-desc">Los productos con mayor rotación esta semana: Coca Cola 600ml (32 pzas), Arroz 1kg (28 pzas), Leche Lala (21 pzas).</div>
+                  <div class="alert-meta">📅 Semana del 28 abr – 04 may 2026</div>
+                </div>
+                <span class="alert-priority priority-baja">INFO</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main-content -->
+</div><!-- /layout -->
+
+<!-- ══════════════════════════════════════
+     PANEL OVERLAY (shared)
+     ══════════════════════════════════════ -->
+<div class="panel-overlay" id="panelOverlay" onclick="closePanelIfOutside(event)">
+  <div class="side-panel" id="sidePanel">
+
+    <!-- ALTA PANEL -->
+    <div id="panel-alta" style="display:none; flex-direction:column; height:100%;">
+      <div class="panel-header">
+        <h3>📦 Alta de producto</h3>
+        <button class="panel-close" onclick="closePanel()">✕</button>
+      </div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label>Nombre del producto</label>
+          <input type="text" placeholder="Ej: Coca Cola 2lt" value="Coca Cola 2lt"/>
+        </div>
+        <div class="form-group">
+          <label>Descripción</label>
+          <textarea placeholder="Descripción breve del producto…">Refresco de cola, presentación 2 litros, botella PET.</textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Costo ($)</label>
+            <input type="number" placeholder="0.00" value="32"/>
+          </div>
+          <div class="form-group">
+            <label>Precio de venta ($)</label>
+            <input type="number" placeholder="0.00" value="42"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Cantidad actual</label>
+            <input type="number" placeholder="0" value="24"/>
+          </div>
+          <div class="form-group">
+            <label>Cantidad mínima</label>
+            <input type="number" placeholder="0" value="8"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Categoría</label>
+          <div class="cat-tags" id="altaCats">
+            <span class="cat-tag selected" onclick="toggleCat(this)">Bebidas</span>
+            <span class="cat-tag" onclick="toggleCat(this)">Lácteos</span>
+            <span class="cat-tag" onclick="toggleCat(this)">Abarrotes</span>
+            <span class="cat-tag" onclick="toggleCat(this)">Verduras</span>
+            <span class="cat-tag" onclick="toggleCat(this)">Botanas</span>
+            <span class="cat-tag" onclick="toggleCat(this)">Limpieza</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Proveedor asociado</label>
+          <select>
+            <option>Seleccionar proveedor…</option>
+            <option selected>FEMSA / Coca-Cola FEMSA</option>
+            <option>Abarrotes Martínez</option>
+            <option>Verduras del Valle</option>
+            <option>Lácteos del Norte</option>
+          </select>
+        </div>
+      </div>
+      <div class="panel-footer">
+        <button class="btn-ghost" onclick="closePanel()">Cancelar</button>
+        <button class="btn-success" onclick="closePanel()">✅ Guardar producto</button>
+      </div>
+    </div>
+
+    <!-- MODIFICAR PANEL -->
+    <div id="panel-modificar" style="display:none; flex-direction:column; height:100%;">
+      <div class="panel-header">
+        <h3>✏️ Modificar producto</h3>
+        <button class="panel-close" onclick="closePanel()">✕</button>
+      </div>
+      <div class="panel-body">
+        <div class="product-card-mini">
+          <div class="prod-icon">🥤</div>
+          <div class="prod-info">
+            <div class="prod-name">Coca Cola 600ml</div>
+            <div class="prod-meta">Bebidas · 48 pzas en stock</div>
+          </div>
+        </div>
+        <div class="price-compare">
+          <div><div style="font-size:11px;color:var(--text-faint);margin-bottom:2px;">COSTO ACTUAL</div><div class="val">$18.00</div></div>
+          <div style="text-align:center;"><div style="font-size:11px;color:var(--text-faint);margin-bottom:2px;">PRECIO ACTUAL</div><div class="val">$25.00</div></div>
+          <div style="text-align:right;"><div style="font-size:11px;color:var(--text-faint);margin-bottom:2px;">MARGEN</div><div class="val" style="color:var(--color-success);">38.9%</div></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Nuevo costo ($)</label>
+            <input type="number" value="20" class="highlight" id="inputCosto" oninput="calcMargen()"/>
+          </div>
+          <div class="form-group">
+            <label>Nuevo precio ($)</label>
+            <input type="number" value="27" class="highlight" id="inputPrecio" oninput="calcMargen()"/>
+          </div>
+        </div>
+        <div class="margin-bar-wrap">
+          <label>Margen estimado: <span class="margin-label" id="margenLabel">26.0%</span></label>
+          <div class="margin-bar"><div class="margin-fill" id="margenFill" style="width:26%"></div></div>
+        </div>
+        <div class="form-group">
+          <label>Motivo del cambio</label>
+          <select>
+            <option>Actualización de precio proveedor</option>
+            <option>Ajuste de margen</option>
+            <option>Promoción temporal</option>
+            <option>Otro</option>
+          </select>
+        </div>
+        <div style="background:var(--color-warning-bg);border:1px solid var(--color-warning-border);border-radius:var(--radius-lg);padding:10px 12px;font-size:12px;color:var(--color-warning-text);">
+          ⚠️ El nuevo margen (26%) es menor al promedio de tu tienda (34%). Considera revisar el precio de venta.
+        </div>
+      </div>
+      <div class="panel-footer">
+        <button class="btn-ghost" onclick="closePanel()">Cancelar</button>
+        <button class="btn-primary" onclick="closePanel()">💾 Guardar cambios</button>
+      </div>
+    </div>
+
+    <!-- PROVEEDORES PANEL -->
+    <div id="panel-proveedores" style="display:none; flex-direction:column; height:100%;">
+      <div class="panel-header">
+        <h3>🏭 Gestión de proveedores</h3>
+        <button class="panel-close" onclick="closePanel()">✕</button>
+      </div>
+      <div class="panel-body">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <span style="font-size:13px;font-weight:600;color:var(--text-secondary);">Tus proveedores</span>
+          <button style="background:var(--color-success);color:#fff;border:none;border-radius:var(--radius-sm);padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;">+ Nuevo</button>
+        </div>
+        <div class="provider-card selected" onclick="selectProv(this)">
+          <div class="prov-avatar">FC</div>
+          <div class="prov-info">
+            <div class="prov-name">FEMSA / Coca-Cola FEMSA</div>
+            <div class="prov-contact">📞 55 1234-5678 · ventas@femsa.com</div>
+            <div class="prov-cats">
+              <span class="badge-cat cat-bebidas">Bebidas</span>
+            </div>
+          </div>
+        </div>
+        <div class="provider-card" onclick="selectProv(this)">
+          <div class="prov-avatar" style="background:#059669;">AM</div>
+          <div class="prov-info">
+            <div class="prov-name">Abarrotes Martínez</div>
+            <div class="prov-contact">📞 55 9876-5432 · abarrotes.mtz@gmail.com</div>
+            <div class="prov-cats">
+              <span class="badge-cat cat-abarrotes">Abarrotes</span>
+              <span class="badge-cat cat-botanas">Botanas</span>
+            </div>
+          </div>
+        </div>
+        <div class="provider-card" onclick="selectProv(this)">
+          <div class="prov-avatar" style="background:#d97706;">VV</div>
+          <div class="prov-info">
+            <div class="prov-name">Verduras del Valle</div>
+            <div class="prov-contact">📞 55 5555-1234</div>
+            <div class="prov-cats">
+              <span class="badge-cat cat-verduras">Verduras</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Editar: FEMSA / Coca-Cola FEMSA</div>
+        <div class="form-group">
+          <label>Nombre del proveedor</label>
+          <input type="text" value="FEMSA / Coca-Cola FEMSA"/>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Teléfono</label>
+            <input type="text" value="55 1234-5678"/>
+          </div>
+          <div class="form-group">
+            <label>Correo</label>
+            <input type="email" value="ventas@femsa.com"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Categorías que surte</label>
+          <div class="cat-tags">
+            <span class="cat-tag selected" onclick="toggleCat(this)">Bebidas</span>
+            <span class="cat-tag" onclick="toggleCat(this)">Lácteos</span>
+            <span class="cat-tag" onclick="toggleCat(this)">Abarrotes</span>
+            <span class="cat-tag" onclick="toggleCat(this)">Verduras</span>
+            <span class="cat-tag" onclick="toggleCat(this)">Botanas</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel-footer">
+        <button class="btn-ghost" onclick="closePanel()">Cancelar</button>
+        <button class="btn-primary" onclick="closePanel()">💾 Guardar proveedor</button>
+      </div>
+    </div>
+
+  </div><!-- /side-panel -->
+</div><!-- /panel-overlay -->
+
+<script>
+  const stateAviMap = {
+    normal:      { msgs: [] },
+    alta:        { msgs: ['avi-alta-u','avi-alta'] },
+    modificar:   { msgs: ['avi-mod-u','avi-mod'] },
+    proveedores: { msgs: ['avi-prov-u','avi-prov'] },
+    alertas:     { msgs: ['avi-alert-u','avi-alert'] },
+  };
+  const allAviMsgs = ['avi-alta','avi-alta-u','avi-mod','avi-mod-u','avi-prov','avi-prov-u','avi-alert','avi-alert-u'];
+
+  function showState(name, btn) {
+    // states
+    document.querySelectorAll('.state').forEach(s => s.classList.remove('active'));
+    document.getElementById('state-' + name).classList.add('active');
+    // demo btns
+    document.querySelectorAll('.demo-btn').forEach(b => b.classList.remove('active-demo'));
+    if (btn) btn.classList.add('active-demo');
+    // AVI messages
+    allAviMsgs.forEach(id => document.getElementById(id).style.display = 'none');
+    (stateAviMap[name]?.msgs || []).forEach(id => document.getElementById(id).style.display = 'flex');
+    // open panel
+    const panelMap = { alta: 'panel-alta', modificar: 'panel-modificar', proveedores: 'panel-proveedores' };
+    if (panelMap[name]) openPanel(panelMap[name]);
+    else closePanel();
+  }
+
+  function openPanel(panelId) {
+    ['panel-alta','panel-modificar','panel-proveedores'].forEach(id => {
+      const el = document.getElementById(id);
+      el.style.display = 'none';
+    });
+    const target = document.getElementById(panelId);
+    target.style.display = 'flex';
+    document.getElementById('panelOverlay').classList.add('open');
+  }
+
+  function closePanel() {
+    document.getElementById('panelOverlay').classList.remove('open');
+  }
+
+  function closePanelIfOutside(e) {
+    if (e.target === document.getElementById('panelOverlay')) closePanel();
+  }
+
+  function toggleCat(el) { el.classList.toggle('selected'); }
+
+  function selectProv(card) {
+    document.querySelectorAll('.provider-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+  }
+
+  function calcMargen() {
+    const costo  = parseFloat(document.getElementById('inputCosto').value)  || 0;
+    const precio = parseFloat(document.getElementById('inputPrecio').value) || 0;
+    if (precio > 0) {
+      const m = ((precio - costo) / precio * 100).toFixed(1);
+      document.getElementById('margenLabel').textContent = m + '%';
+      const fill = Math.min(Math.max(m, 0), 60);
+      document.getElementById('margenFill').style.width = fill + '%';
+      document.getElementById('margenFill').style.background =
+        m < 15 ? 'var(--color-danger)' : m < 25 ? 'var(--color-warning)' : 'var(--color-success)';
+    }
+  }
+
+  function openAvi()  { document.getElementById('aviPanel').classList.add('open'); document.getElementById('aviOverlay').classList.add('open'); }
+  function closeAvi() { document.getElementById('aviPanel').classList.remove('open'); document.getElementById('aviOverlay').classList.remove('open'); }
+</script>
+</body>
+</html>

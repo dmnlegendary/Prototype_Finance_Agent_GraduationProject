@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Productos Precargados</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background: #f0f4ff; font-family: 'Segoe UI', sans-serif; }
+        .card { box-shadow: 0 8px 32px rgba(79,70,229,0.10); }
+        .btn-primary { background: linear-gradient(135deg, #4f46e5, #7c3aed); }
+        .step-done { background: #10b981; color: white; }
+        .step-active { background: #4f46e5; color: white; }
+        .product-card.selected { border-color: #4f46e5; background: #eef2ff; }
+        .product-card { cursor: pointer; transition: all 0.2s; }
+        .product-card:hover { border-color: #a5b4fc; }
+        .badge { font-size: 10px; }
+        .search-bar:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-lg">
+
+        <!-- Logo -->
+        <div class="text-center mb-6">
+            <h1 class="text-2xl font-black text-gray-800">Tiendita <span class="text-indigo-600">AI</span></h1>
+            <p class="text-gray-500 text-xs mt-1">Paso 3 de 3</p>
+        </div>
+
+        <!-- Stepper -->
+        <div class="flex items-center justify-center mb-6 gap-2">
+            <div class="flex flex-col items-center">
+                <div class="w-8 h-8 rounded-full step-done flex items-center justify-center text-sm font-bold"><i class="fas fa-check text-xs"></i></div>
+                <span class="text-xs mt-1 text-green-600 font-semibold">Cuenta</span>
+            </div>
+            <div class="flex-1 h-0.5 bg-green-300 mb-4"></div>
+            <div class="flex flex-col items-center">
+                <div class="w-8 h-8 rounded-full step-done flex items-center justify-center text-sm font-bold"><i class="fas fa-check text-xs"></i></div>
+                <span class="text-xs mt-1 text-green-600 font-semibold">Negocio</span>
+            </div>
+            <div class="flex-1 h-0.5 bg-green-300 mb-4"></div>
+            <div class="flex flex-col items-center">
+                <div class="w-8 h-8 rounded-full step-active flex items-center justify-center text-sm font-bold">3</div>
+                <span class="text-xs mt-1 text-indigo-600 font-semibold">Productos</span>
+            </div>
+        </div>
+
+        <!-- Card -->
+        <div class="bg-white rounded-2xl card p-6">
+            <h2 class="text-lg font-bold text-gray-800 mb-1">Selecciona tus productos</h2>
+            <p class="text-sm text-gray-500 mb-4">Elige los que vendes en tu tienda. Puedes agregar más después.</p>
+
+            <!-- Search -->
+            <div class="relative mb-4">
+                <i class="fas fa-search absolute left-3 top-3 text-gray-400 text-sm"></i>
+                <input type="text" placeholder="Buscar producto..."
+                    class="search-bar w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none bg-gray-50 transition">
+            </div>
+
+            <!-- Categorías -->
+            <div class="flex gap-2 overflow-x-auto pb-2 mb-4 text-xs font-semibold">
+                <button class="px-3 py-1.5 rounded-full bg-indigo-600 text-white whitespace-nowrap">Todos</button>
+                <button class="px-3 py-1.5 rounded-full bg-gray-100 text-gray-600 whitespace-nowrap">🥤 Bebidas</button>
+                <button class="px-3 py-1.5 rounded-full bg-gray-100 text-gray-600 whitespace-nowrap">🍞 Abarrotes</button>
+                <button class="px-3 py-1.5 rounded-full bg-gray-100 text-gray-600 whitespace-nowrap">🧴 Limpieza</button>
+                <button class="px-3 py-1.5 rounded-full bg-gray-100 text-gray-600 whitespace-nowrap">🍬 Dulcería</button>
+                <button class="px-3 py-1.5 rounded-full bg-gray-100 text-gray-600 whitespace-nowrap">🥛 Lácteos</button>
+            </div>
+
+            <!-- Contador seleccionados -->
+            <div class="flex items-center justify-between mb-3">
+                <p class="text-xs text-gray-500">Mostrando <strong>12</strong> productos</p>
+                <span class="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded-full">8 seleccionados</span>
+            </div>
+
+            <!-- Grid de productos -->
+            <div class="grid grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
+
+                <!-- Producto seleccionado -->
+                <div class="product-card selected border-2 rounded-xl p-3 flex items-center gap-3">
+                    <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center text-lg flex-shrink-0">🥤</div>
+                    <div class="min-w-0">
+                        <p class="text-xs font-bold text-gray-800 truncate">Coca-Cola 600ml</p>
+                        <p class="text-xs text-gray-400">Bebidas</p>
+                        <p class="text-xs font-semibold text-indigo-600">$18.00</p>
+                    </div>
+                    <i class="fas fa-check-circle text-indigo-500 ml-auto flex-shrink-0"></i>
+                </div>
+
+                <div class="product-card selected border-2 rounded-xl p-3 flex items-center gap-3">
+                    <div class="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center text-lg flex-shrink-0">🍞</div>
+                    <div class="min-w-0">
+                        <p class="text-xs font-bold text-gray-800 truncate">Pan Bimbo blanco</p>
+                        <p class="text-xs text-gray-400">Abarrotes</p>
+                        <p class="text-xs font-semibold text-indigo-600">$42.00</p>
+                    </div>
+                    <i class="fas fa-check-circle text-indigo-500 ml-auto flex-shrink-0"></i>
+                </div>
+
+                <div class="product-card selected border-2 rounded-xl p-3 flex items-center gap-3">
+                    <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center text-lg flex-shrink-0">🧴</div>
+                    <div class="min-w-0">
+                        <p class="text-xs font-bold text-gray-800 truncate">Jabón Roma 250g</p>
+                        <p class="text-xs text-gray-400">Limpieza</p>
+                        <p class="text-xs font-semibold text-indigo-600">$14.50</p>
+                    </div>
+                    <i class="fas fa-check-circle text-indigo-500 ml-auto flex-shrink-0"></i>
+                </div>
+
+                <div class="product-card selected border-2 rounded-xl p-3 flex items-center gap-3">
+                    <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center text-lg flex-shrink-0">🍟</div>
+                    <div class="min-w-0">
+                        <p class="text-xs font-bold text-gray-800 truncate">Sabritas Original</p>
+                        <p class="text-xs text-gray-400">Botanas</p>
+                        <p class="text-xs font-semibold text-indigo-600">$22.00</p>
+                    </div>
+                    <i class="fas fa-check-circle text-indigo-500 ml-auto flex-shrink-0"></i>
+                </div>
+
+                <!-- No seleccionados -->
+                <div class="product-card border-2 border-gray-100 rounded-xl p-3 flex items-center gap-3">
+                    <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center text-lg flex-shrink-0">🥛</div>
+                    <div class="min-w-0">
+                        <p class="text-xs font-bold text-gray-800 truncate">Leche Lala 1L</p>
+                        <p class="text-xs text-gray-400">Lácteos</p>
+                        <p class="text-xs font-semibold text-indigo-600">$28.00</p>
+                    </div>
+                    <i class="far fa-circle text-gray-300 ml-auto flex-shrink-0"></i>
+                </div>
+
+                <div class="product-card border-2 border-gray-100 rounded-xl p-3 flex items-center gap-3">
+                    <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center text-lg flex-shrink-0">🍬</div>
+                    <div class="min-w-0">
+                        <p class="text-xs font-bold text-gray-800 truncate">Chicles Trident</p>
+                        <p class="text-xs text-gray-400">Dulcería</p>
+                        <p class="text-xs font-semibold text-indigo-600">$12.00</p>
+                    </div>
+                    <i class="far fa-circle text-gray-300 ml-auto flex-shrink-0"></i>
+                </div>
+
+                <div class="product-card border-2 border-gray-100 rounded-xl p-3 flex items-center gap-3">
+                    <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center text-lg flex-shrink-0">🥫</div>
+                    <div class="min-w-0">
+                        <p class="text-xs font-bold text-gray-800 truncate">Atún Dolores 140g</p>
+                        <p class="text-xs text-gray-400">Abarrotes</p>
+                        <p class="text-xs font-semibold text-indigo-600">$24.00</p>
+                    </div>
+                    <i class="far fa-circle text-gray-300 ml-auto flex-shrink-0"></i>
+                </div>
+
+                <div class="product-card border-2 border-gray-100 rounded-xl p-3 flex items-center gap-3">
+                    <div class="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center text-lg flex-shrink-0">☕</div>
+                    <div class="min-w-0">
+                        <p class="text-xs font-bold text-gray-800 truncate">Nescafé Clásico</p>
+                        <p class="text-xs text-gray-400">Bebidas</p>
+                        <p class="text-xs font-semibold text-indigo-600">$89.00</p>
+                    </div>
+                    <i class="far fa-circle text-gray-300 ml-auto flex-shrink-0"></i>
+                </div>
+            </div>
+
+            <!-- Agregar producto personalizado -->
+            <button class="w-full mt-4 py-2.5 border-2 border-dashed border-indigo-300 rounded-xl text-sm text-indigo-600 font-semibold hover:bg-indigo-50 transition">
+                <i class="fas fa-plus mr-2"></i> Agregar producto personalizado
+            </button>
+
+            <button class="btn-primary w-full text-white font-bold py-3 rounded-xl text-sm mt-4 transition">
+                Finalizar configuración <i class="fas fa-check ml-2"></i>
+            </button>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Módulo de Ventas</title>
+<style>
+  /* ══════════════════════════════════════
+     DESIGN TOKENS — edita aquí los colores
+     ══════════════════════════════════════ */
+  :root {
+    --bg-page:          #F0F1F3;
+    --bg-white:         #ffffff;
+    --bg-light:         #f9fafb;
+    --bg-muted:         #f3f4f6;
+
+    --border:           #e5e7eb;
+    --border-light:     #f3f4f6;
+
+    --text-primary:     #1a1a2e;
+    --text-secondary:   #374151;
+    --text-muted:       #6b7280;
+    --text-faint:       #9ca3af;
+
+    /* Brand / accent */
+    --color-primary:    #4f46e5;
+    --color-primary-bg: #ede9fe;
+    --color-primary-border: #ddd6fe;
+    --color-primary-dark:   #6d28d9;
+    --color-primary-deep:   #7c3aed;
+
+    /* Success / green */
+    --color-success:        #16a34a;
+    --color-success-dark:   #15803d;
+    --color-success-bg:     #f0fdf4;
+    --color-success-text:   #166534;
+
+    /* Danger / red */
+    --color-danger:         #dc2626;
+    --color-danger-bg:      #fef2f2;
+
+    /* Warning / yellow */
+    --color-warning:        #F9A825;
+    --color-warning-bg:     #FFF176;
+    --color-warning-qty:    #fef9c3;
+
+    /* Orange */
+    --color-orange:         #fb923c;
+    --color-orange-dark:    #ea580c;
+
+    /* AVI panel */
+    --avi-header-bg:    #7c3aed;
+    --avi-panel-bg:     #ede9fe;
+    --avi-border:       #ddd6fe;
+    --avi-input-bg:     #f5f3ff;
+
+    /* Nav */
+    --nav-bg:           #ffffff;
+    --nav-border:       #e2e4e9;
+    --nav-tab-active:   #4f46e5;
+
+    /* Demo bar */
+    --demo-bg:          #1a1a2e;
+    --demo-btn-bg:      #374151;
+    --demo-btn-active:  #7c3aed;
+
+    /* Toast */
+    --toast-accent:     #16a34a;
+
+    /* Misc */
+    --radius-sm:  6px;
+    --radius-md:  8px;
+    --radius-lg:  10px;
+    --radius-xl:  12px;
+    --radius-2xl: 14px;
+    --radius-full: 9999px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: var(--bg-page);
+    color: var(--text-primary);
+    min-height: 100vh;
+  }
+
+  /* ── DEMO BAR ── */
+  .demo-bar {
+    background: var(--demo-bg);
+    color: var(--bg-white);
+    padding: 8px 16px;
+    font-size: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  .demo-bar span { color: var(--text-faint); }
+  .demo-btn {
+    background: var(--demo-btn-bg);
+    color: var(--bg-white);
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 4px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .demo-btn.active-demo { background: var(--demo-btn-active); }
+  .demo-btn:hover { background: #4b5563; }
+
+  /* ── NAV ── */
+  nav {
+    background: var(--nav-bg);
+    border-bottom: 1px solid var(--nav-border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    height: 52px;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  nav::-webkit-scrollbar { display: none; }
+  nav .tab {
+    padding: 14px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all .2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  nav .tab.active {
+    color: var(--nav-tab-active);
+    border-bottom: 3px solid var(--nav-tab-active);
+    font-weight: 600;
+  }
+  nav .tab:hover:not(.active) { color: var(--text-secondary); }
+  nav .spacer { flex: 1; min-width: 8px; }
+  nav .avatar {
+    width: 34px; height: 34px;
+    background: var(--bg-muted);
+    border-radius: var(--radius-full);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; color: var(--text-muted); cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* ── LAYOUT ── */
+  .layout {
+    display: flex;
+    height: calc(100vh - 52px - 36px); /* minus nav + demo bar */
+    overflow: hidden;
+  }
+
+  /* ── AVI PANEL ── */
+  .avi-panel {
+    width: 240px;
+    min-width: 240px;
+    background: var(--avi-panel-bg);
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--avi-border);
+    transition: transform .3s ease, width .3s ease;
+  }
+  .avi-title {
+    background: var(--avi-header-bg);
+    color: var(--bg-white);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 11px 14px;
+    letter-spacing: .3px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .avi-toggle-btn {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,.7);
+    font-size: 16px;
+    cursor: pointer;
+    display: none; /* shown on mobile */
+    line-height: 1;
+  }
+  .avi-chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .bubble {
+    max-width: 88%;
+    padding: 8px 11px;
+    border-radius: var(--radius-2xl);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  .bubble.bot {
+    background: var(--bg-white);
+    color: var(--text-secondary);
+    border-bottom-left-radius: 4px;
+    align-self: flex-start;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  .bubble.user {
+    background: var(--color-primary-deep);
+    color: var(--bg-white);
+    border-bottom-right-radius: 4px;
+    align-self: flex-end;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 10px 10px;
+  }
+  .chip {
+    background: var(--bg-white);
+    border: 1px solid var(--avi-border);
+    color: var(--color-primary-deep);
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .chip:hover { background: var(--avi-input-bg); }
+  .avi-input {
+    border-top: 1px solid var(--avi-border);
+    padding: 10px;
+    display: flex;
+    gap: 7px;
+    background: var(--avi-input-bg);
+  }
+  .avi-input input {
+    flex: 1;
+    border: 1px solid var(--color-primary-border);
+    border-radius: var(--radius-md);
+    padding: 7px 10px;
+    font-size: 13px;
+    outline: none;
+    background: var(--bg-white);
+    min-width: 0;
+  }
+  .avi-input input:focus { border-color: var(--color-primary-deep); }
+  .avi-input button {
+    background: var(--color-primary-deep);
+    color: var(--bg-white);
+    border: none;
+    border-radius: var(--radius-md);
+    padding: 7px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background .15s;
+    white-space: nowrap;
+  }
+  .avi-input button:hover { background: var(--color-primary-dark); }
+
+  /* ── MAIN AREA ── */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 16px 16px 0;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  /* Search row */
+  .search-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .search-wrapper { position: relative; flex: 1; min-width: 160px; }
+  .search-box {
+    display: flex;
+    align-items: center;
+    background: var(--color-warning-bg);
+    border: 2px solid var(--color-warning);
+    border-radius: var(--radius-lg);
+    padding: 0 12px;
+    gap: 8px;
+    height: 42px;
+    box-shadow: 0 2px 6px rgba(249,168,37,.2);
+  }
+  .search-box input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-size: 14px;
+    outline: none;
+    color: var(--text-secondary);
+    min-width: 0;
+  }
+  .search-box input::placeholder { color: var(--text-faint); }
+  .search-icon { color: var(--color-warning); font-size: 15px; flex-shrink: 0; }
+
+  .btn-not-found {
+    background: var(--color-orange);
+    color: var(--bg-white);
+    border: none;
+    border-radius: var(--radius-lg);
+    padding: 0 14px;
+    height: 42px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s;
+    flex-shrink: 0;
+  }
+  .btn-not-found:hover { background: var(--color-orange-dark); }
+
+  /* Sale metadata */
+  .sale-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    background: var(--bg-white);
+    border-radius: var(--radius-lg);
+    padding: 9px 14px;
+    font-size: 13px;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  }
+  .sale-meta span strong { color: var(--text-secondary); }
+
+  /* Cart */
+  .cart-card {
+    flex: 1;
+    background: var(--bg-white);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .cart-scroll { flex: 1; overflow-y: auto; }
+  .cart-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  .cart-table thead tr {
+    background: var(--bg-light);
+    border-bottom: 2px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  .cart-table th {
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+  .cart-table th.right { text-align: right; }
+  .cart-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-light);
+    color: var(--text-secondary);
+  }
+  .cart-table td.right { text-align: right; font-weight: 600; }
+  .cart-table tbody tr:hover { background: var(--bg-light); }
+
+  /* Qty stepper */
+  .qty {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .qty button {
+    width: 26px; height: 26px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-light);
+    font-size: 15px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-secondary);
+    transition: background .15s;
+    flex-shrink: 0;
+  }
+  .qty button:hover { background: var(--border); }
+  .qty span {
+    min-width: 26px;
+    text-align: center;
+    font-weight: 600;
+    background: var(--color-warning-qty);
+    border-radius: var(--radius-sm);
+    padding: 2px 5px;
+    font-size: 13px;
+  }
+
+  /* New row highlight */
+  .row-new { background: var(--color-success-bg) !important; }
+  .row-new td { color: var(--color-success-text); }
+
+  /* Bottom bar */
+  .bottom-bar {
+    background: var(--bg-white);
+    border-top: 1px solid var(--border);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .btn-cancel {
+    background: var(--bg-white);
+    color: var(--color-danger);
+    border: 2px solid var(--color-danger);
+    border-radius: var(--radius-lg);
+    padding: 9px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .btn-cancel:hover { background: var(--color-danger-bg); }
+  .bottom-spacer { flex: 1; }
+  .btn-cobrar {
+    background: var(--color-success);
+    color: var(--bg-white);
+    border: none;
+    border-radius: var(--radius-lg);
+    padding: 9px 30px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .15s;
+    box-shadow: 0 2px 8px rgba(22,163,74,.25);
+    white-space: nowrap;
+  }
+  .btn-cobrar:hover { background: var(--color-success-dark); }
+  .total-display {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    white-space: nowrap;
+  }
+
+  /* ── SEARCH DROPDOWN ── */
+  .search-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 8px 24px rgba(0,0,0,.12);
+    z-index: 100;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .dropdown-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-light);
+    font-size: 14px;
+    color: var(--text-secondary);
+    transition: background .1s;
+    gap: 10px;
+  }
+  .dropdown-item:last-child { border-bottom: none; }
+  .dropdown-item:hover { background: var(--bg-light); }
+  .btn-select {
+    background: var(--color-success);
+    color: var(--bg-white);
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+    flex-shrink: 0;
+  }
+  .btn-select:hover { background: var(--color-success-dark); }
+
+  /* ── TOAST NOTIFICATION ── */
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    right: 16px;
+    background: var(--bg-white);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--toast-accent);
+    border-radius: var(--radius-xl);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.12);
+    z-index: 300;
+    cursor: pointer;
+    width: calc(100% - 32px);
+    max-width: 320px;
+    transition: transform .2s, opacity .2s;
+    animation: slideIn .3s ease;
+  }
+  .toast:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(0,0,0,.15); }
+  @keyframes slideIn {
+    from { transform: translateY(20px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+  .toast-icon { font-size: 24px; flex-shrink: 0; }
+  .toast-body { flex: 1; min-width: 0; }
+  .toast-title { font-size: 13px; font-weight: 700; color: var(--color-success-text); }
+  .toast-sub   { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .toast-cta   { font-size: 11px; color: var(--color-primary-deep); font-weight: 600; margin-top: 3px; }
+  .toast-close {
+    background: none; border: none; font-size: 15px;
+    color: var(--text-faint); cursor: pointer; padding: 2px 4px;
+    line-height: 1; flex-shrink: 0;
+  }
+  .toast-close:hover { color: var(--text-secondary); }
+
+  /* ── TICKET DRAWER ── */
+  .ticket-drawer {
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: min(360px, 100vw);
+    background: var(--bg-white);
+    border-left: 1px solid var(--border);
+    box-shadow: -8px 0 32px rgba(0,0,0,.12);
+    z-index: 400;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform .3s ease;
+  }
+  .ticket-drawer.open { transform: translateX(0); }
+  .drawer-header {
+    background: var(--bg-light);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .drawer-header h3 { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+  .drawer-close {
+    background: none; border: none; font-size: 20px;
+    color: var(--text-muted); cursor: pointer; line-height: 1;
+  }
+  .drawer-close:hover { color: var(--text-primary); }
+  .drawer-body { flex: 1; overflow-y: auto; padding: 20px 18px; }
+  .ticket-receipt {
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-lg);
+    padding: 18px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.8;
+  }
+  .ticket-receipt .receipt-title {
+    text-align: center;
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 12px;
+    color: var(--text-primary);
+  }
+  .ticket-receipt .receipt-row {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border-light);
+    padding: 4px 0;
+    gap: 8px;
+  }
+  .ticket-receipt .receipt-total {
+    display: flex;
+    justify-content: space-between;
+    font-weight: 700;
+    font-size: 15px;
+    margin-top: 10px;
+    color: var(--text-primary);
+  }
+  .drawer-footer {
+    padding: 14px 18px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+  }
+  .btn-download {
+    flex: 1;
+    background: var(--color-success);
+    color: var(--bg-white);
+    border: none;
+    border-radius: var(--radius-md);
+    padding: 11px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .btn-download:hover { background: var(--color-success-dark); }
+  .btn-share {
+    background: var(--bg-muted);
+    color: var(--text-secondary);
+    border: none;
+    border-radius: var(--radius-md);
+    padding: 11px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .btn-share:hover { background: var(--border); }
+
+  /* ── STATES ── */
+  .state { display: none; }
+  .state.active { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+  /* ── MOBILE AVI OVERLAY ── */
+  .avi-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.4);
+    z-index: 200;
+  }
+
+  /* ── MOBILE FAB (AVI toggle) ── */
+  .fab-avi {
+    display: none;
+    position: fixed;
+    bottom: 80px;
+    left: 16px;
+    width: 48px; height: 48px;
+    background: var(--color-primary-deep);
+    color: var(--bg-white);
+    border: none;
+    border-radius: var(--radius-full);
+    font-size: 20px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(124,58,237,.4);
+    z-index: 150;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s;
+  }
+  .fab-avi:hover { background: var(--color-primary-dark); }
+
+  /* ══════════════════════════════════════
+     RESPONSIVE BREAKPOINTS
+     ══════════════════════════════════════ */
+
+  /* Tablet: hide AVI panel, show FAB */
+  @media (max-width: 768px) {
+    .avi-panel {
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      z-index: 250;
+      transform: translateX(-100%);
+      width: 280px;
+      min-width: 280px;
+    }
+    .avi-panel.open {
+      transform: translateX(0);
+    }
+    .avi-overlay.open { display: block; }
+    .avi-toggle-btn { display: flex; }
+    .fab-avi { display: flex; }
+
+    .layout { height: calc(100vh - 52px - 36px); }
+
+    .cart-table th:nth-child(3),
+    .cart-table td:nth-child(3) { display: none; } /* hide unit price col */
+
+    .btn-not-found { font-size: 12px; padding: 0 10px; }
+  }
+
+  /* Mobile: compact everything */
+  @media (max-width: 480px) {
+    .demo-bar { font-size: 11px; padding: 6px 10px; }
+    .demo-btn { padding: 3px 8px; font-size: 11px; }
+
+    nav .tab { padding: 12px 10px; font-size: 12px; }
+
+    .main { padding: 10px 10px 0; gap: 8px; }
+
+    .sale-meta { font-size: 12px; gap: 8px; padding: 7px 10px; }
+
+    .cart-table { font-size: 13px; }
+    .cart-table th { padding: 8px 10px; font-size: 10px; }
+    .cart-table td { padding: 10px 10px; }
+
+    .bottom-bar { padding: 10px 12px; gap: 8px; }
+    .btn-cancel { padding: 8px 12px; font-size: 13px; }
+    .btn-cobrar { padding: 8px 20px; font-size: 14px; }
+    .total-display { font-size: 14px; }
+
+    .toast { bottom: 12px; right: 10px; width: calc(100% - 20px); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Demo switcher -->
+<div class="demo-bar">
+  <span>Vista:</span>
+  <button class="demo-btn active-demo" onclick="showState(1, this)">1 · Carrito</button>
+  <button class="demo-btn" onclick="showState(2, this)">2 · Búsqueda</button>
+  <button class="demo-btn" onclick="showState(3, this)">3 · AVI agrega</button>
+  <button class="demo-btn" onclick="showState(4, this)">4 · Ticket</button>
+</div>
+
+<!-- NAV -->
+<nav>
+  <div class="tab active">Módulo de ventas</div>
+  <div class="tab">Auxiliar de inventario</div>
+  <div class="tab">Agente financiero</div>
+  <div class="spacer"></div>
+  <div class="avatar">👤</div>
+</nav>
+
+<!-- AVI overlay (mobile) -->
+<div class="avi-overlay" id="aviOverlay" onclick="closeAvi()"></div>
+
+<!-- FAB AVI (mobile) -->
+<button class="fab-avi" onclick="openAvi()" title="Abrir AVI">🤖</button>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- AVI PANEL -->
+  <div class="avi-panel" id="aviPanel">
+    <div class="avi-title">
+      🤖 Asistente Virtual
+      <button class="avi-toggle-btn" onclick="closeAvi()">✕</button>
+    </div>
+    <div class="avi-chat" id="aviChat">
+      <div class="bubble bot">¡Hola! Puedo agregar productos por texto. Intenta: <em>"agrega 2 pepsis"</em></div>
+      <div class="bubble user" id="userMsg" style="display:none">agrega 2 pepsis y 1kg de jitomate</div>
+      <div class="bubble bot" id="botConfirm" style="display:none">✅ Listo, agregué 2 Pepsi 600ml y 1 kg de Jitomate al carrito.</div>
+      <div class="bubble bot" id="ticketMsg" style="display:none">✅ Cobro registrado. Ticket #0028 creado.</div>
+    </div>
+    <div class="chips">
+      <span class="chip">¿Algo más?</span>
+      <span class="chip">¿Cuánto he vendido en total el día de hoy?</span>
+      <span class="chip">¿Cuáles son mis productos más vendidos?</span>
+    </div>
+    <div class="avi-input">
+      <input type="text" placeholder="Ej: 2 coca cola 600…" />
+      <button>Enviar</button>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div style="flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0;">
+
+    <!-- STATE 1: Base cart -->
+    <div class="state active main" id="state1">
+      <div class="search-row">
+        <div class="search-wrapper">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" placeholder="Buscar producto…" />
+          </div>
+        </div>
+        <button class="btn-not-found">+ No encontrado</button>
+      </div>
+      <div class="sale-meta">
+        <span><strong>Folio:</strong> #0028</span>
+        <span><strong>Fecha:</strong> 05/05/2026</span>
+        <span><strong>Hora:</strong> 14:32</span>
+      </div>
+      <div class="cart-card">
+        <div class="cart-scroll">
+          <table class="cart-table">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Cantidad</th>
+                <th class="right">Precio</th>
+                <th class="right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Coca cola 600ml</td>
+                <td><div class="qty"><button>−</button><span>2</span><button>+</button></div></td>
+                <td class="right">$25.00</td>
+                <td class="right">$50.00</td>
+              </tr>
+              <tr>
+                <td>Galletas animalitos 200gr</td>
+                <td><div class="qty"><button>−</button><span>1</span><button>+</button></div></td>
+                <td class="right">$10.00</td>
+                <td class="right">$10.00</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="bottom-bar">
+        <button class="btn-cancel">Cancelar venta</button>
+        <div class="bottom-spacer"></div>
+        <div class="total-display">Total: $60.00</div>
+        <button class="btn-cobrar">Cobrar</button>
+      </div>
+    </div>
+
+    <!-- STATE 2: Search dropdown -->
+    <div class="state main" id="state2">
+      <div class="search-row">
+        <div class="search-wrapper">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" value="cremalala" />
+          </div>
+          <div class="search-dropdown">
+            <div class="dropdown-item">
+              <span>Crema lala 1/4 lt</span>
+              <button class="btn-select">Seleccionar</button>
+            </div>
+            <div class="dropdown-item">
+              <span>Crema alpura 1lt</span>
+              <button class="btn-select">Seleccionar</button>
+            </div>
+          </div>
+        </div>
+        <button class="btn-not-found">+ No encontrado</button>
+      </div>
+      <div class="sale-meta">
+        <span><strong>Folio:</strong> #0028</span>
+        <span><strong>Fecha:</strong> 05/05/2026</span>
+        <span><strong>Hora:</strong> 14:32</span>
+      </div>
+      <div class="cart-card">
+        <div class="cart-scroll">
+          <table class="cart-table">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Cantidad</th>
+                <th class="right">Precio</th>
+                <th class="right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Coca cola 600ml</td>
+                <td><div class="qty"><button>−</button><span>2</span><button>+</button></div></td>
+                <td class="right">$25.00</td>
+                <td class="right">$50.00</td>
+              </tr>
+              <tr>
+                <td>Galletas animalitos 200gr</td>
+                <td><div class="qty"><button>−</button><span>1</span><button>+</button></div></td>
+                <td class="right">$10.00</td>
+                <td class="right">$10.00</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="bottom-bar">
+        <button class="btn-cancel">Cancelar venta</button>
+        <div class="bottom-spacer"></div>
+        <div class="total-display">Total: $60.00</div>
+        <button class="btn-cobrar">Cobrar</button>
+      </div>
+    </div>
+
+    <!-- STATE 3: AVI adds items -->
+    <div class="state main" id="state3">
+      <div class="search-row">
+        <div class="search-wrapper">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" placeholder="Buscar producto…" />
+          </div>
+        </div>
+        <button class="btn-not-found">+ No encontrado</button>
+      </div>
+      <div class="sale-meta">
+        <span><strong>Folio:</strong> #0028</span>
+        <span><strong>Fecha:</strong> 05/05/2026</span>
+        <span><strong>Hora:</strong> 14:32</span>
+      </div>
+      <div class="cart-card">
+        <div class="cart-scroll">
+          <table class="cart-table">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Cantidad</th>
+                <th class="right">Precio</th>
+                <th class="right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Coca cola 600ml</td>
+                <td><div class="qty"><button>−</button><span>2</span><button>+</button></div></td>
+                <td class="right">$25.00</td>
+                <td class="right">$50.00</td>
+              </tr>
+              <tr>
+                <td>Galletas animalitos 200gr</td>
+                <td><div class="qty"><button>−</button><span>1</span><button>+</button></div></td>
+                <td class="right">$10.00</td>
+                <td class="right">$10.00</td>
+              </tr>
+              <tr class="row-new">
+                <td>🆕 Pepsi 600ml</td>
+                <td><div class="qty"><button>−</button><span>2</span><button>+</button></div></td>
+                <td class="right">$23.00</td>
+                <td class="right">$46.00</td>
+              </tr>
+              <tr class="row-new">
+                <td>🆕 Jitomate (a granel)</td>
+                <td><div class="qty"><button>−</button><span>1 kg</span><button>+</button></div></td>
+                <td class="right">$28.00</td>
+                <td class="right">$28.00</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="bottom-bar">
+        <button class="btn-cancel">Cancelar venta</button>
+        <div class="bottom-spacer"></div>
+        <div class="total-display">Total: $134.00</div>
+        <button class="btn-cobrar">Cobrar</button>
+      </div>
+    </div>
+
+    <!-- STATE 4: Ticket created (empty cart) -->
+    <div class="state main" id="state4">
+      <div class="search-row">
+        <div class="search-wrapper">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" placeholder="Buscar producto…" />
+          </div>
+        </div>
+        <button class="btn-not-found">+ No encontrado</button>
+      </div>
+      <div class="sale-meta">
+        <span><strong>Folio:</strong> #0029</span>
+        <span><strong>Fecha:</strong> 05/05/2026</span>
+        <span><strong>Hora:</strong> 14:38</span>
+      </div>
+      <div class="cart-card" style="align-items:center; justify-content:center; color:var(--text-faint); font-size:14px; gap:8px; padding:24px;">
+        <div style="font-size:40px; margin-bottom:8px;">🛒</div>
+        <div style="font-weight:600; color:var(--text-muted);">Carrito vacío</div>
+        <div style="font-size:13px;">Busca o escanea un producto para comenzar</div>
+      </div>
+      <div class="bottom-bar">
+        <button class="btn-cancel" style="opacity:.4; cursor:not-allowed;">Cancelar venta</button>
+        <div class="bottom-spacer"></div>
+        <div class="total-display">Total: $0.00</div>
+        <button class="btn-cobrar" style="opacity:.4; cursor:not-allowed;">Cobrar</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- TOAST NOTIFICATION -->
+<div class="toast" id="ticketToast" style="display:none" onclick="openDrawer()">
+  <div class="toast-icon">🧾</div>
+  <div class="toast-body">
+    <div class="toast-title">¡Venta registrada!</div>
+    <div class="toast-sub">Folio #0028 · $134.00 · 14:37</div>
+    <div class="toast-cta">Toca para ver el ticket →</div>
+  </div>
+  <button class="toast-close" onclick="event.stopPropagation(); closeToast()">✕</button>
+</div>
+
+<!-- TICKET DRAWER -->
+<div class="ticket-drawer" id="ticketDrawer">
+  <div class="drawer-header">
+    <h3>🧾 Ticket digital</h3>
+    <button class="drawer-close" onclick="closeDrawer()">✕</button>
+  </div>
+  <div class="drawer-body">
+    <div class="ticket-receipt">
+      <div class="receipt-title">
+        Tienda "La Esperanza"<br/>
+        <span style="font-weight:400;font-size:12px;color:var(--text-muted)">05/05/2026 · 14:37 · Folio #0028</span>
+      </div>
+      <div class="receipt-row"><span>Coca cola 600ml x2</span><span>$50.00</span></div>
+      <div class="receipt-row"><span>Galletas animalitos 200gr x1</span><span>$10.00</span></div>
+      <div class="receipt-row"><span>Pepsi 600ml x2</span><span>$46.00</span></div>
+      <div class="receipt-row"><span>Jitomate a granel 1kg</span><span>$28.00</span></div>
+      <div class="receipt-total"><span>Total</span><span>$134.00</span></div>
+    </div>
+  </div>
+  <div class="drawer-footer">
+    <button class="btn-share">📤 Compartir</button>
+    <button class="btn-download">⬇ Descargar PDF</button>
+  </div>
+</div>
+
+<script>
+  function showState(n, btn) {
+    document.querySelectorAll('.state').forEach(s => s.classList.remove('active'));
+    document.getElementById('state' + n).classList.add('active');
+    document.querySelectorAll('.demo-btn').forEach(b => b.classList.remove('active-demo'));
+    btn.classList.add('active-demo');
+
+    document.getElementById('userMsg').style.display    = n >= 3 ? 'flex' : 'none';
+    document.getElementById('botConfirm').style.display = n >= 3 ? 'flex' : 'none';
+    document.getElementById('ticketMsg').style.display  = n === 4 ? 'flex' : 'none';
+
+    const toast = document.getElementById('ticketToast');
+    if (n === 4) {
+      toast.style.display = 'flex';
+    } else {
+      toast.style.display = 'none';
+      closeDrawer();
+    }
+  }
+
+  function openDrawer()  { document.getElementById('ticketDrawer').classList.add('open'); }
+  function closeDrawer() { document.getElementById('ticketDrawer').classList.remove('open'); }
+  function closeToast()  { document.getElementById('ticketToast').style.display = 'none'; }
+
+  function openAvi() {
+    document.getElementById('aviPanel').classList.add('open');
+    document.getElementById('aviOverlay').classList.add('open');
+  }
+  function closeAvi() {
+    document.getElementById('aviPanel').classList.remove('open');
+    document.getElementById('aviOverlay').classList.remove('open');
+  }
+</script>
+</body>
+</html>

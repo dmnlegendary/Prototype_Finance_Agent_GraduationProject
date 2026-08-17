@@ -20,7 +20,7 @@
   <button class="demo-btn" onclick="showState('alertas',this)">5 · Alertas inteligentes</button>
 </div>
 
-{# ============================================================
+{% comment %} ============================================================
    TODO (siguiente iteración, no bloquea esta entrega):
    Esta pantalla se integró TAL CUAL el prototipo: son 5 "estados" ya
    renderizados en el HTML que el JS (inventario.js) muestra/oculta con
@@ -31,9 +31,9 @@
    prototipo; se debe quitar cuando la navegación real (botones de
    "Alta de productos", "Modificar productos", etc.) dispare estas
    mismas vistas.
-   ============================================================ #}
+   ============================================================ {% endcomment %}
 
-{# La barra de navegación ahora vive en templates/partials/navbar.html, incluida por base_app.html #}
+{% comment %} La barra de navegación ahora vive en templates/partials/navbar.html, incluida por base_app.html {% endcomment %}
 
 <!-- AVI overlay mobile -->
 <div class="avi-overlay" id="aviOverlay" onclick="closeAvi()"></div>
@@ -43,11 +43,11 @@
 <div class="layout">
 
   <!-- AVI PANEL -->
-  {# TODO: este panel del Asistente Virtual (AVI) hoy solo muestra
+  {% comment %} TODO: este panel del Asistente Virtual (AVI) hoy solo muestra
      mensajes de ejemplo fijos (ver bubbles con id="avi-*" abajo) que se
      activan con el demo bar. Cuando se implemente la app `avi`, este
      bloque debe alimentarse del historial real (avi.HistorialConversacion)
-     y enviar los mensajes del usuario vía Fetch API a una vista de avi. #}
+     y enviar los mensajes del usuario vía Fetch API a una vista de avi. {% endcomment %}
   <div class="avi-panel" id="aviPanel">
     <div class="avi-title">
       🤖 Asistente Virtual
@@ -121,10 +121,10 @@
                 </tr>
               </thead>
               <tbody>
-                {# TODO: reemplazar por datos reales del ORM.
+                {% comment %} TODO: reemplazar por datos reales del ORM.
                    La vista `inventario:panel` (inventario/views.py) ya
                    pasa `productos = Producto.objects.filter(negocio=...)`
-                   en el contexto; este for consume ese queryset real. #}
+                   en el contexto; este for consume ese queryset real. {% endcomment %}
                 {% for producto in productos %}
                 <tr>
                   <td>{{ producto.icono }} {{ producto.nombre }}</td>

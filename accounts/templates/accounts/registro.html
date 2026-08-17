@@ -78,18 +78,18 @@
                         <div class="relative">
                             <i class="fas fa-lock absolute left-3 top-3 text-gray-400 text-sm"></i>
                             {{ form.password }}
-                            {# TODO: el ícono de "ojo" era decorativo en el mockup; falta el JS
-                               para alternar type="text"/"password" al hacer clic. #}
+                            {% comment %} TODO: el ícono de "ojo" era decorativo en el mockup; falta el JS
+                               para alternar type="text"/"password" al hacer clic. {% endcomment %}
                             <i class="fas fa-eye absolute right-3 top-3 text-gray-400 text-sm cursor-pointer"></i>
                         </div>
                         {% if form.password.errors %}<p class="text-xs text-red-600 mt-1">{{ form.password.errors|join:", " }}</p>{% endif %}
                     </div>
 
                     <div class="flex items-start gap-2 pt-1">
-                        {# TODO: este checkbox de Términos y condiciones es solo de UI por
+                        {% comment %} TODO: este checkbox de Términos y condiciones es solo de UI por
                            ahora (no está atado a ningún campo del modelo). Si se necesita
                            auditar el consentimiento, agregar un campo `acepto_terminos`
-                           a Usuario o a un modelo de auditoría aparte. #}
+                           a Usuario o a un modelo de auditoría aparte. {% endcomment %}
                         <input type="checkbox" required class="mt-0.5 accent-indigo-600">
                         <p class="text-xs text-gray-500">Acepto los <span class="text-indigo-600 font-semibold cursor-pointer">Términos y condiciones</span> y el <span class="text-indigo-600 font-semibold cursor-pointer">Aviso de privacidad</span></p>
                     </div>

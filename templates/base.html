@@ -1,4 +1,4 @@
-{# ============================================================
+{% comment %} ============================================================
    base.html — plantilla RAÍZ del proyecto (templates/ global).
 
    A propósito se deja mínima: no impone ningún framework CSS, porque las
@@ -10,7 +10,7 @@
    lo que a cada familia de pantallas le corresponde:
      - base_auth.html -> para las pantallas de onboarding/autenticación (Tailwind)
      - base_app.html  -> para las pantallas del sistema ya logueado (CSS propio + navbar)
-   ============================================================ #}
+   ============================================================ {% endcomment %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -18,8 +18,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{% block title %}Tiendita AI{% endblock %}</title>
 {% load static %}
-{# TODO: agregar un ícono real en static/img/favicon.ico y descomentar:
-   <link rel="icon" href="{% static 'img/favicon.ico' %}"> #}
+{% comment %} TODO: agregar un ícono real en static/img/favicon.ico y descomentar:
+   <link rel="icon" href="{% static 'img/favicon.ico' %}"> {% endcomment %}
 {% block extra_head %}{% endblock %}
 </head>
 <body{% block body_attrs %}{% endblock %}>

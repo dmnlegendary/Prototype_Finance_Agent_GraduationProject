@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{# ============================================================
+{% comment %} ============================================================
    base_app.html — familia de pantallas del sistema YA AUTENTICADO
    (auxiliar de inventario, módulo de ventas, y a futuro finanzas/avi).
 
@@ -8,7 +8,7 @@
    cada una define sus propios "design tokens" (--color-success, etc.) con
    valores ligeramente distintos entre sí. Lo único verdaderamente
    compartido es la barra de navegación superior (partials/navbar.html).
-   ============================================================ #}
+   ============================================================ {% endcomment %}
 {% block extra_head %}
 {% block app_extra_head %}{% endblock %}
 {% endblock %}

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
-{# ============================================================
+{% comment %} ============================================================
    base_auth.html — familia de pantallas de autenticación/onboarding
    (registro, datos del negocio, productos precargados, login).
 
@@ -9,7 +9,7 @@
    El bloque `auth_extra_head` permite a cada pantalla agregar SU <style>
    propio (cada una trae reglas ligeramente distintas) sin duplicar las
    líneas de CDN.
-   ============================================================ #}
+   ============================================================ {% endcomment %}
 {% block extra_head %}
 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">

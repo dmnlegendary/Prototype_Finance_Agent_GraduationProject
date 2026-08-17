@@ -4,10 +4,10 @@
 {% block title %}Agente Financiero · Tiendita AI{% endblock %}
 
 {% block app_extra_head %}
-{# Se reutiliza la hoja de estilos de `ventas` solo para heredar los
+{% comment %} Se reutiliza la hoja de estilos de `ventas` solo para heredar los
    estilos de <nav> (design tokens compartidos), ya que finanzas todavía
    no tiene una pantalla maquetada propia. Cuando exista un diseño real
-   para esta app, reemplazar por static/finanzas/css/finanzas.css. #}
+   para esta app, reemplazar por static/finanzas/css/finanzas.css. {% endcomment %}
 <link rel="stylesheet" href="{% static 'ventas/css/ventas.css' %}">
 <style>
     .finanzas-placeholder {

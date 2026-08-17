@@ -1,4 +1,4 @@
-{# ============================================================
+{% comment %} ============================================================
    partials/navbar.html — barra superior compartida por las pantallas ya
    logueadas (ventas, inventario, finanzas). Tomada literalmente de la
    <nav> de inventario.html / venta1.html (ambas eran casi idénticas).
@@ -9,15 +9,15 @@
 
    El tab activo se resuelve con `request.resolver_match.app_name`, para
    no depender de que cada vista recuerde pasar una variable de contexto.
-   ============================================================ #}
+   ============================================================ {% endcomment %}
 <nav>
-  {# .tab no traía subrayado porque en el mockup original era un <div>; se
+  {% comment %} .tab no traía subrayado porque en el mockup original era un <div>; se
      neutraliza aquí con text-decoration para no alterar el look al
-     convertirlo en enlace real de navegación. #}
+     convertirlo en enlace real de navegación. {% endcomment %}
   <a href="{% url 'ventas:punto_de_venta' %}" class="tab{% if request.resolver_match.app_name == 'ventas' %} active{% endif %}" style="text-decoration:none;">Módulo de ventas</a>
   <a href="{% url 'inventario:panel' %}" class="tab{% if request.resolver_match.app_name == 'inventario' %} active{% endif %}" style="text-decoration:none;">Auxiliar de inventario</a>
   <a href="{% url 'finanzas:placeholder' %}" class="tab{% if request.resolver_match.app_name == 'finanzas' %} active{% endif %}" style="text-decoration:none;">Agente financiero</a>
   <div class="nav-spacer spacer"></div>
-  {# TODO: reemplazar por foto/iniciales reales del usuario en sesión. #}
+  {% comment %} TODO: reemplazar por foto/iniciales reales del usuario en sesión. {% endcomment %}
   <div class="avatar">👤</div>
 </nav>

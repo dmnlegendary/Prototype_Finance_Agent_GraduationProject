@@ -59,11 +59,6 @@
   --nav-border:         #e2e4e9;
   --nav-tab-active:     #4f46e5;
 
-  /* Demo bar */
-  --demo-bg:            #1a1a2e;
-  --demo-btn-bg:        #374151;
-  --demo-btn-active:    #7c3aed;
-
   /* Alert banner */
   --alert-banner-bg:    #fee2e2;
   --alert-banner-border:#fca5a5;
@@ -84,32 +79,6 @@ body {
   color: var(--text-primary);
   min-height: 100vh;
 }
-
-/* ── DEMO BAR ── */
-.demo-bar {
-  background: var(--demo-bg);
-  color: var(--bg-white);
-  padding: 7px 14px;
-  font-size: 11px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  align-items: center;
-}
-.demo-bar span { color: var(--text-faint); }
-.demo-btn {
-  background: var(--demo-btn-bg);
-  color: var(--bg-white);
-  border: none;
-  border-radius: var(--radius-sm);
-  padding: 4px 10px;
-  font-size: 11px;
-  cursor: pointer;
-  transition: background .15s;
-  white-space: nowrap;
-}
-.demo-btn.active-demo { background: var(--demo-btn-active); }
-.demo-btn:hover { background: #4b5563; }
 
 /* ── NAV ── */
 nav {
@@ -446,31 +415,29 @@ nav::-webkit-scrollbar { display: none; }
 }
 .btn-edit-row:hover { background: var(--bg-muted); color: var(--text-secondary); }
 
-/* ── PANEL OVERLAY (Alta / Modificar / Proveedores / Alertas) ── */
-.panel-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.35);
-  z-index: 300;
-  display: none;
-  align-items: flex-start;
-  justify-content: flex-end;
+/* ── FORM PAGE (alta / editar producto, proveedores) ──
+   Reemplaza al antiguo overlay lateral: ahora estas pantallas son páginas
+   reales (con su propia URL), así que la "tarjeta" de formulario se centra
+   en el contenido en vez de flotar sobre el panel anterior. */
+.form-page {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+  padding: 24px 16px;
 }
-.panel-overlay.open { display: flex; }
-
-.side-panel {
-  width: min(420px, 100vw);
-  height: 100%;
+.form-card {
+  width: 100%;
+  max-width: 480px;
+  height: fit-content;
   background: var(--bg-white);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
   display: flex;
   flex-direction: column;
-  box-shadow: -8px 0 32px rgba(0,0,0,.15);
-  animation: panelIn .25s ease;
 }
-@keyframes panelIn {
-  from { transform: translateX(40px); opacity: 0; }
-  to   { transform: translateX(0);    opacity: 1; }
-}
+
 .panel-header {
   padding: 16px 18px;
   border-bottom: 1px solid var(--border);
@@ -574,41 +541,6 @@ nav::-webkit-scrollbar { display: none; }
 }
 .btn-ghost:hover { background: var(--border); }
 
-/* Product card in modify panel */
-.product-card-mini {
-  background: var(--bg-light);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 12px 14px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.product-card-mini .prod-icon {
-  width: 40px; height: 40px;
-  background: var(--color-primary-bg);
-  border-radius: var(--radius-md);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 20px;
-  flex-shrink: 0;
-}
-.product-card-mini .prod-info { flex: 1; min-width: 0; }
-.product-card-mini .prod-name { font-size: 14px; font-weight: 700; color: var(--text-primary); }
-.product-card-mini .prod-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
-
-/* Price comparison */
-.price-compare {
-  background: var(--bg-light);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 12px 14px;
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-.price-compare .val { font-weight: 700; color: var(--text-primary); font-size: 15px; }
-
 /* Margin indicator */
 .margin-bar-wrap { display: flex; flex-direction: column; gap: 5px; }
 .margin-bar-wrap label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
@@ -639,7 +571,6 @@ nav::-webkit-scrollbar { display: none; }
   transition: background .15s;
 }
 .provider-card:hover { background: var(--color-primary-bg); border-color: var(--color-primary-border); }
-.provider-card.selected { background: var(--color-primary-bg); border-color: var(--color-primary-deep); }
 .prov-avatar {
   width: 40px; height: 40px;
   background: var(--color-primary-deep);
@@ -655,20 +586,22 @@ nav::-webkit-scrollbar { display: none; }
 .prov-contact { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 .prov-cats { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 
-/* Category tags (multi-select) */
-.cat-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.cat-tag {
+/* Category tags: checkboxes reales (ProveedorForm.categorias), no un
+   toggle de JS con datos de muestra. */
+.cat-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.cat-tags label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 4px 12px;
   border-radius: var(--radius-full);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  border: 2px solid transparent;
-  transition: all .15s;
   background: var(--bg-muted);
   color: var(--text-muted);
 }
-.cat-tag.selected { border-color: var(--color-primary-deep); background: var(--color-primary-bg); color: var(--color-primary-deep); }
+.cat-tags input[type="checkbox"] { accent-color: var(--color-primary-deep); cursor: pointer; }
 
 /* ── ALERT PANEL ── */
 .alert-list { display: flex; flex-direction: column; gap: 10px; }

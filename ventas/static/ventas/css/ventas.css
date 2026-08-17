@@ -52,14 +52,6 @@
     --nav-border:       #e2e4e9;
     --nav-tab-active:   #4f46e5;
 
-    /* Demo bar */
-    --demo-bg:          #1a1a2e;
-    --demo-btn-bg:      #374151;
-    --demo-btn-active:  #7c3aed;
-
-    /* Toast */
-    --toast-accent:     #16a34a;
-
     /* Misc */
     --radius-sm:  6px;
     --radius-md:  8px;
@@ -77,31 +69,6 @@
     color: var(--text-primary);
     min-height: 100vh;
   }
-
-  /* ── DEMO BAR ── */
-  .demo-bar {
-    background: var(--demo-bg);
-    color: var(--bg-white);
-    padding: 8px 16px;
-    font-size: 12px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
-  }
-  .demo-bar span { color: var(--text-faint); }
-  .demo-btn {
-    background: var(--demo-btn-bg);
-    color: var(--bg-white);
-    border: none;
-    border-radius: var(--radius-sm);
-    padding: 4px 12px;
-    font-size: 12px;
-    cursor: pointer;
-    transition: background .15s;
-  }
-  .demo-btn.active-demo { background: var(--demo-btn-active); }
-  .demo-btn:hover { background: #4b5563; }
 
   /* ── NAV ── */
   nav {
@@ -299,22 +266,6 @@
   .search-box input::placeholder { color: var(--text-faint); }
   .search-icon { color: var(--color-warning); font-size: 15px; flex-shrink: 0; }
 
-  .btn-not-found {
-    background: var(--color-orange);
-    color: var(--bg-white);
-    border: none;
-    border-radius: var(--radius-lg);
-    padding: 0 14px;
-    height: 42px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background .15s;
-    flex-shrink: 0;
-  }
-  .btn-not-found:hover { background: var(--color-orange-dark); }
-
   /* Sale metadata */
   .sale-meta {
     display: flex;
@@ -400,10 +351,6 @@
     padding: 2px 5px;
     font-size: 13px;
   }
-
-  /* New row highlight */
-  .row-new { background: var(--color-success-bg) !important; }
-  .row-new td { color: var(--color-success-text); }
 
   /* Bottom bar */
   .bottom-bar {
@@ -491,59 +438,11 @@
   }
   .btn-select:hover { background: var(--color-success-dark); }
 
-  /* ── TOAST NOTIFICATION ── */
-  .toast {
-    position: fixed;
-    bottom: 20px;
-    right: 16px;
-    background: var(--bg-white);
-    border: 1px solid var(--border);
-    border-left: 4px solid var(--toast-accent);
-    border-radius: var(--radius-xl);
-    padding: 12px 16px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    box-shadow: 0 8px 24px rgba(0,0,0,.12);
-    z-index: 300;
-    cursor: pointer;
-    width: calc(100% - 32px);
-    max-width: 320px;
-    transition: transform .2s, opacity .2s;
-    animation: slideIn .3s ease;
-  }
-  .toast:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(0,0,0,.15); }
-  @keyframes slideIn {
-    from { transform: translateY(20px); opacity: 0; }
-    to   { transform: translateY(0);    opacity: 1; }
-  }
-  .toast-icon { font-size: 24px; flex-shrink: 0; }
-  .toast-body { flex: 1; min-width: 0; }
-  .toast-title { font-size: 13px; font-weight: 700; color: var(--color-success-text); }
-  .toast-sub   { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-  .toast-cta   { font-size: 11px; color: var(--color-primary-deep); font-weight: 600; margin-top: 3px; }
-  .toast-close {
-    background: none; border: none; font-size: 15px;
-    color: var(--text-faint); cursor: pointer; padding: 2px 4px;
-    line-height: 1; flex-shrink: 0;
-  }
-  .toast-close:hover { color: var(--text-secondary); }
-
-  /* ── TICKET DRAWER ── */
-  .ticket-drawer {
-    position: fixed;
-    top: 0; right: 0; bottom: 0;
-    width: min(360px, 100vw);
-    background: var(--bg-white);
-    border-left: 1px solid var(--border);
-    box-shadow: -8px 0 32px rgba(0,0,0,.12);
-    z-index: 400;
-    display: flex;
-    flex-direction: column;
-    transform: translateX(100%);
-    transition: transform .3s ease;
-  }
-  .ticket-drawer.open { transform: translateX(0); }
+  /* ── TICKET (ventas/ticket.html) ──
+     Antes era un "drawer" fijo que se abría sobre un toast con un ticket
+     de ejemplo (folio y montos fijos en el HTML). Ahora es una página real
+     -> ya no hace falta el toast, el posicionamiento fijo ni la animación
+     de apertura; solo se reutilizan las clases de la tarjeta del recibo. */
   .drawer-header {
     background: var(--bg-light);
     border-bottom: 1px solid var(--border);
@@ -608,18 +507,6 @@
     transition: background .15s;
   }
   .btn-download:hover { background: var(--color-success-dark); }
-  .btn-share {
-    background: var(--bg-muted);
-    color: var(--text-secondary);
-    border: none;
-    border-radius: var(--radius-md);
-    padding: 11px 14px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background .15s;
-  }
-  .btn-share:hover { background: var(--border); }
 
   /* ── STATES ── */
   .state { display: none; }
@@ -680,15 +567,10 @@
 
     .cart-table th:nth-child(3),
     .cart-table td:nth-child(3) { display: none; } /* hide unit price col */
-
-    .btn-not-found { font-size: 12px; padding: 0 10px; }
   }
 
   /* Mobile: compact everything */
   @media (max-width: 480px) {
-    .demo-bar { font-size: 11px; padding: 6px 10px; }
-    .demo-btn { padding: 3px 8px; font-size: 11px; }
-
     nav .tab { padding: 12px 10px; font-size: 12px; }
 
     .main { padding: 10px 10px 0; gap: 8px; }
@@ -703,6 +585,4 @@
     .btn-cancel { padding: 8px 12px; font-size: 13px; }
     .btn-cobrar { padding: 8px 20px; font-size: 14px; }
     .total-display { font-size: 14px; }
-
-    .toast { bottom: 12px; right: 10px; width: calc(100% - 20px); }
   }

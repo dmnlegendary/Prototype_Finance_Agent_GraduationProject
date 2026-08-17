@@ -1,0 +1,109 @@
+{% extends "base_app.html" %}
+{% load static %}
+
+{% block title %}Proveedores · Tiendita AI{% endblock %}
+
+{% block app_extra_head %}
+<link rel="stylesheet" href="{% static 'inventario/css/inventario.css' %}">
+{% endblock %}
+
+{% block app_content %}
+
+<div class="layout">
+  <div class="main-content">
+    <div class="state active" style="padding:16px; gap:16px; overflow-y:auto;">
+
+      {% if messages %}
+      <div>
+        {% for message in messages %}
+        <div style="background:var(--color-success-bg);color:var(--color-success-text);border:1px solid var(--color-success);border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:4px;">{{ message }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <h2 style="font-size:16px;">🏭 Proveedores</h2>
+        <a href="{% url 'inventario:panel' %}" class="btn-ghost" style="text-decoration:none;">← Volver al panel</a>
+      </div>
+
+      <div class="catalog-wrap" style="padding:0; flex:none;">
+        <div class="catalog-card" style="padding:14px; gap:10px; display:flex; flex-direction:column;">
+          {% for p in proveedores %}
+          <div class="provider-card" style="cursor:default;">
+            <div class="prov-avatar">{{ p.nombre|first|upper }}</div>
+            <div class="prov-info">
+              <div class="prov-name">{{ p.nombre }}</div>
+              <div class="prov-contact">{{ p.telefono|default:"Sin teléfono" }} · {{ p.correo|default:"Sin correo" }}</div>
+              {% if p.categorias.all %}
+              <div class="prov-cats">
+                {% for cat in p.categorias.all %}
+                <span class="badge-cat cat-{{ cat.nombre|lower }}">{{ cat.icono }} {{ cat.nombre }}</span>
+                {% endfor %}
+              </div>
+              {% endif %}
+            </div>
+            <a href="{% url 'inventario:proveedor_editar' p.pk %}" class="btn-edit-row" style="text-decoration:none;">Editar</a>
+          </div>
+          {% empty %}
+          <p style="color:var(--text-faint); font-size:13px; text-align:center; padding:20px;">Aún no has registrado ningún proveedor. Usa el formulario de abajo para agregar el primero.</p>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="form-card" style="max-width:520px; align-self:center; width:100%;">
+        <div class="panel-header">
+          <h3>{% if proveedor_editando %}✏️ Editar proveedor{% else %}➕ Nuevo proveedor{% endif %}</h3>
+          {% if proveedor_editando %}<a href="{% url 'inventario:proveedores' %}" class="panel-close" style="text-decoration:none;">✕</a>{% endif %}
+        </div>
+
+        <form method="post" class="panel-body" style="gap:14px;">
+          {% csrf_token %}
+
+          {% if form.non_field_errors %}
+          <div style="background:var(--color-danger-bg);color:var(--color-danger-text);border-radius:8px;padding:8px 12px;font-size:13px;">{{ form.non_field_errors }}</div>
+          {% endif %}
+
+          <div class="form-group">
+            {{ form.nombre.label_tag }}
+            {{ form.nombre }}
+            {% if form.nombre.errors %}<span style="color:var(--color-danger);font-size:12px;">{{ form.nombre.errors|join:", " }}</span>{% endif %}
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              {{ form.telefono.label_tag }}
+              {{ form.telefono }}
+            </div>
+            <div class="form-group">
+              {{ form.correo.label_tag }}
+              {{ form.correo }}
+              {% if form.correo.errors %}<span style="color:var(--color-danger);font-size:12px;">{{ form.correo.errors|join:", " }}</span>{% endif %}
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Categorías que surte</label>
+            <div class="cat-tags">
+              {% for checkbox in form.categorias %}
+              <label for="{{ checkbox.id_for_label }}">{{ checkbox.tag }} {{ checkbox.choice_label }}</label>
+              {% empty %}
+              <span style="font-size:12px; color:var(--text-faint);">Aún no hay categorías registradas en el sistema.</span>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="panel-footer" style="padding:0; border-top:none;">
+            <button type="submit" class="btn-success">{% if proveedor_editando %}Guardar cambios{% else %}Agregar proveedor{% endif %}</button>
+          </div>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'inventario/js/inventario.js' %}"></script>
+{% endblock %}

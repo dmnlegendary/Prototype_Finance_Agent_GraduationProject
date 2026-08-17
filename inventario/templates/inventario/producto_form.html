@@ -1,0 +1,115 @@
+{% extends "base_app.html" %}
+{% load static %}
+
+{% block title %}{% if modo == "editar" %}Editar producto{% else %}Alta de producto{% endif %} · Tiendita AI{% endblock %}
+
+{% block app_extra_head %}
+<link rel="stylesheet" href="{% static 'inventario/css/inventario.css' %}">
+{% endblock %}
+
+{% block app_content %}
+
+<div class="layout">
+  <div class="main-content">
+    <div class="state active">
+      <div class="form-page">
+        <div class="form-card">
+
+          <div class="panel-header">
+            <h3>{% if modo == "editar" %}✏️ Editar producto{% else %}📦 Alta de producto{% endif %}</h3>
+            <a href="{% url 'inventario:panel' %}" class="panel-close" style="text-decoration:none;">✕</a>
+          </div>
+
+          {% if messages %}
+          <div style="padding:14px 18px 0;">
+            {% for message in messages %}
+            <div style="background:var(--color-danger-bg);color:var(--color-danger-text);border:1px solid var(--color-danger);border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:8px;">{{ message }}</div>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          <form method="post" class="panel-body" style="gap:14px;">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div style="background:var(--color-danger-bg);color:var(--color-danger-text);border-radius:8px;padding:8px 12px;font-size:13px;">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            <div class="form-group">
+              {{ form.nombre.label_tag }}
+              {{ form.nombre }}
+              {% if form.nombre.errors %}<span style="color:var(--color-danger);font-size:12px;">{{ form.nombre.errors|join:", " }}</span>{% endif %}
+            </div>
+
+            <div class="form-group">
+              {{ form.descripcion.label_tag }}
+              {{ form.descripcion }}
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                {{ form.icono.label_tag }}
+                {{ form.icono }}
+              </div>
+              <div class="form-group">
+                {{ form.categoria.label_tag }}
+                {{ form.categoria }}
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="{{ form.costo.id_for_label }}">Costo ($)</label>
+                {{ form.costo }}
+                {% if form.costo.errors %}<span style="color:var(--color-danger);font-size:12px;">{{ form.costo.errors|join:", " }}</span>{% endif %}
+              </div>
+              <div class="form-group">
+                <label for="{{ form.precio_venta.id_for_label }}">Precio de venta ($)</label>
+                {{ form.precio_venta }}
+                {% if form.precio_venta.errors %}<span style="color:var(--color-danger);font-size:12px;">{{ form.precio_venta.errors|join:", " }}</span>{% endif %}
+              </div>
+            </div>
+
+            {% comment %} Margen calculado en vivo por inventario.js (calcMargen), a partir
+               de los inputs #id_costo / #id_precio_venta. El valor inicial que se ve
+               aquí abajo viene del servidor (producto.margen_porcentaje) para que, al
+               editar un producto existente, no arranque en 0% antes de tocar el
+               teclado. {% endcomment %}
+            <div class="margin-bar-wrap">
+              <label>Margen estimado: <span class="margin-label" id="margenLabel">{{ producto.margen_porcentaje|default:"0" }}%</span></label>
+              <div class="margin-bar"><div class="margin-fill" id="margenFill" style="width: {{ producto.margen_porcentaje|default:"0" }}%;"></div></div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                {{ form.cantidad_actual.label_tag }}
+                {{ form.cantidad_actual }}
+              </div>
+              <div class="form-group">
+                {{ form.cantidad_minima.label_tag }}
+                {{ form.cantidad_minima }}
+              </div>
+            </div>
+
+            <div class="form-group">
+              {{ form.proveedor.label_tag }}
+              {{ form.proveedor }}
+            </div>
+
+            <div class="panel-footer" style="padding:0; border-top:none;">
+              <button type="submit" class="btn-success">{% if modo == "editar" %}Guardar cambios{% else %}Dar de alta{% endif %}</button>
+              <a href="{% url 'inventario:panel' %}" class="btn-ghost" style="text-decoration:none; text-align:center; display:flex; align-items:center; justify-content:center;">Cancelar</a>
+            </div>
+          </form>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'inventario/js/inventario.js' %}"></script>
+{% endblock %}

@@ -1,31 +1,21 @@
-function showState(n, btn) {
-    document.querySelectorAll('.state').forEach(s => s.classList.remove('active'));
-    document.getElementById('state' + n).classList.add('active');
-    document.querySelectorAll('.demo-btn').forEach(b => b.classList.remove('active-demo'));
-    btn.classList.add('active-demo');
+/*
+ * JS de `ventas`.
+ *
+ * El carrito, la búsqueda, el cobro y el ticket ahora son páginas y
+ * formularios reales de Django (ver ventas/views.py) — ya no hay
+ * "estados" de demostración que este archivo tuviera que mostrar/ocultar,
+ * ni un toast/drawer con un ticket de ejemplo fijo.
+ *
+ * Lo único que sigue siendo interacción del lado del cliente es abrir y
+ * cerrar el panel del AVI (todavía sin conectar a un LLM real).
+ */
 
-    document.getElementById('userMsg').style.display    = n >= 3 ? 'flex' : 'none';
-    document.getElementById('botConfirm').style.display = n >= 3 ? 'flex' : 'none';
-    document.getElementById('ticketMsg').style.display  = n === 4 ? 'flex' : 'none';
+function openAvi() {
+  document.getElementById('aviPanel').classList.add('open');
+  document.getElementById('aviOverlay').classList.add('open');
+}
 
-    const toast = document.getElementById('ticketToast');
-    if (n === 4) {
-      toast.style.display = 'flex';
-    } else {
-      toast.style.display = 'none';
-      closeDrawer();
-    }
-  }
-
-  function openDrawer()  { document.getElementById('ticketDrawer').classList.add('open'); }
-  function closeDrawer() { document.getElementById('ticketDrawer').classList.remove('open'); }
-  function closeToast()  { document.getElementById('ticketToast').style.display = 'none'; }
-
-  function openAvi() {
-    document.getElementById('aviPanel').classList.add('open');
-    document.getElementById('aviOverlay').classList.add('open');
-  }
-  function closeAvi() {
-    document.getElementById('aviPanel').classList.remove('open');
-    document.getElementById('aviOverlay').classList.remove('open');
-  }
+function closeAvi() {
+  document.getElementById('aviPanel').classList.remove('open');
+  document.getElementById('aviOverlay').classList.remove('open');
+}

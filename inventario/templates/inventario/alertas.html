@@ -1,0 +1,77 @@
+{% extends "base_app.html" %}
+{% load static %}
+
+{% block title %}Alertas de inventario · Tiendita AI{% endblock %}
+
+{% block app_extra_head %}
+<link rel="stylesheet" href="{% static 'inventario/css/inventario.css' %}">
+{% endblock %}
+
+{% block app_content %}
+
+<div class="layout">
+  <div class="main-content">
+    <div class="state active" style="padding:16px; gap:12px; overflow-y:auto;">
+
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <h2 style="font-size:16px;">🚨 Alertas de inventario</h2>
+        <a href="{% url 'inventario:panel' %}" class="btn-ghost" style="text-decoration:none;">← Volver al panel</a>
+      </div>
+
+      <div class="catalog-wrap" style="padding:0; flex:none;">
+        <div class="catalog-card" style="padding:14px;">
+          <div class="alert-list">
+
+            {% if criticos %}
+            <div class="alert-section-title">Stock crítico (a la mínima o por debajo)</div>
+            {% for p in criticos %}
+            <div class="alert-item critical">
+              <div class="alert-icon">{{ p.icono }}</div>
+              <div class="alert-body">
+                <div class="alert-title">{{ p.nombre }}</div>
+                <div class="alert-desc">
+                  Quedan {{ p.cantidad_actual }} pzas (mínimo configurado: {{ p.cantidad_minima }}).
+                  {% if p.proveedor %}Proveedor: {{ p.proveedor.nombre }}.{% endif %}
+                </div>
+                <div class="alert-meta">Categoría: {{ p.categoria.nombre|default:"Sin categoría" }}</div>
+              </div>
+              <span class="alert-priority priority-alta">Alta</span>
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            {% if advertencia %}
+            <div class="alert-section-title">Por agotarse pronto</div>
+            {% for p in advertencia %}
+            <div class="alert-item warning">
+              <div class="alert-icon">{{ p.icono }}</div>
+              <div class="alert-body">
+                <div class="alert-title">{{ p.nombre }}</div>
+                <div class="alert-desc">
+                  Quedan {{ p.cantidad_actual }} pzas (mínimo configurado: {{ p.cantidad_minima }}).
+                  {% if p.proveedor %}Proveedor: {{ p.proveedor.nombre }}.{% endif %}
+                </div>
+                <div class="alert-meta">Categoría: {{ p.categoria.nombre|default:"Sin categoría" }}</div>
+              </div>
+              <span class="alert-priority priority-media">Media</span>
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            {% if not criticos and not advertencia %}
+            <p style="color:var(--text-faint); font-size:13px; text-align:center; padding:24px;">✅ No hay alertas de inventario por ahora.</p>
+            {% endif %}
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'inventario/js/inventario.js' %}"></script>
+{% endblock %}

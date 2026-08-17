@@ -1,0 +1,16 @@
+# Dependencias mínimas de esta etapa del proyecto (POS + Inventario +
+# placeholder de Finanzas/AVI). A propósito NO incluye todavía nada de
+# IA/LLM ni de Machine Learning: eso se agrega en la fase del AVI /
+# motor predictivo (ver checklist de roadmap en ARQUITECTURA.md).
+
+Django>=5.0,<6.0
+
+# ── Fase de despliegue (opcional, comentado hasta que migren de SQLite) ──
+# dj-database-url>=2.1        # para leer DATABASE_URL en config/settings.py
+# psycopg2-binary>=2.9        # driver de PostgreSQL
+# mssql-django>=1.4           # driver de Azure SQL (alternativa a psycopg2)
+# whitenoise>=6.6              # servir estáticos en producción sin Nginx/Azure Storage
+
+# ── Fase del AVI / motor predictivo (NO instalar todavía) ──
+# openai>=1.0                  # o google-generativeai, según el LLM elegido
+# scikit-learn>=1.4

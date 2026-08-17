@@ -1,0 +1,146 @@
+{% extends "base_auth.html" %}
+{% load static %}
+
+{% block title %}Productos Precargados · Tiendita AI{% endblock %}
+{% block body_attrs %} class="min-h-screen flex items-center justify-center p-4"{% endblock %}
+
+{% block content %}
+    <div class="w-full max-w-lg">
+
+        <!-- Logo -->
+        <div class="text-center mb-6">
+            <h1 class="text-2xl font-black text-gray-800">Tiendita <span class="text-indigo-600">AI</span></h1>
+            <p class="text-gray-500 text-xs mt-1">Paso 3 de 3</p>
+        </div>
+
+        <!-- Stepper -->
+        <div class="flex items-center justify-center mb-6 gap-2">
+            <div class="flex flex-col items-center">
+                <div class="w-8 h-8 rounded-full step-done flex items-center justify-center text-sm font-bold"><i class="fas fa-check text-xs"></i></div>
+                <span class="text-xs mt-1 text-green-600 font-semibold">Cuenta</span>
+            </div>
+            <div class="flex-1 h-0.5 bg-green-300 mb-4"></div>
+            <div class="flex flex-col items-center">
+                <div class="w-8 h-8 rounded-full step-done flex items-center justify-center text-sm font-bold"><i class="fas fa-check text-xs"></i></div>
+                <span class="text-xs mt-1 text-green-600 font-semibold">Negocio</span>
+            </div>
+            <div class="flex-1 h-0.5 bg-green-300 mb-4"></div>
+            <div class="flex flex-col items-center">
+                <div class="w-8 h-8 rounded-full step-active flex items-center justify-center text-sm font-bold">3</div>
+                <span class="text-xs mt-1 text-indigo-600 font-semibold">Productos</span>
+            </div>
+        </div>
+
+        <!-- Card -->
+        <div class="bg-white rounded-2xl card p-6">
+            <h2 class="text-lg font-bold text-gray-800 mb-1">Selecciona tus productos</h2>
+            <p class="text-sm text-gray-500 mb-4">Elige los que vendes en tu tienda. Puedes agregar más después.</p>
+
+            <form method="post">
+                {% csrf_token %}
+
+                <!-- Search -->
+                {# TODO: buscador puramente visual por ahora; falta JS/Fetch para
+                   filtrar `productos_catalogo` sin recargar la página. #}
+                <div class="relative mb-4">
+                    <i class="fas fa-search absolute left-3 top-3 text-gray-400 text-sm"></i>
+                    <input type="text" placeholder="Buscar producto..."
+                        class="search-bar w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none bg-gray-50 transition">
+                </div>
+
+                <!-- Categorías -->
+                {# TODO: filtro por categoría puramente visual por ahora (sin onclick
+                   en el mockup original tampoco); conectar a `?categoria=` o a JS. #}
+                <div class="flex gap-2 overflow-x-auto pb-2 mb-4 text-xs font-semibold">
+                    <button type="button" class="px-3 py-1.5 rounded-full bg-indigo-600 text-white whitespace-nowrap">Todos</button>
+                    {% for categoria in categorias %}
+                    <button type="button" class="px-3 py-1.5 rounded-full bg-gray-100 text-gray-600 whitespace-nowrap">{{ categoria.icono }} {{ categoria.nombre }}</button>
+                    {% endfor %}
+                </div>
+
+                <!-- Contador seleccionados -->
+                <div class="flex items-center justify-between mb-3">
+                    <p class="text-xs text-gray-500">Mostrando <strong>{{ productos_catalogo|length }}</strong> productos</p>
+                    <span class="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded-full" id="contador-seleccionados">0 seleccionados</span>
+                </div>
+
+                <!-- Grid de productos -->
+                {# TODO: reemplazar por datos reales del ORM. La vista
+                   `accounts:productos_precargados` pasa
+                   `productos_catalogo = ProductoCatalogo.objects.select_related("categoria")`.
+                   Aún no existe una base de artículos real, así que hoy esta lista
+                   llegará vacía hasta que se cargue un catálogo (admin de Django o fixture). #}
+                <div class="grid grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
+                    {% for item in productos_catalogo %}
+                    <label class="product-card border-2 border-gray-100 rounded-xl p-3 flex items-center gap-3">
+                        <input type="checkbox" name="productos_catalogo" value="{{ item.id }}" class="hidden-checkbox" style="display:none;">
+                        <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-lg flex-shrink-0">{{ item.icono }}</div>
+                        <div class="min-w-0">
+                            <p class="text-xs font-bold text-gray-800 truncate">{{ item.nombre }}</p>
+                            <p class="text-xs text-gray-400">{{ item.categoria.nombre|default:"Sin categoría" }}</p>
+                            <p class="text-xs font-semibold text-indigo-600">${{ item.precio_sugerido }}</p>
+                        </div>
+                        <i class="far fa-circle check-icon text-gray-300 ml-auto flex-shrink-0"></i>
+                    </label>
+                    {% empty %}
+                    <div class="col-span-2 text-center text-xs text-gray-400 py-8">
+                        Todavía no hay un catálogo precargado. Puedes continuar y dar de alta tus
+                        productos manualmente desde el Auxiliar de Inventario.
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Agregar producto personalizado -->
+                {# TODO: por ahora reutiliza el flujo de alta manual del módulo de
+                   inventario (se habilita hasta terminar el onboarding). #}
+                <button type="button" class="w-full mt-4 py-2.5 border-2 border-dashed border-indigo-300 rounded-xl text-sm text-indigo-600 font-semibold hover:bg-indigo-50 transition">
+                    <i class="fas fa-plus mr-2"></i> Agregar producto personalizado
+                </button>
+
+                <button type="submit" class="btn-primary w-full text-white font-bold py-3 rounded-xl text-sm mt-4 transition">
+                    Finalizar configuración <i class="fas fa-check ml-2"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+{% endblock %}
+
+{% block auth_extra_head %}
+<style>
+    /* Micro-interacción NUEVA (no estaba en el HTML original, que no tenía
+       <script>): permite marcar/desmarcar tarjetas con clic, reutilizando
+       las clases .product-card.selected y el ícono fa-check-circle que
+       YA definía el mockup para el estado "seleccionado". */
+    .product-card:has(input:checked) { border-color: #4f46e5; background: #eef2ff; }
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Micro-interacción NUEVA: alterna el ícono de check y actualiza el contador.
+    // (El mockup original no traía JS en esta pantalla; se agrega lo mínimo
+    // para que la selección sea usable antes de tener el AVI/JS definitivo.)
+    document.addEventListener("DOMContentLoaded", function () {
+        const checkboxes = document.querySelectorAll('input[name="productos_catalogo"]');
+        const contador = document.getElementById("contador-seleccionados");
+
+        function actualizar() {
+            let n = 0;
+            checkboxes.forEach(function (cb) {
+                const icon = cb.closest("label").querySelector(".check-icon");
+                if (cb.checked) {
+                    icon.classList.remove("fa-circle", "far");
+                    icon.classList.add("fa-check-circle", "fas", "text-indigo-500");
+                    n++;
+                } else {
+                    icon.classList.remove("fa-check-circle", "fas", "text-indigo-500");
+                    icon.classList.add("fa-circle", "far", "text-gray-300");
+                }
+            });
+            contador.textContent = n + " seleccionados";
+        }
+        checkboxes.forEach(function (cb) { cb.addEventListener("change", actualizar); });
+        actualizar();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,106 @@
+{% extends "base_auth.html" %}
+{% load static %}
+
+{% block title %}Registro de Cuenta · Tiendita AI{% endblock %}
+{% block body_attrs %} class="min-h-screen flex items-center justify-center p-6"{% endblock %}
+
+{% block content %}
+    <div class="w-full max-w-md">
+
+        <!-- Logo / Header -->
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl btn-primary mb-3">
+                <i class="fas fa-store text-white text-2xl"></i>
+            </div>
+            <h1 class="text-2xl font-black text-gray-800">Tiendita <span class="text-indigo-600">AI</span></h1>
+            <p class="text-gray-500 text-sm mt-1">Tu asistente inteligente para tu negocio</p>
+        </div>
+
+        <!-- Stepper -->
+        <div class="flex items-center justify-center mb-8 gap-2">
+            <div class="flex flex-col items-center">
+                <div class="w-8 h-8 rounded-full step-active flex items-center justify-center text-sm font-bold">1</div>
+                <span class="text-xs mt-1 text-indigo-600 font-semibold">Cuenta</span>
+            </div>
+            <div class="flex-1 h-0.5 bg-gray-200 mb-4"></div>
+            <div class="flex flex-col items-center">
+                <div class="w-8 h-8 rounded-full step-inactive flex items-center justify-center text-sm font-bold">2</div>
+                <span class="text-xs mt-1 text-gray-400">Negocio</span>
+            </div>
+            <div class="flex-1 h-0.5 bg-gray-200 mb-4"></div>
+            <div class="flex flex-col items-center">
+                <div class="w-8 h-8 rounded-full step-inactive flex items-center justify-center text-sm font-bold">3</div>
+                <span class="text-xs mt-1 text-gray-400">Productos</span>
+            </div>
+        </div>
+
+        <!-- Card -->
+        <div class="bg-white rounded-2xl card p-8">
+            <h2 class="text-lg font-bold text-gray-800 mb-1">Crea tu cuenta</h2>
+            <p class="text-sm text-gray-500 mb-6">Ingresa tus datos para comenzar</p>
+
+            {% if form.non_field_errors %}
+            <div class="mb-4 text-xs text-red-600">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            <form method="post" novalidate>
+                {% csrf_token %}
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Nombre completo</label>
+                        <div class="relative">
+                            <i class="fas fa-user absolute left-3 top-3 text-gray-400 text-sm"></i>
+                            {{ form.nombre_completo }}
+                        </div>
+                        {% if form.nombre_completo.errors %}<p class="text-xs text-red-600 mt-1">{{ form.nombre_completo.errors|join:", " }}</p>{% endif %}
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Teléfono celular</label>
+                        <div class="relative">
+                            <i class="fas fa-mobile-alt absolute left-3 top-3 text-gray-400 text-sm"></i>
+                            {{ form.telefono }}
+                        </div>
+                        {% if form.telefono.errors %}<p class="text-xs text-red-600 mt-1">{{ form.telefono.errors|join:", " }}</p>{% endif %}
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Correo electrónico <span class="text-gray-400 font-normal">(opcional)</span></label>
+                        <div class="relative">
+                            <i class="fas fa-envelope absolute left-3 top-3 text-gray-400 text-sm"></i>
+                            {{ form.email }}
+                        </div>
+                        {% if form.email.errors %}<p class="text-xs text-red-600 mt-1">{{ form.email.errors|join:", " }}</p>{% endif %}
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Contraseña</label>
+                        <div class="relative">
+                            <i class="fas fa-lock absolute left-3 top-3 text-gray-400 text-sm"></i>
+                            {{ form.password }}
+                            {# TODO: el ícono de "ojo" era decorativo en el mockup; falta el JS
+                               para alternar type="text"/"password" al hacer clic. #}
+                            <i class="fas fa-eye absolute right-3 top-3 text-gray-400 text-sm cursor-pointer"></i>
+                        </div>
+                        {% if form.password.errors %}<p class="text-xs text-red-600 mt-1">{{ form.password.errors|join:", " }}</p>{% endif %}
+                    </div>
+
+                    <div class="flex items-start gap-2 pt-1">
+                        {# TODO: este checkbox de Términos y condiciones es solo de UI por
+                           ahora (no está atado a ningún campo del modelo). Si se necesita
+                           auditar el consentimiento, agregar un campo `acepto_terminos`
+                           a Usuario o a un modelo de auditoría aparte. #}
+                        <input type="checkbox" required class="mt-0.5 accent-indigo-600">
+                        <p class="text-xs text-gray-500">Acepto los <span class="text-indigo-600 font-semibold cursor-pointer">Términos y condiciones</span> y el <span class="text-indigo-600 font-semibold cursor-pointer">Aviso de privacidad</span></p>
+                    </div>
+
+                    <button type="submit" class="btn-primary w-full text-white font-bold py-3 rounded-xl text-sm mt-2 transition">
+                        Continuar <i class="fas fa-arrow-right ml-2"></i>
+                    </button>
+                </div>
+            </form>
+
+            <p class="text-center text-xs text-gray-400 mt-6">¿Ya tienes cuenta? <a href="{% url 'accounts:login' %}" class="text-indigo-600 font-semibold cursor-pointer">Inicia sesión</a></p>
+        </div>
+    </div>
+{% endblock %}

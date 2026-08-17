@@ -1,0 +1,331 @@
+{% extends "base_app.html" %}
+{% load static %}
+
+{% block title %}Punto de Venta · Tiendita AI{% endblock %}
+
+{% block app_extra_head %}
+<link rel="stylesheet" href="{% static 'ventas/css/ventas.css' %}">
+{% endblock %}
+
+{% block app_content %}
+
+
+<!-- Demo switcher -->
+<div class="demo-bar">
+  <span>Vista:</span>
+  <button class="demo-btn active-demo" onclick="showState(1, this)">1 · Carrito</button>
+  <button class="demo-btn" onclick="showState(2, this)">2 · Búsqueda</button>
+  <button class="demo-btn" onclick="showState(3, this)">3 · AVI agrega</button>
+  <button class="demo-btn" onclick="showState(4, this)">4 · Ticket</button>
+</div>
+
+{# ============================================================
+   TODO (siguiente iteración, no bloquea esta entrega):
+   Igual que en inventario, esta pantalla trae 4 "estados" ya renderizados
+   que ventas.js muestra/oculta con showState(). Sirve para validar el
+   diseño, pero el carrito real deberá construirse con UNA sola vista que
+   reciba altas/bajas de producto vía Fetch API (JSON) y renderice el
+   carrito desde `request.session['carrito']` o un modelo Venta en curso,
+   en vez de tener 4 copias fijas del carrito en el HTML.
+   ============================================================ #}
+
+{# La barra de navegación ahora vive en templates/partials/navbar.html, incluida por base_app.html #}
+
+<!-- AVI overlay (mobile) -->
+<div class="avi-overlay" id="aviOverlay" onclick="closeAvi()"></div>
+
+<!-- FAB AVI (mobile) -->
+<button class="fab-avi" onclick="openAvi()" title="Abrir AVI">🤖</button>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- AVI PANEL -->
+  {# TODO: panel del AVI con mensajes de ejemplo fijos (ids userMsg/
+     botConfirm/ticketMsg). Cuando exista la app `avi`, sustituir por
+     integración real (Fetch API a una vista de avi que interprete el
+     texto y devuelva qué agregar al carrito). #}
+  <div class="avi-panel" id="aviPanel">
+    <div class="avi-title">
+      🤖 Asistente Virtual
+      <button class="avi-toggle-btn" onclick="closeAvi()">✕</button>
+    </div>
+    <div class="avi-chat" id="aviChat">
+      <div class="bubble bot">¡Hola! Puedo agregar productos por texto. Intenta: <em>"agrega 2 pepsis"</em></div>
+      <div class="bubble user" id="userMsg" style="display:none">agrega 2 pepsis y 1kg de jitomate</div>
+      <div class="bubble bot" id="botConfirm" style="display:none">✅ Listo, agregué 2 Pepsi 600ml y 1 kg de Jitomate al carrito.</div>
+      <div class="bubble bot" id="ticketMsg" style="display:none">✅ Cobro registrado. Ticket #0028 creado.</div>
+    </div>
+    <div class="chips">
+      <span class="chip">¿Algo más?</span>
+      <span class="chip">¿Cuánto he vendido en total el día de hoy?</span>
+      <span class="chip">¿Cuáles son mis productos más vendidos?</span>
+    </div>
+    <div class="avi-input">
+      <input type="text" placeholder="Ej: 2 coca cola 600…" />
+      <button>Enviar</button>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div style="flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0;">
+
+    <!-- STATE 1: Base cart -->
+    <div class="state active main" id="state1">
+      <div class="search-row">
+        <div class="search-wrapper">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" placeholder="Buscar producto…" />
+          </div>
+        </div>
+        <button class="btn-not-found">+ No encontrado</button>
+      </div>
+      <div class="sale-meta">
+        <span><strong>Folio:</strong> #0028</span>
+        <span><strong>Fecha:</strong> 05/05/2026</span>
+        <span><strong>Hora:</strong> 14:32</span>
+      </div>
+      <div class="cart-card">
+        <div class="cart-scroll">
+          <table class="cart-table">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Cantidad</th>
+                <th class="right">Precio</th>
+                <th class="right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {# TODO: reemplazar por datos reales del ORM.
+                 La vista `ventas:punto_de_venta` (ventas/views.py) arma
+                 `carrito_items` (lista de dicts producto/cantidad/precio/
+                 subtotal) a partir de la venta en curso; este for consume
+                 esos datos reales en vez de las 2 filas fijas del mockup. #}
+              {% for item in carrito_items %}
+              <tr>
+                <td>{{ item.producto.nombre }}</td>
+                <td><div class="qty"><button>&minus;</button><span>{{ item.cantidad }}</span><button>+</button></div></td>
+                <td class="right">${{ item.precio_unitario }}</td>
+                <td class="right">${{ item.subtotal }}</td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="4" style="text-align:center;color:var(--text-faint);padding:24px;">
+                  🛒 Carrito vacío. Busca o escanea un producto para comenzar.
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="bottom-bar">
+        <button class="btn-cancel">Cancelar venta</button>
+        <div class="bottom-spacer"></div>
+        <div class="total-display">Total: $60.00</div>
+        <button class="btn-cobrar">Cobrar</button>
+      </div>
+    </div>
+
+    <!-- STATE 2: Search dropdown -->
+    <div class="state main" id="state2">
+      <div class="search-row">
+        <div class="search-wrapper">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" value="cremalala" />
+          </div>
+          <div class="search-dropdown">
+            <div class="dropdown-item">
+              <span>Crema lala 1/4 lt</span>
+              <button class="btn-select">Seleccionar</button>
+            </div>
+            <div class="dropdown-item">
+              <span>Crema alpura 1lt</span>
+              <button class="btn-select">Seleccionar</button>
+            </div>
+          </div>
+        </div>
+        <button class="btn-not-found">+ No encontrado</button>
+      </div>
+      <div class="sale-meta">
+        <span><strong>Folio:</strong> #0028</span>
+        <span><strong>Fecha:</strong> 05/05/2026</span>
+        <span><strong>Hora:</strong> 14:32</span>
+      </div>
+      <div class="cart-card">
+        <div class="cart-scroll">
+          <table class="cart-table">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Cantidad</th>
+                <th class="right">Precio</th>
+                <th class="right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Coca cola 600ml</td>
+                <td><div class="qty"><button>−</button><span>2</span><button>+</button></div></td>
+                <td class="right">$25.00</td>
+                <td class="right">$50.00</td>
+              </tr>
+              <tr>
+                <td>Galletas animalitos 200gr</td>
+                <td><div class="qty"><button>−</button><span>1</span><button>+</button></div></td>
+                <td class="right">$10.00</td>
+                <td class="right">$10.00</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="bottom-bar">
+        <button class="btn-cancel">Cancelar venta</button>
+        <div class="bottom-spacer"></div>
+        <div class="total-display">Total: $60.00</div>
+        <button class="btn-cobrar">Cobrar</button>
+      </div>
+    </div>
+
+    <!-- STATE 3: AVI adds items -->
+    <div class="state main" id="state3">
+      <div class="search-row">
+        <div class="search-wrapper">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" placeholder="Buscar producto…" />
+          </div>
+        </div>
+        <button class="btn-not-found">+ No encontrado</button>
+      </div>
+      <div class="sale-meta">
+        <span><strong>Folio:</strong> #0028</span>
+        <span><strong>Fecha:</strong> 05/05/2026</span>
+        <span><strong>Hora:</strong> 14:32</span>
+      </div>
+      <div class="cart-card">
+        <div class="cart-scroll">
+          <table class="cart-table">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Cantidad</th>
+                <th class="right">Precio</th>
+                <th class="right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Coca cola 600ml</td>
+                <td><div class="qty"><button>−</button><span>2</span><button>+</button></div></td>
+                <td class="right">$25.00</td>
+                <td class="right">$50.00</td>
+              </tr>
+              <tr>
+                <td>Galletas animalitos 200gr</td>
+                <td><div class="qty"><button>−</button><span>1</span><button>+</button></div></td>
+                <td class="right">$10.00</td>
+                <td class="right">$10.00</td>
+              </tr>
+              <tr class="row-new">
+                <td>🆕 Pepsi 600ml</td>
+                <td><div class="qty"><button>−</button><span>2</span><button>+</button></div></td>
+                <td class="right">$23.00</td>
+                <td class="right">$46.00</td>
+              </tr>
+              <tr class="row-new">
+                <td>🆕 Jitomate (a granel)</td>
+                <td><div class="qty"><button>−</button><span>1 kg</span><button>+</button></div></td>
+                <td class="right">$28.00</td>
+                <td class="right">$28.00</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="bottom-bar">
+        <button class="btn-cancel">Cancelar venta</button>
+        <div class="bottom-spacer"></div>
+        <div class="total-display">Total: $134.00</div>
+        <button class="btn-cobrar">Cobrar</button>
+      </div>
+    </div>
+
+    <!-- STATE 4: Ticket created (empty cart) -->
+    <div class="state main" id="state4">
+      <div class="search-row">
+        <div class="search-wrapper">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" placeholder="Buscar producto…" />
+          </div>
+        </div>
+        <button class="btn-not-found">+ No encontrado</button>
+      </div>
+      <div class="sale-meta">
+        <span><strong>Folio:</strong> #0029</span>
+        <span><strong>Fecha:</strong> 05/05/2026</span>
+        <span><strong>Hora:</strong> 14:38</span>
+      </div>
+      <div class="cart-card" style="align-items:center; justify-content:center; color:var(--text-faint); font-size:14px; gap:8px; padding:24px;">
+        <div style="font-size:40px; margin-bottom:8px;">🛒</div>
+        <div style="font-weight:600; color:var(--text-muted);">Carrito vacío</div>
+        <div style="font-size:13px;">Busca o escanea un producto para comenzar</div>
+      </div>
+      <div class="bottom-bar">
+        <button class="btn-cancel" style="opacity:.4; cursor:not-allowed;">Cancelar venta</button>
+        <div class="bottom-spacer"></div>
+        <div class="total-display">Total: $0.00</div>
+        <button class="btn-cobrar" style="opacity:.4; cursor:not-allowed;">Cobrar</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- TOAST NOTIFICATION -->
+<div class="toast" id="ticketToast" style="display:none" onclick="openDrawer()">
+  <div class="toast-icon">🧾</div>
+  <div class="toast-body">
+    <div class="toast-title">¡Venta registrada!</div>
+    <div class="toast-sub">Folio #0028 · $134.00 · 14:37</div>
+    <div class="toast-cta">Toca para ver el ticket →</div>
+  </div>
+  <button class="toast-close" onclick="event.stopPropagation(); closeToast()">✕</button>
+</div>
+
+<!-- TICKET DRAWER -->
+<div class="ticket-drawer" id="ticketDrawer">
+  <div class="drawer-header">
+    <h3>🧾 Ticket digital</h3>
+    <button class="drawer-close" onclick="closeDrawer()">✕</button>
+  </div>
+  <div class="drawer-body">
+    <div class="ticket-receipt">
+      <div class="receipt-title">
+        Tienda "La Esperanza"<br/>
+        <span style="font-weight:400;font-size:12px;color:var(--text-muted)">05/05/2026 · 14:37 · Folio #0028</span>
+      </div>
+      <div class="receipt-row"><span>Coca cola 600ml x2</span><span>$50.00</span></div>
+      <div class="receipt-row"><span>Galletas animalitos 200gr x1</span><span>$10.00</span></div>
+      <div class="receipt-row"><span>Pepsi 600ml x2</span><span>$46.00</span></div>
+      <div class="receipt-row"><span>Jitomate a granel 1kg</span><span>$28.00</span></div>
+      <div class="receipt-total"><span>Total</span><span>$134.00</span></div>
+    </div>
+  </div>
+  <div class="drawer-footer">
+    <button class="btn-share">📤 Compartir</button>
+    <button class="btn-download">⬇ Descargar PDF</button>
+  </div>
+</div>
+
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'ventas/js/ventas.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base_app.html" %}
+{% load static %}
+
+{% block title %}Agente Financiero · Tiendita AI{% endblock %}
+
+{% block app_extra_head %}
+{# Se reutiliza la hoja de estilos de `ventas` solo para heredar los
+   estilos de <nav> (design tokens compartidos), ya que finanzas todavía
+   no tiene una pantalla maquetada propia. Cuando exista un diseño real
+   para esta app, reemplazar por static/finanzas/css/finanzas.css. #}
+<link rel="stylesheet" href="{% static 'ventas/css/ventas.css' %}">
+<style>
+    .finanzas-placeholder {
+        max-width: 560px;
+        margin: 64px auto;
+        text-align: center;
+        padding: 32px;
+        color: var(--text-secondary, #374151);
+    }
+    .finanzas-placeholder h1 { font-size: 20px; margin-bottom: 8px; }
+    .finanzas-placeholder p { font-size: 14px; color: var(--text-muted, #6b7280); }
+</style>
+{% endblock %}
+
+{% block app_content %}
+<div class="finanzas-placeholder">
+    <div style="font-size:40px;margin-bottom:12px;">⚖️🧮</div>
+    <h1>Agente Financiero</h1>
+    <p>
+        Este módulo todavía no está implementado en esta etapa del proyecto.
+        Los modelos de <strong>Gastos Operativos</strong> ya existen
+        (<code>finanzas.GastoOperativo</code>), listos para poblarse. El
+        cálculo de <strong>punto de equilibrio</strong>, los
+        <strong>reportes financieros</strong> y, más adelante, el
+        <strong>motor predictivo</strong> se construirán en una siguiente
+        iteración (ver hoja de ruta).
+    </p>
+</div>
+{% endblock %}

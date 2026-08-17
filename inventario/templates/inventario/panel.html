@@ -1,0 +1,554 @@
+{% extends "base_app.html" %}
+{% load static %}
+
+{% block title %}Auxiliar de Inventario · Tiendita AI{% endblock %}
+
+{% block app_extra_head %}
+<link rel="stylesheet" href="{% static 'inventario/css/inventario.css' %}">
+{% endblock %}
+
+{% block app_content %}
+
+
+<!-- Demo bar -->
+<div class="demo-bar">
+  <span>Estado:</span>
+  <button class="demo-btn active-demo" onclick="showState('normal',this)">1 · Vista normal</button>
+  <button class="demo-btn" onclick="showState('alta',this)">2 · Alta producto</button>
+  <button class="demo-btn" onclick="showState('modificar',this)">3 · Modificar producto</button>
+  <button class="demo-btn" onclick="showState('proveedores',this)">4 · Proveedores</button>
+  <button class="demo-btn" onclick="showState('alertas',this)">5 · Alertas inteligentes</button>
+</div>
+
+{# ============================================================
+   TODO (siguiente iteración, no bloquea esta entrega):
+   Esta pantalla se integró TAL CUAL el prototipo: son 5 "estados" ya
+   renderizados en el HTML que el JS (inventario.js) muestra/oculta con
+   showState(). Es fiel al diseño original, pero no es la arquitectura
+   final: lo correcto a futuro es una sola vista dinámica por acción
+   (o llamadas Fetch API) en vez de 5 bloques duplicados en el DOM.
+   La barra "Estado: 1·2·3·4·5" de arriba es SOLO una ayuda de demo del
+   prototipo; se debe quitar cuando la navegación real (botones de
+   "Alta de productos", "Modificar productos", etc.) dispare estas
+   mismas vistas.
+   ============================================================ #}
+
+{# La barra de navegación ahora vive en templates/partials/navbar.html, incluida por base_app.html #}
+
+<!-- AVI overlay mobile -->
+<div class="avi-overlay" id="aviOverlay" onclick="closeAvi()"></div>
+<button class="fab-avi" onclick="openAvi()">🤖</button>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- AVI PANEL -->
+  {# TODO: este panel del Asistente Virtual (AVI) hoy solo muestra
+     mensajes de ejemplo fijos (ver bubbles con id="avi-*" abajo) que se
+     activan con el demo bar. Cuando se implemente la app `avi`, este
+     bloque debe alimentarse del historial real (avi.HistorialConversacion)
+     y enviar los mensajes del usuario vía Fetch API a una vista de avi. #}
+  <div class="avi-panel" id="aviPanel">
+    <div class="avi-title">
+      🤖 Asistente Virtual
+      <button class="avi-close-btn" onclick="closeAvi()">✕</button>
+    </div>
+    <div class="avi-chat" id="aviChat">
+      <div class="bubble bot">Hola 👋 Soy tu auxiliar de inventario. Puedo ayudarte a dar de alta productos, revisar stock o buscar proveedores.</div>
+      <div class="bubble bot" id="avi-alta" style="display:none">📦 Voy a ayudarte a dar de alta un nuevo producto. ¿Cuál es el nombre?</div>
+      <div class="bubble user" id="avi-alta-u" style="display:none">quiero dar de alta una coca cola 2lt</div>
+      <div class="bubble user" id="avi-mod-u" style="display:none">modifica el precio de la coca cola</div>
+      <div class="bubble bot" id="avi-mod" style="display:none">✏️ Seleccioné <strong>Coca Cola 600ml</strong>. Puedes actualizar el costo y precio de venta.</div>
+      <div class="bubble user" id="avi-prov-u" style="display:none">ver proveedores</div>
+      <div class="bubble bot" id="avi-prov" style="display:none">🏭 Aquí puedes gestionar tus proveedores y asociarlos a categorías de productos.</div>
+      <div class="bubble user" id="avi-alert-u" style="display:none">¿qué productos necesito surtir?</div>
+      <div class="bubble bot" id="avi-alert" style="display:none">🚨 Tienes <strong>3 productos críticos</strong> con stock bajo. Te muestro la lista ordenada por prioridad.</div>
+      
+    </div>
+    <div class="chips">
+      <span class="chip">Stock bajo</span>
+      <span class="chip">Alta rápida</span>
+      <span class="chip">Ver alertas</span>
+      <span class="chip">Proveedores</span>
+    </div>
+    <div class="avi-input">
+      <input type="text" placeholder="Escribe aquí…"/>
+      <button>Enviar</button>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-content">
+
+    <!-- ══ STATE 1: NORMAL ══ -->
+    <div class="state active" id="state-normal">
+      <div class="alert-banner" onclick="showState('alertas', document.querySelectorAll('.demo-btn')[4])">
+        🔔 ¡Alertas de reabastecimiento!
+        <span class="alert-badge">3</span>
+        <span class="arrow">Ver todas →</span>
+      </div>
+      <div class="action-row">
+        <button class="btn-action btn-alta" onclick="showState('alta', document.querySelectorAll('.demo-btn')[1])">📦 Alta de productos</button>
+        <button class="btn-action btn-modificar" onclick="showState('modificar', document.querySelectorAll('.demo-btn')[2])">✏️ Modificar productos</button>
+        <button class="btn-action btn-proveedores" onclick="showState('proveedores', document.querySelectorAll('.demo-btn')[3])">🏭 Proveedores</button>
+      </div>
+      <div class="search-filter-row">
+        <div class="search-inv">
+          <span style="color:#F9A825;font-size:14px;">🔍</span>
+          <input type="text" placeholder="Buscar por nombre…"/>
+        </div>
+        <select class="filter-select">
+          <option>Filtrar por categoría</option>
+          <option>Bebidas</option>
+          <option>Lácteos</option>
+          <option>Abarrotes</option>
+          <option>Verduras</option>
+          <option>Botanas</option>
+        </select>
+      </div>
+      <div class="catalog-wrap">
+        <div class="catalog-card">
+          <div class="catalog-scroll">
+            <table class="catalog-table">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Categoría</th>
+                  <th>Existencias</th>
+                  <th>Mín.</th>
+                  <th class="right">Costo / Precio</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {# TODO: reemplazar por datos reales del ORM.
+                   La vista `inventario:panel` (inventario/views.py) ya
+                   pasa `productos = Producto.objects.filter(negocio=...)`
+                   en el contexto; este for consume ese queryset real. #}
+                {% for producto in productos %}
+                <tr>
+                  <td>{{ producto.icono }} {{ producto.nombre }}</td>
+                  <td>{% if producto.categoria %}<span class="badge-cat cat-{{ producto.categoria.nombre|lower }}">{{ producto.categoria.nombre }}</span>{% endif %}</td>
+                  <td class="{% if producto.stock_critico %}stock-low{% else %}stock-ok{% endif %}">{{ producto.cantidad_actual }} pzas</td>
+                  <td>{{ producto.cantidad_minima }}</td>
+                  <td class="right">${{ producto.costo }} / ${{ producto.precio_venta }}</td>
+                  <td><button class="btn-edit-row" onclick="showState('modificar', document.querySelectorAll('.demo-btn')[2])">Editar</button></td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="6" style="text-align:center;color:var(--text-faint);padding:24px;">
+                    Aún no has dado de alta ningún producto. Usa "📦 Alta de productos" para empezar.
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ STATE 2: ALTA ══ -->
+    <div class="state" id="state-alta">
+      <div class="alert-banner" onclick="showState('alertas', document.querySelectorAll('.demo-btn')[4])">
+        🔔 ¡Alertas de reabastecimiento!
+        <span class="alert-badge">3</span>
+        <span class="arrow">Ver todas →</span>
+      </div>
+      <div class="action-row">
+        <button class="btn-action btn-alta active-action" onclick="showState('alta', document.querySelectorAll('.demo-btn')[1])">📦 Alta de productos</button>
+        <button class="btn-action btn-modificar" onclick="showState('modificar', document.querySelectorAll('.demo-btn')[2])">✏️ Modificar productos</button>
+        <button class="btn-action btn-proveedores" onclick="showState('proveedores', document.querySelectorAll('.demo-btn')[3])">🏭 Proveedores</button>
+      </div>
+      <div class="search-filter-row">
+        <div class="search-inv">
+          <span style="color:#F9A825;font-size:14px;">🔍</span>
+          <input type="text" placeholder="Buscar por nombre…"/>
+        </div>
+        <select class="filter-select">
+          <option>Filtrar por categoría</option>
+          <option>Bebidas</option><option>Lácteos</option>
+          <option>Abarrotes</option><option>Verduras</option><option>Botanas</option>
+        </select>
+      </div>
+      <div class="catalog-wrap">
+        <div class="catalog-card">
+          <div class="catalog-scroll">
+            <table class="catalog-table">
+              <thead><tr><th>Producto</th><th>Categoría</th><th>Existencias</th><th>Mín.</th><th class="right">Costo / Precio</th><th></th></tr></thead>
+              <tbody>
+                <tr><td>🥤 Coca Cola 600ml</td><td><span class="badge-cat cat-bebidas">Bebidas</span></td><td class="stock-ok">48</td><td>10</td><td class="right">$18 / $25</td><td><button class="btn-edit-row">Editar</button></td></tr>
+                <tr><td>🥛 Leche Lala 1lt</td><td><span class="badge-cat cat-lacteos">Lácteos</span></td><td class="stock-warn">8</td><td>10</td><td class="right">$22 / $28</td><td><button class="btn-edit-row">Editar</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ STATE 3: MODIFICAR ══ -->
+    <div class="state" id="state-modificar">
+      <div class="alert-banner" onclick="showState('alertas', document.querySelectorAll('.demo-btn')[4])">
+        🔔 ¡Alertas de reabastecimiento!
+        <span class="alert-badge">3</span>
+        <span class="arrow">Ver todas →</span>
+      </div>
+      <div class="action-row">
+        <button class="btn-action btn-alta" onclick="showState('alta', document.querySelectorAll('.demo-btn')[1])">📦 Alta de productos</button>
+        <button class="btn-action btn-modificar active-action" onclick="showState('modificar', document.querySelectorAll('.demo-btn')[2])">✏️ Modificar productos</button>
+        <button class="btn-action btn-proveedores" onclick="showState('proveedores', document.querySelectorAll('.demo-btn')[3])">🏭 Proveedores</button>
+      </div>
+      <div class="search-filter-row">
+        <div class="search-inv">
+          <span style="color:#F9A825;font-size:14px;">🔍</span>
+          <input type="text" placeholder="Buscar por nombre…"/>
+        </div>
+        <select class="filter-select">
+          <option>Filtrar por categoría</option>
+          <option>Bebidas</option><option>Lácteos</option>
+          <option>Abarrotes</option><option>Verduras</option><option>Botanas</option>
+        </select>
+      </div>
+      <div class="catalog-wrap">
+        <div class="catalog-card">
+          <div class="catalog-scroll">
+            <table class="catalog-table">
+              <thead><tr><th>Producto</th><th>Categoría</th><th>Existencias</th><th>Mín.</th><th class="right">Costo / Precio</th><th></th></tr></thead>
+              <tbody>
+                <tr style="background:var(--color-primary-bg);">
+                  <td><strong>🥤 Coca Cola 600ml</strong></td>
+                  <td><span class="badge-cat cat-bebidas">Bebidas</span></td>
+                  <td class="stock-ok">48</td><td>10</td>
+                  <td class="right" style="color:var(--color-primary-deep);"><strong>$18 / $25</strong></td>
+                  <td><button class="btn-edit-row" style="background:var(--color-primary-bg);border-color:var(--color-primary-deep);color:var(--color-primary-deep);">✏️ Editando</button></td>
+                </tr>
+                <tr><td>🥛 Leche Lala 1lt</td><td><span class="badge-cat cat-lacteos">Lácteos</span></td><td class="stock-warn">8</td><td>10</td><td class="right">$22 / $28</td><td><button class="btn-edit-row">Editar</button></td></tr>
+                <tr><td>🍚 Arroz 1kg</td><td><span class="badge-cat cat-abarrotes">Abarrotes</span></td><td class="stock-low">3</td><td>12</td><td class="right">$28 / $35</td><td><button class="btn-edit-row">Editar</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ STATE 4: PROVEEDORES ══ -->
+    <div class="state" id="state-proveedores">
+      <div class="alert-banner" onclick="showState('alertas', document.querySelectorAll('.demo-btn')[4])">
+        🔔 ¡Alertas de reabastecimiento!
+        <span class="alert-badge">3</span>
+        <span class="arrow">Ver todas →</span>
+      </div>
+      <div class="action-row">
+        <button class="btn-action btn-alta" onclick="showState('alta', document.querySelectorAll('.demo-btn')[1])">📦 Alta de productos</button>
+        <button class="btn-action btn-modificar" onclick="showState('modificar', document.querySelectorAll('.demo-btn')[2])">✏️ Modificar productos</button>
+        <button class="btn-action btn-proveedores active-action" onclick="showState('proveedores', document.querySelectorAll('.demo-btn')[3])">🏭 Proveedores</button>
+      </div>
+      <div class="search-filter-row">
+        <div class="search-inv">
+          <span style="color:#F9A825;font-size:14px;">🔍</span>
+          <input type="text" placeholder="Buscar por nombre…"/>
+        </div>
+        <select class="filter-select">
+          <option>Filtrar por categoría</option>
+          <option>Bebidas</option><option>Lácteos</option>
+          <option>Abarrotes</option><option>Verduras</option><option>Botanas</option>
+        </select>
+      </div>
+      <div class="catalog-wrap">
+        <div class="catalog-card">
+          <div class="catalog-scroll">
+            <table class="catalog-table">
+              <thead><tr><th>Producto</th><th>Categoría</th><th>Existencias</th><th>Mín.</th><th class="right">Costo / Precio</th><th></th></tr></thead>
+              <tbody>
+                <tr><td>🥤 Coca Cola 600ml</td><td><span class="badge-cat cat-bebidas">Bebidas</span></td><td class="stock-ok">48</td><td>10</td><td class="right">$18 / $25</td><td><button class="btn-edit-row">Editar</button></td></tr>
+                <tr><td>🥛 Leche Lala 1lt</td><td><span class="badge-cat cat-lacteos">Lácteos</span></td><td class="stock-warn">8</td><td>10</td><td class="right">$22 / $28</td><td><button class="btn-edit-row">Editar</button></td></tr>
+                <tr><td>🍚 Arroz 1kg</td><td><span class="badge-cat cat-abarrotes">Abarrotes</span></td><td class="stock-low">3</td><td>12</td><td class="right">$28 / $35</td><td><button class="btn-edit-row">Editar</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ STATE 5: ALERTAS ══ -->
+    <div class="state" id="state-alertas">
+      <div class="alert-banner" style="background:#fecaca; cursor:default;">
+        🚨 Alertas inteligentes activas
+        <span class="alert-badge">3 críticas</span>
+      </div>
+      <div class="action-row">
+        <button class="btn-action btn-alta" onclick="showState('alta', document.querySelectorAll('.demo-btn')[1])">📦 Alta de productos</button>
+        <button class="btn-action btn-modificar" onclick="showState('modificar', document.querySelectorAll('.demo-btn')[2])">✏️ Modificar productos</button>
+        <button class="btn-action btn-proveedores" onclick="showState('proveedores', document.querySelectorAll('.demo-btn')[3])">🏭 Proveedores</button>
+      </div>
+      <div class="catalog-wrap" style="padding-top:4px;">
+        <div class="catalog-card">
+          <div class="catalog-scroll" style="padding:16px;">
+            <div class="alert-list">
+              <div class="alert-section-title">🔴 Crítico — Stock por debajo del mínimo</div>
+              <div class="alert-item critical">
+                <div class="alert-icon">🍚</div>
+                <div class="alert-body">
+                  <div class="alert-title">Arroz 1kg — Stock crítico</div>
+                  <div class="alert-desc">Solo quedan <strong>3 pzas</strong> de 12 mínimas. Alta rotación: se venden ~8 pzas/día. Proveedor: Abarrotes Martínez.</div>
+                  <div class="alert-meta">⏱ Estimado de agotamiento: <strong>hoy mismo</strong></div>
+                </div>
+                <span class="alert-priority priority-alta">ALTA</span>
+              </div>
+              <div class="alert-item critical">
+                <div class="alert-icon">🍅</div>
+                <div class="alert-body">
+                  <div class="alert-title">Jitomate (kg) — Stock crítico</div>
+                  <div class="alert-desc">Solo quedan <strong>2 kg</strong> de 5 mínimos. Producto perecedero de alta demanda. Proveedor: Verduras del Valle.</div>
+                  <div class="alert-meta">⏱ Estimado de agotamiento: <strong>mañana</strong></div>
+                </div>
+                <span class="alert-priority priority-alta">ALTA</span>
+              </div>
+              <div class="alert-item critical">
+                <div class="alert-icon">🧀</div>
+                <div class="alert-body">
+                  <div class="alert-title">Queso Oaxaca 400gr — Stock crítico</div>
+                  <div class="alert-desc">Solo quedan <strong>4 pzas</strong> de 6 mínimas. Margen alto ($20/pza). Proveedor: Lácteos del Norte.</div>
+                  <div class="alert-meta">⏱ Estimado de agotamiento: <strong>2 días</strong></div>
+                </div>
+                <span class="alert-priority priority-alta">ALTA</span>
+              </div>
+
+              <div class="divider"></div>
+              <div class="alert-section-title">🟡 Advertencia — Cerca del mínimo</div>
+              <div class="alert-item warning">
+                <div class="alert-icon">🥛</div>
+                <div class="alert-body">
+                  <div class="alert-title">Leche Lala 1lt — Stock bajo</div>
+                  <div class="alert-desc">Quedan <strong>8 pzas</strong>, mínimo es 10. Rotación media. Considera pedir en tu próxima visita al proveedor.</div>
+                  <div class="alert-meta">⏱ Estimado de agotamiento: <strong>3–4 días</strong></div>
+                </div>
+                <span class="alert-priority priority-media">MEDIA</span>
+              </div>
+
+              <div class="divider"></div>
+              <div class="alert-section-title">🔵 Informativo</div>
+              <div class="alert-item info">
+                <div class="alert-icon">📊</div>
+                <div class="alert-body">
+                  <div class="alert-title">Resumen semanal de rotación</div>
+                  <div class="alert-desc">Los productos con mayor rotación esta semana: Coca Cola 600ml (32 pzas), Arroz 1kg (28 pzas), Leche Lala (21 pzas).</div>
+                  <div class="alert-meta">📅 Semana del 28 abr – 04 may 2026</div>
+                </div>
+                <span class="alert-priority priority-baja">INFO</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main-content -->
+</div><!-- /layout -->
+
+<!-- ══════════════════════════════════════
+     PANEL OVERLAY (shared)
+     ══════════════════════════════════════ -->
+<div class="panel-overlay" id="panelOverlay" onclick="closePanelIfOutside(event)">
+  <div class="side-panel" id="sidePanel">
+
+    <!-- ALTA PANEL -->
+    <div id="panel-alta" style="display:none; flex-direction:column; height:100%;">
+      <div class="panel-header">
+        <h3>📦 Alta de producto</h3>
+        <button class="panel-close" onclick="closePanel()">✕</button>
+      </div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label>Nombre del producto</label>
+          <input type="text" placeholder="Ej: Coca Cola 2lt" value="Coca Cola 2lt"/>
+        </div>
+        <div class="form-group">
+          <label>Descripción</label>
+          <textarea placeholder="Descripción breve del producto…">Refresco de cola, presentación 2 litros, botella PET.</textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Costo ($)</label>
+            <input type="number" placeholder="0.00" value="32"/>
+          </div>
+          <div class="form-group">
+            <label>Precio de venta ($)</label>
+            <input type="number" placeholder="0.00" value="42"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Cantidad actual</label>
+            <input type="number" placeholder="0" value="24"/>
+          </div>
+          <div class="form-group">
+            <label>Cantidad mínima</label>
+            <input type="number" placeholder="0" value="8"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Categoría</label>
+          <div class="cat-tags" id="altaCats">
+            <span class="cat-tag selected" onclick="toggleCat(this)">Bebidas</span>
+            <span class="cat-tag" onclick="toggleCat(this)">Lácteos</span>
+            <span class="cat-tag" onclick="toggleCat(this)">Abarrotes</span>
+            <span class="cat-tag" onclick="toggleCat(this)">Verduras</span>
+            <span class="cat-tag" onclick="toggleCat(this)">Botanas</span>
+            <span class="cat-tag" onclick="toggleCat(this)">Limpieza</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Proveedor asociado</label>
+          <select>
+            <option>Seleccionar proveedor…</option>
+            <option selected>FEMSA / Coca-Cola FEMSA</option>
+            <option>Abarrotes Martínez</option>
+            <option>Verduras del Valle</option>
+            <option>Lácteos del Norte</option>
+          </select>
+        </div>
+      </div>
+      <div class="panel-footer">
+        <button class="btn-ghost" onclick="closePanel()">Cancelar</button>
+        <button class="btn-success" onclick="closePanel()">✅ Guardar producto</button>
+      </div>
+    </div>
+
+    <!-- MODIFICAR PANEL -->
+    <div id="panel-modificar" style="display:none; flex-direction:column; height:100%;">
+      <div class="panel-header">
+        <h3>✏️ Modificar producto</h3>
+        <button class="panel-close" onclick="closePanel()">✕</button>
+      </div>
+      <div class="panel-body">
+        <div class="product-card-mini">
+          <div class="prod-icon">🥤</div>
+          <div class="prod-info">
+            <div class="prod-name">Coca Cola 600ml</div>
+            <div class="prod-meta">Bebidas · 48 pzas en stock</div>
+          </div>
+        </div>
+        <div class="price-compare">
+          <div><div style="font-size:11px;color:var(--text-faint);margin-bottom:2px;">COSTO ACTUAL</div><div class="val">$18.00</div></div>
+          <div style="text-align:center;"><div style="font-size:11px;color:var(--text-faint);margin-bottom:2px;">PRECIO ACTUAL</div><div class="val">$25.00</div></div>
+          <div style="text-align:right;"><div style="font-size:11px;color:var(--text-faint);margin-bottom:2px;">MARGEN</div><div class="val" style="color:var(--color-success);">38.9%</div></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Nuevo costo ($)</label>
+            <input type="number" value="20" class="highlight" id="inputCosto" oninput="calcMargen()"/>
+          </div>
+          <div class="form-group">
+            <label>Nuevo precio ($)</label>
+            <input type="number" value="27" class="highlight" id="inputPrecio" oninput="calcMargen()"/>
+          </div>
+        </div>
+        <div class="margin-bar-wrap">
+          <label>Margen estimado: <span class="margin-label" id="margenLabel">26.0%</span></label>
+          <div class="margin-bar"><div class="margin-fill" id="margenFill" style="width:26%"></div></div>
+        </div>
+        <div class="form-group">
+          <label>Motivo del cambio</label>
+          <select>
+            <option>Actualización de precio proveedor</option>
+            <option>Ajuste de margen</option>
+            <option>Promoción temporal</option>
+            <option>Otro</option>
+          </select>
+        </div>
+        <div style="background:var(--color-warning-bg);border:1px solid var(--color-warning-border);border-radius:var(--radius-lg);padding:10px 12px;font-size:12px;color:var(--color-warning-text);">
+          ⚠️ El nuevo margen (26%) es menor al promedio de tu tienda (34%). Considera revisar el precio de venta.
+        </div>
+      </div>
+      <div class="panel-footer">
+        <button class="btn-ghost" onclick="closePanel()">Cancelar</button>
+        <button class="btn-primary" onclick="closePanel()">💾 Guardar cambios</button>
+      </div>
+    </div>
+
+    <!-- PROVEEDORES PANEL -->
+    <div id="panel-proveedores" style="display:none; flex-direction:column; height:100%;">
+      <div class="panel-header">
+        <h3>🏭 Gestión de proveedores</h3>
+        <button class="panel-close" onclick="closePanel()">✕</button>
+      </div>
+      <div class="panel-body">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <span style="font-size:13px;font-weight:600;color:var(--text-secondary);">Tus proveedores</span>
+          <button style="background:var(--color-success);color:#fff;border:none;border-radius:var(--radius-sm);padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;">+ Nuevo</button>
+        </div>
+        <div class="provider-card selected" onclick="selectProv(this)">
+          <div class="prov-avatar">FC</div>
+          <div class="prov-info">
+            <div class="prov-name">FEMSA / Coca-Cola FEMSA</div>
+            <div class="prov-contact">📞 55 1234-5678 · ventas@femsa.com</div>
+            <div class="prov-cats">
+              <span class="badge-cat cat-bebidas">Bebidas</span>
+            </div>
+          </div>
+        </div>
+        <div class="provider-card" onclick="selectProv(this)">
+          <div class="prov-avatar" style="background:#059669;">AM</div>
+          <div class="prov-info">
+            <div class="prov-name">Abarrotes Martínez</div>
+            <div class="prov-contact">📞 55 9876-5432 · abarrotes.mtz@gmail.com</div>
+            <div class="prov-cats">
+              <span class="badge-cat cat-abarrotes">Abarrotes</span>
+              <span class="badge-cat cat-botanas">Botanas</span>
+            </div>
+          </div>
+        </div>
+        <div class="provider-card" onclick="selectProv(this)">
+          <div class="prov-avatar" style="background:#d97706;">VV</div>
+          <div class="prov-info">
+            <div class="prov-name">Verduras del Valle</div>
+            <div class="prov-contact">📞 55 5555-1234</div>
+            <div class="prov-cats">
+              <span class="badge-cat cat-verduras">Verduras</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Editar: FEMSA / Coca-Cola FEMSA</div>
+        <div class="form-group">
+          <label>Nombre del proveedor</label>
+          <input type="text" value="FEMSA / Coca-Cola FEMSA"/>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Teléfono</label>
+            <input type="text" value="55 1234-5678"/>
+          </div>
+          <div class="form-group">
+            <label>Correo</label>
+            <input type="email" value="ventas@femsa.com"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Categorías que surte</label>
+          <div class="cat-tags">
+            <span class="cat-tag selected" onclick="toggleCat(this)">Bebidas</span>
+            <span class="cat-tag" onclick="toggleCat(this)">Lácteos</span>
+            <span class="cat-tag" onclick="toggleCat(this)">Abarrotes</span>
+            <span class="cat-tag" onclick="toggleCat(this)">Verduras</span>
+            <span class="cat-tag" onclick="toggleCat(this)">Botanas</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel-footer">
+        <button class="btn-ghost" onclick="closePanel()">Cancelar</button>
+        <button class="btn-primary" onclick="closePanel()">💾 Guardar proveedor</button>
+      </div>
+    </div>
+
+  </div><!-- /side-panel -->
+</div><!-- /panel-overlay -->
+
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'inventario/js/inventario.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{# ============================================================
+   base_app.html — familia de pantallas del sistema YA AUTENTICADO
+   (auxiliar de inventario, módulo de ventas, y a futuro finanzas/avi).
+
+   Cada pantalla sigue cargando su propia hoja de estilos extraída de su
+   HTML original (inventario.css / ventas.css) vía `app_extra_head`, porque
+   cada una define sus propios "design tokens" (--color-success, etc.) con
+   valores ligeramente distintos entre sí. Lo único verdaderamente
+   compartido es la barra de navegación superior (partials/navbar.html).
+   ============================================================ #}
+{% block extra_head %}
+{% block app_extra_head %}{% endblock %}
+{% endblock %}
+
+{% block content %}
+{% include "partials/navbar.html" %}
+{% block app_content %}{% endblock %}
+{% endblock %}

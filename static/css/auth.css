@@ -1,0 +1,28 @@
+/*
+ * Estilos compartidos por la familia de pantallas de autenticación /
+ * onboarding (registro, datos del negocio, productos precargados, login).
+ * Consolidado a partir de los <style> idénticos/superpuestos que traía
+ * cada HTML original (registro.html, datos_negocio.html,
+ * productos_precargados.html) — union de reglas, sin cambiar ni un valor.
+ */
+body { background: #f0f4ff; font-family: 'Segoe UI', sans-serif; }
+.card { box-shadow: 0 8px 32px rgba(79,70,229,0.10); }
+.btn-primary { background: linear-gradient(135deg, #4f46e5, #7c3aed); }
+.btn-primary:hover { opacity: 0.92; }
+.input-field:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.15); }
+.step-active { background: #4f46e5; color: white; }
+.step-done { background: #10b981; color: white; }
+.step-inactive { background: #e5e7eb; color: #9ca3af; }
+
+/* datos_negocio.html: switch "¿Estás en el régimen RESICO?" */
+.toggle { position: relative; display: inline-block; width: 44px; height: 24px; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #4f46e5; border-radius: 24px; transition: .3s; }
+.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .3s; transform: translateX(20px); }
+
+/* productos_precargados.html: selección de catálogo */
+.product-card.selected { border-color: #4f46e5; background: #eef2ff; }
+.product-card { cursor: pointer; transition: all 0.2s; }
+.product-card:hover { border-color: #a5b4fc; }
+.badge { font-size: 10px; }
+.search-bar:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }

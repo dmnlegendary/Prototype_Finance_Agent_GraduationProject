@@ -1,0 +1,99 @@
+{% extends "base_auth.html" %}
+{% load static %}
+
+{% block title %}Datos del Negocio · Tiendita AI{% endblock %}
+{% block body_attrs %} class="min-h-screen flex items-center justify-center p-6"{% endblock %}
+
+{% block content %}
+    <div class="w-full max-w-md">
+
+        <!-- Logo -->
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl btn-primary mb-3">
+                <i class="fas fa-store text-white text-2xl"></i>
+            </div>
+            <h1 class="text-2xl font-black text-gray-800">Tiendita <span class="text-indigo-600">AI</span></h1>
+        </div>
+
+        <!-- Stepper -->
+        <div class="flex items-center justify-center mb-8 gap-2">
+            <div class="flex flex-col items-center">
+                <div class="w-8 h-8 rounded-full step-done flex items-center justify-center text-sm font-bold">
+                    <i class="fas fa-check text-xs"></i>
+                </div>
+                <span class="text-xs mt-1 text-green-600 font-semibold">Cuenta</span>
+            </div>
+            <div class="flex-1 h-0.5 bg-green-300 mb-4"></div>
+            <div class="flex flex-col items-center">
+                <div class="w-8 h-8 rounded-full step-active flex items-center justify-center text-sm font-bold">2</div>
+                <span class="text-xs mt-1 text-indigo-600 font-semibold">Negocio</span>
+            </div>
+            <div class="flex-1 h-0.5 bg-gray-200 mb-4"></div>
+            <div class="flex flex-col items-center">
+                <div class="w-8 h-8 rounded-full step-inactive flex items-center justify-center text-sm font-bold">3</div>
+                <span class="text-xs mt-1 text-gray-400">Productos</span>
+            </div>
+        </div>
+
+        <!-- Card -->
+        <div class="bg-white rounded-2xl card p-8">
+            <h2 class="text-lg font-bold text-gray-800 mb-1">Cuéntanos de tu tienda</h2>
+            <p class="text-sm text-gray-500 mb-6">Esta información nos ayuda a personalizar tu experiencia</p>
+
+            <form method="post" novalidate>
+                {% csrf_token %}
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Nombre de tu tienda</label>
+                        <div class="relative">
+                            <i class="fas fa-store absolute left-3 top-3 text-gray-400 text-sm"></i>
+                            {{ form.nombre_tienda }}
+                        </div>
+                        {% if form.nombre_tienda.errors %}<p class="text-xs text-red-600 mt-1">{{ form.nombre_tienda.errors|join:", " }}</p>{% endif %}
+                    </div>
+
+                    <div>
+                        {# TODO: el mockup rotula esto "Alcaldía / Colonia" pero el <select>
+                           solo trae opciones de alcaldía; falta confirmar si además se
+                           necesita un campo de texto libre para la Colonia. #}
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Alcaldía / Colonia</label>
+                        <div class="relative">
+                            <i class="fas fa-map-marker-alt absolute left-3 top-3 text-gray-400 text-sm"></i>
+                            {{ form.alcaldia }}
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Años de operación</label>
+                        <div class="relative">
+                            <i class="fas fa-calendar absolute left-3 top-3 text-gray-400 text-sm"></i>
+                            {{ form.anios_operacion }}
+                        </div>
+                    </div>
+
+                    <!-- RESICO Switch -->
+                    <div class="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-bold text-indigo-800">¿Estás en el régimen RESICO?</p>
+                                <p class="text-xs text-indigo-500 mt-0.5">Activar para calcular tu ISR automáticamente</p>
+                            </div>
+                            <label class="toggle">
+                                {{ form.regimen_resico }}
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="mt-3 pt-3 border-t border-indigo-100">
+                            <label class="block text-xs font-semibold text-indigo-700 mb-1">RFC (opcional)</label>
+                            {{ form.rfc }}
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-primary w-full text-white font-bold py-3 rounded-xl text-sm mt-2 transition">
+                        Continuar <i class="fas fa-arrow-right ml-2"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,58 @@
+{# ============================================================
+   login.html — NO existía un mockup de login entre los HTML que
+   compartiste. Esta pantalla se construyó reutilizando el mismo lenguaje
+   visual de registro.html (mismas clases .card/.btn-primary/.input-field,
+   mismo header "Tiendita AI") para no introducir un estilo distinto al
+   resto del sistema. Si ya tienes un diseño de login, compártelo y se
+   reemplaza este archivo sin tocar nada más (views.py/urls.py no cambian).
+   ============================================================ #}
+{% extends "base_auth.html" %}
+{% load static %}
+
+{% block title %}Iniciar sesión · Tiendita AI{% endblock %}
+{% block body_attrs %} class="min-h-screen flex items-center justify-center p-6"{% endblock %}
+
+{% block content %}
+    <div class="w-full max-w-md">
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl btn-primary mb-3">
+                <i class="fas fa-store text-white text-2xl"></i>
+            </div>
+            <h1 class="text-2xl font-black text-gray-800">Tiendita <span class="text-indigo-600">AI</span></h1>
+            <p class="text-gray-500 text-sm mt-1">Tu asistente inteligente para tu negocio</p>
+        </div>
+
+        <div class="bg-white rounded-2xl card p-8">
+            <h2 class="text-lg font-bold text-gray-800 mb-1">Inicia sesión</h2>
+            <p class="text-sm text-gray-500 mb-6">Ingresa tus datos para continuar</p>
+
+            {% if form.errors %}
+            <div class="mb-4 text-xs text-red-600">Usuario o contraseña incorrectos.</div>
+            {% endif %}
+
+            <form method="post" novalidate>
+                {% csrf_token %}
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Teléfono / usuario</label>
+                        <div class="relative">
+                            <i class="fas fa-mobile-alt absolute left-3 top-3 text-gray-400 text-sm"></i>
+                            {{ form.username }}
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Contraseña</label>
+                        <div class="relative">
+                            <i class="fas fa-lock absolute left-3 top-3 text-gray-400 text-sm"></i>
+                            {{ form.password }}
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary w-full text-white font-bold py-3 rounded-xl text-sm mt-2 transition">
+                        Entrar <i class="fas fa-arrow-right ml-2"></i>
+                    </button>
+                </div>
+            </form>
+            <p class="text-center text-xs text-gray-400 mt-6">¿No tienes cuenta? <a href="{% url 'accounts:registro' %}" class="text-indigo-600 font-semibold cursor-pointer">Regístrate</a></p>
+        </div>
+    </div>
+{% endblock %}

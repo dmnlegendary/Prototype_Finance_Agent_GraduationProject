@@ -17,25 +17,15 @@
 </div>
 {% endif %}
 
-<!-- AVI overlay (mobile) -->
 <div class="avi-overlay" id="aviOverlay" onclick="closeAvi()"></div>
+<button class="fab-avi" onclick="openAvi()" title="Abrir AVI"><i class="bi bi-robot"></i></button>
 
-<!-- FAB AVI (mobile) -->
-<button class="fab-avi" onclick="openAvi()" title="Abrir AVI">🤖</button>
-
-<!-- LAYOUT -->
 <div class="layout">
 
-  <!-- AVI PANEL -->
-  {% comment %} El AVI todavía no está implementado (ver app `avi`): el panel
-     se deja como estructura visual, sin conversación de ejemplo ni
-     conexión a un LLM todavía. Se habilita cuando exista avi/views.py
-     real, capaz de interpretar texto libre y agregar productos al
-     carrito. {% endcomment %}
   <div class="avi-panel" id="aviPanel">
     <div class="avi-title">
-      🤖 Asistente Virtual
-      <button class="avi-toggle-btn" onclick="closeAvi()">✕</button>
+      <span><i class="bi bi-robot"></i> Asistente Virtual</span>
+      <button class="avi-toggle-btn" onclick="closeAvi()"><i class="bi bi-x-lg"></i></button>
     </div>
     <div class="avi-chat" id="aviChat">
       <div class="bubble bot">Hola 👋 Todavía no estoy conectado a un modelo de lenguaje. Por ahora, usa el buscador para agregar productos al carrito.</div>
@@ -46,7 +36,6 @@
     </div>
   </div>
 
-  <!-- MAIN CONTENT -->
   <div style="flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0;">
     <div class="state active main">
 
@@ -54,7 +43,7 @@
         <div class="search-wrapper">
           <form method="get" style="display:contents;">
             <div class="search-box">
-              <span class="search-icon">🔍</span>
+              <i class="bi bi-search"></i>
               <input type="text" name="q" value="{{ q }}" placeholder="Buscar producto…" autocomplete="off"/>
             </div>
           </form>
@@ -114,7 +103,7 @@
               {% empty %}
               <tr>
                 <td colspan="4" style="text-align:center;color:var(--text-faint);padding:24px;">
-                  🛒 Carrito vacío. Busca un producto para comenzar.
+                  <i class="bi bi-cart3"></i> Carrito vacío. Busca un producto para comenzar.
                 </td>
               </tr>
               {% endfor %}

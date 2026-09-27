@@ -6,8 +6,6 @@ from .models import Negocio, Usuario
 
 @admin.register(Usuario)
 class UsuarioAdmin(UserAdmin):
-    # Se agregan los campos propios del negocio a la vista de administración
-    # de usuarios, además de los que ya trae UserAdmin por defecto.
     fieldsets = UserAdmin.fieldsets + (
         ("Datos de la tienda", {"fields": ("nombre_completo", "telefono")}),
     )

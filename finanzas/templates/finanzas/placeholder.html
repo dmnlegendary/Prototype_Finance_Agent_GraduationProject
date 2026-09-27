@@ -4,11 +4,6 @@
 {% block title %}Agente Financiero · Tiendita AI{% endblock %}
 
 {% block app_extra_head %}
-{% comment %} Se reutiliza la hoja de estilos de `ventas` solo para heredar los
-   estilos de <nav> (design tokens compartidos), ya que finanzas todavía
-   no tiene una pantalla maquetada propia. Cuando exista un diseño real
-   para esta app, reemplazar por static/finanzas/css/finanzas.css. {% endcomment %}
-<link rel="stylesheet" href="{% static 'ventas/css/ventas.css' %}">
 <style>
     .finanzas-placeholder {
         max-width: 560px;
@@ -24,7 +19,7 @@
 
 {% block app_content %}
 <div class="finanzas-placeholder">
-    <div style="font-size:40px;margin-bottom:12px;">⚖️🧮</div>
+    <div style="font-size:40px;margin-bottom:12px;color:var(--color-primary,#4f46e5);"><i class="bi bi-calculator"></i></div>
     <h1>Agente Financiero</h1>
     <p>
         Este módulo todavía no está implementado en esta etapa del proyecto.

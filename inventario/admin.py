@@ -18,8 +18,6 @@ class ProveedorAdmin(admin.ModelAdmin):
 
 @admin.register(ProductoCatalogo)
 class ProductoCatalogoAdmin(admin.ModelAdmin):
-    # TODO: aquí es donde el equipo cargará la base de artículos real
-    # (manualmente o vía `loaddata` de un fixture) cuando exista.
     list_display = ("nombre", "categoria", "precio_sugerido")
     list_filter = ("categoria",)
     search_fields = ("nombre",)

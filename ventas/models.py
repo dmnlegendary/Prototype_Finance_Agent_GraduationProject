@@ -1,7 +1,3 @@
-"""
-Modelos de la app `ventas`. Corresponde a modulo_ventas/venta1.html
-(carrito + cobro).
-"""
 from django.conf import settings
 from django.db import models
 
@@ -10,7 +6,7 @@ from inventario.models import Producto
 
 
 class Venta(ModeloBase):
-    """Un ticket de venta (folio #0028 en el mockup)."""
+    """Un ticket de venta."""
 
     class Estado(models.TextChoices):
         EN_CURSO = "EN_CURSO", "En curso"
@@ -24,9 +20,6 @@ class Venta(ModeloBase):
     folio = models.PositiveIntegerField()
     estado = models.CharField(max_length=12, choices=Estado.choices, default=Estado.EN_CURSO)
     total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-
-    # TODO: agregar método de pago (efectivo/tarjeta) cuando se defina esa
-    # pantalla; venta1.html todavía no lo maqueta.
 
     class Meta:
         ordering = ["-creado_en"]
@@ -43,12 +36,11 @@ class Venta(ModeloBase):
 
 
 class ItemVenta(ModeloBase):
-    """Cada renglón del carrito (tabla `cart-table` del mockup)."""
+    """Cada renglón del carrito."""
 
     venta = models.ForeignKey(Venta, on_delete=models.CASCADE, related_name="items")
     producto = models.ForeignKey(Producto, on_delete=models.PROTECT, related_name="items_venta")
-    # Decimal para soportar productos a granel (ej. "1 kg" de jitomate, como
-    # se ve literalmente en el estado 3 de venta1.html).
+    # decimal para poder vender a granel (ej. 1.5 kg)
     cantidad = models.DecimalField(max_digits=10, decimal_places=2, default=1)
     precio_unitario = models.DecimalField(max_digits=10, decimal_places=2)
 

@@ -1,16 +1,3 @@
-{% comment %} ============================================================
-   base.html — plantilla RAÍZ del proyecto (templates/ global).
-
-   A propósito se deja mínima: no impone ningún framework CSS, porque las
-   pantallas ya maquetadas usan DOS sistemas visuales distintos:
-     - registro / datos_negocio / productos_precargados -> Tailwind CSS (CDN)
-     - inventario / ventas                                -> CSS propio (sin framework)
-
-   Por eso existen dos plantillas intermedias que extienden esta y cargan
-   lo que a cada familia de pantallas le corresponde:
-     - base_auth.html -> para las pantallas de onboarding/autenticación (Tailwind)
-     - base_app.html  -> para las pantallas del sistema ya logueado (CSS propio + navbar)
-   ============================================================ {% endcomment %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -18,8 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{% block title %}Tiendita AI{% endblock %}</title>
 {% load static %}
-{% comment %} TODO: agregar un ícono real en static/img/favicon.ico y descomentar:
-   <link rel="icon" href="{% static 'img/favicon.ico' %}"> {% endcomment %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 {% block extra_head %}{% endblock %}
 </head>
 <body{% block body_attrs %}{% endblock %}>

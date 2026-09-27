@@ -1,28 +1,74 @@
-/*
- * Estilos compartidos por la familia de pantallas de autenticación /
- * onboarding (registro, datos del negocio, productos precargados, login).
- * Consolidado a partir de los <style> idénticos/superpuestos que traía
- * cada HTML original (registro.html, datos_negocio.html,
- * productos_precargados.html) — union de reglas, sin cambiar ni un valor.
- */
-body { background: #f0f4ff; font-family: 'Segoe UI', sans-serif; }
-.card { box-shadow: 0 8px 32px rgba(79,70,229,0.10); }
-.btn-primary { background: linear-gradient(135deg, #4f46e5, #7c3aed); }
-.btn-primary:hover { opacity: 0.92; }
-.input-field:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.15); }
-.step-active { background: #4f46e5; color: white; }
-.step-done { background: #10b981; color: white; }
-.step-inactive { background: #e5e7eb; color: #9ca3af; }
+:root {
+    --bs-primary: #4f46e5;
+    --bs-primary-rgb: 79, 70, 229;
+    --color-primary: #4f46e5;
+    --color-primary-border: #ddd6fe;
+    --alert-banner-border: #fca5a5;
+}
 
-/* datos_negocio.html: switch "¿Estás en el régimen RESICO?" */
-.toggle { position: relative; display: inline-block; width: 44px; height: 24px; }
-.toggle input { opacity: 0; width: 0; height: 0; }
-.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #4f46e5; border-radius: 24px; transition: .3s; }
-.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .3s; transform: translateX(20px); }
+body {
+    background-color: #f5f6fa;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+}
 
-/* productos_precargados.html: selección de catálogo */
-.product-card.selected { border-color: #4f46e5; background: #eef2ff; }
-.product-card { cursor: pointer; transition: all 0.2s; }
-.product-card:hover { border-color: #a5b4fc; }
-.badge { font-size: 10px; }
-.search-bar:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }
+.card-auth {
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+}
+
+.logo-circle {
+    width: 60px;
+    height: 60px;
+    border-radius: 18px;
+    background: linear-gradient(90deg, var(--color-primary), var(--color-primary-border), var(--alert-banner-border));
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 auto;
+}
+
+.step-dot {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.step-dot.active { background: linear-gradient(90deg, var(--color-primary), var(--color-primary-border), var(--alert-banner-border)); color: #fff; }
+.step-dot.done { background-color: #198754; color: #fff; }
+.step-dot.pending { background-color: #e9ecef; color: #adb5bd; }
+
+.step-line { height: 2px; background-color: #e9ecef; }
+.step-line.done { background-color: #b3e0c3; }
+
+.product-card { cursor: pointer; transition: border-color 0.15s ease; border-radius: 14px !important; }
+.product-card:has(input:checked) {
+    border-color: var(--color-primary) !important;
+    background-color: #eef2ff;
+}
+
+.btn-primary {
+    background: linear-gradient(90deg, var(--color-primary), var(--color-primary-border), var(--alert-banner-border));
+    border: none;
+    border-radius: 50px;
+}
+.btn-primary:hover, .btn-primary:focus {
+    background: linear-gradient(90deg, var(--color-primary), var(--color-primary-border), var(--alert-banner-border));
+    opacity: .9;
+}
+
+.form-control, .form-select {
+    border-radius: 12px;
+}
+
+.btn-sm {
+    border-radius: 50px;
+}

@@ -22,7 +22,7 @@
       {% endif %}
 
       <div style="display:flex; align-items:center; justify-content:space-between;">
-        <h2 style="font-size:16px;">🏭 Proveedores</h2>
+        <h2 style="font-size:16px;"><i class="bi bi-truck"></i> Proveedores</h2>
         <a href="{% url 'inventario:panel' %}" class="btn-ghost" style="text-decoration:none;">← Volver al panel</a>
       </div>
 
@@ -52,8 +52,8 @@
 
       <div class="form-card" style="max-width:520px; align-self:center; width:100%;">
         <div class="panel-header">
-          <h3>{% if proveedor_editando %}✏️ Editar proveedor{% else %}➕ Nuevo proveedor{% endif %}</h3>
-          {% if proveedor_editando %}<a href="{% url 'inventario:proveedores' %}" class="panel-close" style="text-decoration:none;">✕</a>{% endif %}
+          <h3>{% if proveedor_editando %}<i class="bi bi-pencil-square"></i> Editar proveedor{% else %}<i class="bi bi-plus-circle-fill"></i> Nuevo proveedor{% endif %}</h3>
+          {% if proveedor_editando %}<a href="{% url 'inventario:proveedores' %}" class="panel-close" style="text-decoration:none;"><i class="bi bi-x-lg"></i></a>{% endif %}
         </div>
 
         <form method="post" class="panel-body" style="gap:14px;">

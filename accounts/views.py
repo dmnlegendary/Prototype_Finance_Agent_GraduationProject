@@ -1,8 +1,4 @@
-"""
-Vistas de `accounts`: autenticación + wizard de onboarding de 3 pasos
-(Cuenta -> Negocio -> Productos), tal como lo marca el stepper de los
-mockups (registro.html, datos_negocio.html, productos_precargados.html).
-"""
+# Vistas de accounts: login/logout + registro en 3 pasos (Cuenta -> Negocio -> Productos)
 from django.contrib.auth import login as auth_login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, LogoutView
@@ -48,14 +44,7 @@ def datos_negocio(request):
 
 @login_required
 def productos_precargados(request):
-    """
-    Paso 3: Productos. Deja elegir productos del catálogo genérico
-    (ProductoCatalogo) para "clonarlos" como Producto del negocio en sesión.
-
-    TODO: reemplazar por datos reales del ORM. Aún no existe una base de
-    artículos real, así que `productos_catalogo` puede llegar vacío hasta
-    que alguien cargue un catálogo (admin de Django o un fixture).
-    """
+    """Paso 3: elegir productos del catálogo para crearlos en el negocio."""
     negocio = getattr(request.user, "negocio", None)
     if negocio is None:
         return redirect("accounts:datos_negocio")
@@ -69,7 +58,7 @@ def productos_precargados(request):
                 nombre=item.nombre,
                 categoria=item.categoria,
                 icono=item.icono,
-                costo=item.precio_sugerido,       # TODO: pedir costo real; el catálogo solo trae precio sugerido.
+                costo=item.precio_sugerido,
                 precio_venta=item.precio_sugerido,
                 catalogo_origen=item,
             )

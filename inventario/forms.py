@@ -1,9 +1,3 @@
-"""
-Formularios de `inventario`. A diferencia de `accounts`, aquí ya no hace
-falta reusar clases de Tailwind (inventario.html usa CSS propio con
-selectores por tipo de elemento, ej. `.form-group input`), así que los
-widgets casi no necesitan `attrs` extra.
-"""
 from django import forms
 
 from .models import Producto, Proveedor
@@ -28,8 +22,6 @@ class ProductoForm(forms.ModelForm):
 
     def __init__(self, *args, negocio=None, **kwargs):
         super().__init__(*args, **kwargs)
-        # El proveedor a elegir solo debe listar los proveedores de ESTE
-        # negocio, no los de todas las tiendas del sistema.
         if negocio is not None:
             self.fields["proveedor"].queryset = Proveedor.objects.filter(negocio=negocio)
         self.fields["proveedor"].required = False

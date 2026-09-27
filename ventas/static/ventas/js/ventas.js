@@ -1,14 +1,5 @@
-/*
- * JS de `ventas`.
- *
- * El carrito, la búsqueda, el cobro y el ticket ahora son páginas y
- * formularios reales de Django (ver ventas/views.py) — ya no hay
- * "estados" de demostración que este archivo tuviera que mostrar/ocultar,
- * ni un toast/drawer con un ticket de ejemplo fijo.
- *
- * Lo único que sigue siendo interacción del lado del cliente es abrir y
- * cerrar el panel del AVI (todavía sin conectar a un LLM real).
- */
+// JS de ventas: solo abre/cierra el panel del AVI (aún sin LLM conectado).
+// El carrito, cobro y ticket son formularios normales de Django.
 
 function openAvi() {
   document.getElementById('aviPanel').classList.add('open');

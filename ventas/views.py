@@ -1,15 +1,6 @@
-"""
-Vistas de `ventas`. El carrito ya no es una lista fija de ejemplo: vive en
-un modelo `Venta` real en estado EN_CURSO (el "ticket abierto" del
-negocio). Cada negocio tiene como máximo una venta EN_CURSO a la vez;
-`_venta_en_curso` la busca o la crea con el siguiente folio consecutivo.
-
-Las acciones del carrito (agregar producto, +/- cantidad, cobrar,
-cancelar) se implementan como formularios POST con redirect, en vez de
-Fetch/JSON. Esto evita depender de JavaScript para la lógica de negocio:
-toda la verdad vive en el servidor y se puede probar sin un navegador. La
-API con Fetch queda como posible mejora futura (no cambia los modelos).
-"""
+# El carrito es la Venta en estado EN_CURSO del negocio. Las acciones
+# (agregar, +/-, cobrar, cancelar) son formularios POST con redirect,
+# no Fetch/JSON.
 from decimal import Decimal
 
 from django.contrib import messages
@@ -32,11 +23,7 @@ def _siguiente_folio(negocio):
 
 
 def _venta_en_curso(negocio):
-    """
-    Devuelve la venta EN_CURSO del negocio (el carrito que se ve en
-    pantalla), creando una nueva si no existe todavía o si la última se
-    acaba de cobrar/cancelar.
-    """
+    """Devuelve el carrito abierto del negocio, o crea uno nuevo."""
     venta = Venta.objects.filter(negocio=negocio, estado=Venta.Estado.EN_CURSO).first()
     if venta is None:
         venta = Venta.objects.create(negocio=negocio, folio=_siguiente_folio(negocio))
@@ -54,9 +41,7 @@ def punto_de_venta(request):
     items = venta.items.select_related("producto").all()
 
     q = request.GET.get("q", "").strip()
-    # `resultados` se deja en None (no []) cuando no hay búsqueda activa,
-    # para que el template sepa distinguir "no has buscado nada todavía"
-    # de "buscaste y no hay resultados".
+    # None = no se ha buscado nada; [] = se buscó y no hubo resultados
     resultados = None
     if q:
         resultados = Producto.objects.filter(negocio=negocio, activo=True, nombre__icontains=q)[:8]
@@ -94,8 +79,6 @@ def _cambiar_cantidad(negocio, item_pk, delta):
     venta = item.venta
     nueva_cantidad = item.cantidad + delta
     if nueva_cantidad <= 0:
-        # Bajar la cantidad a 0 (o menos) es, en la práctica, "quitar del
-        # carrito" -> se borra el renglón en vez de dejar un item en 0.
         item.delete()
     else:
         item.cantidad = nueva_cantidad
@@ -131,10 +114,7 @@ def cobrar(request):
         return redirect("ventas:punto_de_venta")
 
     with transaction.atomic():
-        # Descontar existencias reales del inventario. Se actualiza
-        # producto por producto (en vez de un .update() masivo con F())
-        # para poder evitar que la cantidad quede negativa si se vendió
-        # más de lo que había registrado en el inventario.
+        # descuenta el inventario producto por producto, sin dejarlo en negativo
         for item in venta.items.select_related("producto"):
             producto = item.producto
             producto.cantidad_actual = max(producto.cantidad_actual - item.cantidad, Decimal("0"))

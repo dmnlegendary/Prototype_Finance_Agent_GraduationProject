@@ -1,16 +1,5 @@
-/*
- * JS de `inventario`.
- *
- * Ya no hay "estados" de demostración ni paneles superpuestos con datos de
- * ejemplo: cada pantalla (alta de producto, editar producto, proveedores,
- * alertas) es una página real de Django, servida por su propia vista.
- *
- * Lo único que sigue siendo interacción del lado del cliente es:
- *   1) Abrir/cerrar el panel del AVI (todavía sin conectar a un LLM real).
- *   2) El cálculo en vivo del margen al capturar costo/precio de un
- *      producto (solo cosmético: el margen real siempre se recalcula en
- *      el servidor a partir de `Producto.margen_porcentaje`).
- */
+// JS de inventario: abrir/cerrar el panel del AVI (aún sin LLM conectado)
+// y el cálculo en vivo del margen al capturar costo/precio.
 
 function openAvi() {
   document.getElementById('aviPanel').classList.add('open');

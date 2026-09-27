@@ -1,8 +1,3 @@
-"""
-Vistas de `inventario`. Todo lo que se muestra aquí viene del ORM — nada de
-datos de ejemplo. Si una lista sale vacía es porque el negocio en sesión
-todavía no tiene ese dato cargado (comportamiento correcto, no un bug).
-"""
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import F
@@ -13,11 +8,7 @@ from .models import Categoria, Producto, Proveedor
 
 
 def _negocio_o_redirect(request):
-    """
-    Devuelve el Negocio del usuario en sesión, o None si todavía no
-    completó el onboarding (paso 2). Las vistas de esta app requieren un
-    Negocio para poder filtrar todo por él.
-    """
+    """Negocio del usuario en sesión, o None si aún no lo registró."""
     return getattr(request.user, "negocio", None)
 
 
@@ -38,8 +29,7 @@ def panel(request):
     if categoria_id:
         productos = productos.filter(categoria_id=categoria_id)
 
-    # Conteo de productos en estado crítico (cantidad_actual <= cantidad_minima),
-    # comparando dos campos del MISMO registro -> requiere F(), no un valor fijo.
+    # productos con cantidad_actual <= cantidad_minima (se comparan dos campos, por eso F())
     alertas_count = Producto.objects.filter(
         negocio=negocio, activo=True, cantidad_actual__lte=F("cantidad_minima"),
     ).count()
@@ -101,9 +91,7 @@ def producto_eliminar(request, pk):
     negocio = _negocio_o_redirect(request)
     producto = get_object_or_404(Producto, pk=pk, negocio=negocio)
     if request.method == "POST":
-        # Baja lógica: se desactiva en vez de borrarse, para no perder el
-        # historial de ventas que ya lo referencian (ItemVenta.producto
-        # usa on_delete=PROTECT precisamente por esto).
+        # no se borra de verdad, para no perder el historial de ventas que ya lo usan
         producto.activo = False
         producto.save(update_fields=["activo"])
         messages.success(request, f'"{producto.nombre}" se dio de baja.')
@@ -163,8 +151,7 @@ def alertas(request):
 
     productos = Producto.objects.filter(negocio=negocio, activo=True).select_related("categoria", "proveedor")
     criticos = [p for p in productos if p.stock_critico]
-    # "Advertencia": no está crítico todavía, pero ya está a menos del
-    # doble de su mínimo (umbral simple, ajustable a futuro).
+    # todavía no está crítico, pero ya va por debajo del doble de su mínimo
     advertencia = [
         p for p in productos
         if not p.stock_critico and p.cantidad_minima and p.cantidad_actual <= p.cantidad_minima * 2

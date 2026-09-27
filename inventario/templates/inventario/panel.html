@@ -17,21 +17,15 @@
 </div>
 {% endif %}
 
-<!-- AVI overlay mobile -->
 <div class="avi-overlay" id="aviOverlay" onclick="closeAvi()"></div>
-<button class="fab-avi" onclick="openAvi()">🤖</button>
+<button class="fab-avi" onclick="openAvi()"><i class="bi bi-robot"></i></button>
 
-<!-- LAYOUT -->
 <div class="layout">
 
-  <!-- AVI PANEL -->
-  {% comment %} El AVI todavía no está implementado (ver app `avi`): el panel
-     se deja como estructura visual, sin conversación de ejemplo ni conexión
-     a un LLM todavía. Se habilita cuando exista avi/views.py real. {% endcomment %}
   <div class="avi-panel" id="aviPanel">
     <div class="avi-title">
-      🤖 Asistente Virtual
-      <button class="avi-close-btn" onclick="closeAvi()">✕</button>
+      <span><i class="bi bi-robot"></i> Asistente Virtual</span>
+      <button class="avi-close-btn" onclick="closeAvi()"><i class="bi bi-x-lg"></i></button>
     </div>
     <div class="avi-chat" id="aviChat">
       <div class="bubble bot">Hola 👋 Soy tu auxiliar de inventario. Todavía no estoy conectado a un modelo de lenguaje — por ahora usa los botones de la pantalla para dar de alta productos, editarlos o gestionar proveedores.</div>
@@ -42,30 +36,29 @@
     </div>
   </div>
 
-  <!-- MAIN CONTENT -->
   <div class="main-content">
     <div class="state active">
       {% if alertas_count %}
       <a class="alert-banner" href="{% url 'inventario:alertas' %}">
-        🔔 ¡Alertas de reabastecimiento!
+        <i class="bi bi-bell-fill"></i> ¡Alertas de reabastecimiento!
         <span class="alert-badge">{{ alertas_count }}</span>
         <span class="arrow">Ver todas →</span>
       </a>
       {% else %}
       <div class="alert-banner" style="background:var(--color-success-bg);color:var(--color-success-text);cursor:default;">
-        ✅ Sin alertas de stock por ahora
+        <i class="bi bi-check-circle-fill"></i> Sin alertas de stock por ahora
       </div>
       {% endif %}
 
       <div class="action-row">
-        <a class="btn-action btn-alta" href="{% url 'inventario:producto_alta' %}">📦 Alta de productos</a>
-        <a class="btn-action btn-proveedores" href="{% url 'inventario:proveedores' %}">🏭 Proveedores</a>
-        <a class="btn-action" href="{% url 'inventario:alertas' %}">🚨 Alertas ({{ alertas_count }})</a>
+        <a class="btn-action btn-alta" href="{% url 'inventario:producto_alta' %}"><i class="bi bi-box-seam-fill"></i> Alta de productos</a>
+        <a class="btn-action btn-proveedores" href="{% url 'inventario:proveedores' %}"><i class="bi bi-truck"></i> Proveedores</a>
+        <a class="btn-action" href="{% url 'inventario:alertas' %}"><i class="bi bi-exclamation-triangle-fill"></i> Alertas ({{ alertas_count }})</a>
       </div>
 
       <form method="get" class="search-filter-row">
         <div class="search-inv">
-          <span style="color:#F9A825;font-size:14px;">🔍</span>
+          <i class="bi bi-search"></i>
           <input type="text" name="q" value="{{ q }}" placeholder="Buscar por nombre…"/>
         </div>
         <select class="filter-select" name="categoria" onchange="this.form.submit()">
@@ -112,7 +105,7 @@
                     {% if q or categoria_id %}
                     No se encontró ningún producto con ese filtro.
                     {% else %}
-                    Aún no has dado de alta ningún producto. Usa "📦 Alta de productos" para empezar.
+                    Aún no has dado de alta ningún producto. Usa "Alta de productos" para empezar.
                     {% endif %}
                   </td>
                 </tr>
@@ -123,8 +116,8 @@
         </div>
       </div>
     </div>
-  </div><!-- /main-content -->
-</div><!-- /layout -->
+  </div>
+</div>
 
 {% endblock %}
 

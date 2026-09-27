@@ -1,4 +1,4 @@
-# Configuración de Django del proyecto (Tiendita AI).
+# Configuración de Django del proyecto (MarIAmiga).
 # Por ahora todo corre en local con SQLite, sin variables de entorno.
 
 from pathlib import Path

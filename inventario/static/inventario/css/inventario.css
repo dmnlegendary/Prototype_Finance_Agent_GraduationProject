@@ -41,7 +41,7 @@
   cursor: pointer;
   transition: opacity .15s;
   text-align: center;
-  background: var(--gradient-primary);
+  background: var(--color-primary);
   color: var(--bg-white);
   display: inline-flex;
   align-items: center;
@@ -50,6 +50,26 @@
   text-decoration: none;
 }
 .btn-action:hover { opacity: .9; color: var(--bg-white); }
+.btn-alta { background: #06b6d4; }
+.btn-alta:hover { background: #0891b2; }
+.btn-modificar { background: #7c3aed; }
+.btn-modificar:hover { background: #6d28d9; }
+.btn-proveedores { background: #2563eb; }
+.btn-proveedores:hover { background: #1d4ed8; }
+
+.modal-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(17,24,39,.45);
+  z-index: 300;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-backdrop.open { display: flex; }
+.modal-backdrop .form-card { max-height: 90vh; }
+.modal-backdrop .panel-body { overflow-y: auto; }
 
 .search-filter-row {
   display: flex;

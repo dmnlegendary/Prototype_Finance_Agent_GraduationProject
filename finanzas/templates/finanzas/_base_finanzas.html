@@ -1,0 +1,24 @@
+{% extends "base_app.html" %}
+{% load static %}
+
+{% block app_extra_head %}
+<link rel="stylesheet" href="{% static 'finanzas/css/finanzas.css' %}">
+{% endblock %}
+
+{% block app_content %}
+
+<div class="avi-overlay" id="aviOverlay" onclick="closeAvi()"></div>
+<button class="fab-avi" onclick="openAvi()"><i class="bi bi-robot"></i></button>
+
+<div class="layout">
+  {% include "finanzas/_avi_panel.html" %}
+
+  <div class="main-content">
+    <div class="state active fin-content">
+      {% include "finanzas/_subnav.html" %}
+      {% block fin_content %}{% endblock %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}

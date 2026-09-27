@@ -11,6 +11,16 @@ function closeAvi() {
   document.getElementById('aviOverlay').classList.remove('open');
 }
 
+function openModal(id) {
+  const modal = document.getElementById('modal-' + id);
+  if (modal) modal.classList.add('open');
+}
+
+function closeModal(id) {
+  const modal = document.getElementById('modal-' + id);
+  if (modal) modal.classList.remove('open');
+}
+
 function calcMargen() {
   const costoInput = document.getElementById('id_costo');
   const precioInput = document.getElementById('id_precio_venta');

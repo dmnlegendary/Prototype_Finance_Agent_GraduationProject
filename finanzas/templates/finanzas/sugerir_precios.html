@@ -1,0 +1,27 @@
+{% extends "finanzas/_base_finanzas.html" %}
+
+{% block title %}Sugerir precios · MarIAmiga{% endblock %}
+
+{% block fin_content %}
+<div class="fin-title"><i class="bi bi-tag-fill"></i> Sugerir Precios</div>
+<p class="fin-subtitle">Precio sugerido por producto, a partir de tu costo y un margen de ganancia.</p>
+
+<div class="fin-callout">
+  <i class="bi bi-lightbulb-fill"></i> La fórmula todavía no está definida. Por ahora se muestran precios de ejemplo,
+  fijos en la plantilla, para revisar cómo se va a ver la pantalla.
+</div>
+
+<div class="fin-card">
+  <table class="fin-table">
+    <thead>
+      <tr><th>Producto</th><th>Costo</th><th>Precio actual</th><th>Precio sugerido</th><th>Margen</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Pan Bimbo blanco</td><td>$28.00</td><td>$32.00</td><td><span class="fin-badge-green">$35.50</span></td><td>21%</td></tr>
+      <tr><td>Coca-Cola 600ml</td><td>$18.00</td><td>$25.00</td><td><span class="fin-badge-green">$26.00</span></td><td>30%</td></tr>
+      <tr><td>Sabritas Original</td><td>$14.50</td><td>$18.00</td><td><span class="fin-badge-green">$19.50</span></td><td>26%</td></tr>
+      <tr><td>Leche Lala 1L</td><td>$22.00</td><td>$28.00</td><td><span class="fin-badge-green">$28.50</span></td><td>23%</td></tr>
+    </tbody>
+  </table>
+</div>
+{% endblock %}

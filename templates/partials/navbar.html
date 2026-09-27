@@ -1,7 +1,7 @@
 <nav>
   <a href="{% url 'ventas:punto_de_venta' %}" class="tab{% if request.resolver_match.app_name == 'ventas' %} active{% endif %}" style="text-decoration:none;">Módulo de ventas</a>
   <a href="{% url 'inventario:panel' %}" class="tab{% if request.resolver_match.app_name == 'inventario' %} active{% endif %}" style="text-decoration:none;">Auxiliar de inventario</a>
-  <a href="{% url 'finanzas:placeholder' %}" class="tab{% if request.resolver_match.app_name == 'finanzas' %} active{% endif %}" style="text-decoration:none;">Agente financiero</a>
+  <a href="{% url 'finanzas:inicio' %}" class="tab{% if request.resolver_match.app_name == 'finanzas' %} active{% endif %}" style="text-decoration:none;">Agente financiero</a>
   <div class="nav-spacer spacer"></div>
   <div class="avatar"><i class="bi bi-person-fill"></i></div>
 </nav>

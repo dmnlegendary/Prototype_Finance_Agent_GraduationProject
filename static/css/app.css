@@ -52,7 +52,7 @@
   --alert-banner-border:#fca5a5;
   --alert-banner-text:  #991b1b;
 
-  --gradient-primary: linear-gradient(90deg, var(--color-primary), var(--color-primary-border), var(--alert-banner-border));
+  --gradient-primary: linear-gradient(90deg, var(--color-primary) 55%, var(--color-primary-border) 85%, var(--alert-banner-border) 100%);
 
   --radius-sm:   6px;
   --radius-md:   8px;
@@ -72,46 +72,49 @@ body {
 
 nav {
   background: var(--nav-bg);
-  border-bottom: 1px solid var(--nav-border);
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
   display: flex;
   align-items: center;
-  padding: 0 16px;
-  height: 52px;
-  gap: 4px;
+  padding: 0 20px;
+  height: 62px;
+  gap: 6px;
   overflow-x: auto;
   scrollbar-width: none;
+  position: relative;
+  z-index: 10;
 }
 nav::-webkit-scrollbar { display: none; }
 .tab {
-  padding: 14px;
-  font-size: 13px;
-  font-weight: 500;
+  padding: 10px 4px;
+  margin: 0 10px;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--text-muted);
   cursor: pointer;
-  border-bottom: 3px solid transparent;
+  border-bottom: 2px solid transparent;
   transition: all .2s;
   white-space: nowrap;
   flex-shrink: 0;
 }
 .tab.active {
-  color: var(--nav-tab-active);
-  border-bottom: 3px solid var(--nav-tab-active);
-  font-weight: 600;
+  color: var(--color-primary);
+  border-bottom: 2px solid var(--color-primary);
 }
 .tab:hover:not(.active) { color: var(--text-secondary); }
 .nav-spacer, .spacer { flex: 1; min-width: 8px; }
 .avatar {
-  width: 34px; height: 34px;
+  width: 38px; height: 38px;
   background: var(--bg-muted);
+  border: 1px solid var(--border);
   border-radius: var(--radius-full);
   display: flex; align-items: center; justify-content: center;
-  font-size: 16px; color: var(--text-muted); cursor: pointer;
+  font-size: 17px; color: var(--text-muted); cursor: pointer;
   flex-shrink: 0;
 }
 
 .layout {
   display: flex;
-  height: calc(100vh - 52px);
+  height: calc(100vh - 62px);
   overflow: hidden;
 }
 .main-content {

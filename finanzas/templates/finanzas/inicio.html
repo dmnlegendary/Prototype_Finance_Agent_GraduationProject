@@ -1,0 +1,88 @@
+{% extends "finanzas/_base_finanzas.html" %}
+
+{% block title %}Agente Financiero · MarIAmiga{% endblock %}
+
+{% block fin_content %}
+<div class="fin-title"><i class="bi bi-robot"></i> Agente Financiero</div>
+<p class="fin-subtitle">Dashboard · Resumen inteligente de tu negocio</p>
+
+<div class="fin-stat-grid">
+  <div class="fin-stat-card">
+    <div class="fin-stat-label">Ventas hoy</div>
+    <div class="fin-stat-value">$3,240</div>
+    <div class="fin-stat-delta up">+8% vs ayer</div>
+  </div>
+  <div class="fin-stat-card">
+    <div class="fin-stat-label">Gastos del mes</div>
+    <div class="fin-stat-value">$123,917</div>
+    <div class="fin-stat-delta down">+2% vs mes ant.</div>
+  </div>
+  <div class="fin-stat-card">
+    <div class="fin-stat-label">Utilidad neta</div>
+    <div class="fin-stat-value">$17,000</div>
+    <div class="fin-stat-delta up">+6% vs mes ant.</div>
+  </div>
+  <div class="fin-stat-card">
+    <div class="fin-stat-label">Punto de equilibrio</div>
+    <div class="fin-stat-value">$28,500</div>
+    <div class="fin-stat-delta neutral">meta mensual</div>
+  </div>
+</div>
+
+<div class="fin-module-grid">
+  <a href="{% url 'finanzas:reportes_financieros' %}" class="fin-module-card v-pink">
+    <div class="fin-module-head">
+      <h3><i class="bi bi-bar-chart-fill"></i> Reportes financieros</h3>
+      <span class="fin-module-badge">Jun mejor mes</span>
+    </div>
+    <svg viewBox="0 0 200 60" width="100%" height="60"><polyline points="0,45 30,35 60,42 90,20 120,30 150,10 180,15" fill="none" stroke="#ec4899" stroke-width="3"/></svg>
+    <span class="fin-module-link">Ver módulo →</span>
+  </a>
+
+  <a href="{% url 'finanzas:pronostico_ventas' %}" class="fin-module-card v-purple">
+    <div class="fin-module-head">
+      <h3><i class="bi bi-graph-up-arrow"></i> Pronóstico de ventas</h3>
+      <span class="fin-module-badge">Modelo ML · 24 sem.</span>
+    </div>
+    <svg viewBox="0 0 200 60" width="100%" height="60">
+      <rect x="5" y="20" width="18" height="35" fill="var(--color-primary)"/>
+      <rect x="35" y="30" width="18" height="25" fill="var(--color-primary)"/>
+      <rect x="65" y="15" width="18" height="40" fill="var(--color-primary)"/>
+      <rect x="95" y="25" width="18" height="30" fill="var(--color-primary)"/>
+    </svg>
+    <span class="fin-module-link">Ver módulo →</span>
+  </a>
+
+  <a href="{% url 'finanzas:registrar_gastos' %}" class="fin-module-card v-green">
+    <div class="fin-module-head">
+      <h3><i class="bi bi-receipt"></i> Registrar gastos</h3>
+      <span class="fin-module-badge">8 gastos registrados</span>
+    </div>
+    <svg viewBox="0 0 200 60" width="100%" height="60"><rect x="10" y="35" width="30" height="20" fill="var(--color-success)"/><rect x="60" y="10" width="30" height="45" fill="var(--color-success)"/></svg>
+    <span class="fin-module-link">Ver módulo →</span>
+  </a>
+
+  <a href="{% url 'finanzas:punto_equilibrio' %}" class="fin-module-card v-green">
+    <div class="fin-module-head">
+      <h3><i class="bi bi-graph-up"></i> Punto de equilibrio</h3>
+      <span class="fin-module-badge">Calidad: Alta <i class="bi bi-check-circle-fill"></i></span>
+    </div>
+    <svg viewBox="0 0 200 60" width="100%" height="60"><polyline points="0,40 40,45 80,20 120,30 160,15 200,25" fill="none" stroke="var(--color-success)" stroke-width="3"/></svg>
+    <span class="fin-module-link">Ver módulo →</span>
+  </a>
+
+  <a href="{% url 'finanzas:sugerir_precios' %}" class="fin-module-card v-orange">
+    <div class="fin-module-head">
+      <h3><i class="bi bi-tag-fill"></i> Sugerir precios</h3>
+      <span class="fin-module-badge">4 productos analizados</span>
+    </div>
+    <svg viewBox="0 0 200 60" width="100%" height="60">
+      <rect x="10" y="25" width="18" height="30" fill="var(--color-orange)"/>
+      <rect x="40" y="15" width="18" height="40" fill="var(--color-orange)"/>
+      <rect x="70" y="30" width="18" height="25" fill="var(--color-orange)"/>
+      <rect x="100" y="10" width="18" height="45" fill="var(--color-orange)"/>
+    </svg>
+    <span class="fin-module-link">Ver módulo →</span>
+  </a>
+</div>
+{% endblock %}

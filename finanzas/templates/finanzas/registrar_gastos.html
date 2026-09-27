@@ -1,0 +1,61 @@
+{% extends "finanzas/_base_finanzas.html" %}
+
+{% block title %}Registrar gastos · MarIAmiga{% endblock %}
+
+{% block fin_content %}
+<div class="fin-title"><i class="bi bi-receipt"></i> Registro de Gastos</div>
+<p class="fin-subtitle">Registra tus gastos fijos (siempre los pagas) y variables (cambian cada mes).</p>
+
+<div class="fin-callout">
+  <i class="bi bi-lightbulb-fill"></i> <strong>¿Cuál es la diferencia?</strong><br>
+  <strong>Gastos fijos:</strong> los pagas siempre, aunque no vendas nada (renta, luz, internet).<br>
+  <strong>Gastos variables:</strong> cambian según cuánto vendas o compres (inventario, merma, bolsas).
+</div>
+
+<div class="fin-grid-2">
+  <div class="fin-card">
+    <h3>Registrar nuevo gasto</h3>
+    <div class="fin-toggle">
+      <button type="button" class="active"><i class="bi bi-lock-fill"></i> Gasto fijo</button>
+      <button type="button"><i class="bi bi-arrow-repeat"></i> Gasto variable</button>
+    </div>
+    <div class="fin-form-group">
+      <label>Concepto</label>
+      <input type="text" placeholder="Ej. Renta, Luz…">
+    </div>
+    <div class="fin-form-group">
+      <label>Monto ($)</label>
+      <input type="text" placeholder="0.00">
+    </div>
+    <div class="fin-form-group">
+      <label>Nota (opcional)</label>
+      <input type="text" placeholder="Descripción breve…">
+    </div>
+    <button type="button" class="fin-btn-primary">Guardar gasto</button>
+  </div>
+
+  <div class="fin-card">
+    <h3>Resumen de gastos del mes</h3>
+    <div class="fin-mini-stats">
+      <div class="fin-mini-stat">
+        <div class="fin-stat-label">Gastos fijos</div>
+        <div class="fin-stat-value">$5,950</div>
+      </div>
+      <div class="fin-mini-stat">
+        <div class="fin-stat-label">Gastos variables</div>
+        <div class="fin-stat-value">$117,967</div>
+      </div>
+      <div class="fin-mini-stat">
+        <div class="fin-stat-label">Total general</div>
+        <div class="fin-stat-value">$123,917</div>
+      </div>
+    </div>
+    <svg viewBox="0 0 300 140" width="100%" height="140">
+      <rect x="40" y="120" width="60" height="10" fill="var(--color-primary)"/>
+      <rect x="180" y="20" width="60" height="110" fill="var(--color-primary)"/>
+      <text x="70" y="138" font-size="11" fill="var(--text-muted)" text-anchor="middle">Fijos</text>
+      <text x="210" y="138" font-size="11" fill="var(--text-muted)" text-anchor="middle">Variables</text>
+    </svg>
+  </div>
+</div>
+{% endblock %}

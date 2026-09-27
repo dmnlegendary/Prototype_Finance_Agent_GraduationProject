@@ -1,0 +1,24 @@
+{% extends "finanzas/_base_finanzas.html" %}
+
+{% block title %}Punto de equilibrio · MarIAmiga{% endblock %}
+
+{% block fin_content %}
+<div class="fin-title"><i class="bi bi-graph-up"></i> Punto de Equilibrio</div>
+<p class="fin-subtitle">Cuánto necesitas vender al mes para cubrir tus gastos fijos y variables.</p>
+
+<div class="fin-callout">
+  <i class="bi bi-lightbulb-fill"></i> Se calcula a partir de tus <strong>gastos fijos</strong>, tus <strong>gastos variables</strong>
+  y el <strong>margen de venta</strong> de tus productos. Todavía no está conectado a datos reales — por ahora solo se ve la pantalla.
+</div>
+
+<div class="fin-card">
+  <h3>Punto de equilibrio estimado</h3>
+  <div class="fin-stat-value" style="font-size:28px;">$28,500 <span class="fin-stat-delta neutral">al mes</span></div>
+  <div style="margin:16px 0 6px;display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);">
+    <span>Ventas actuales: $19,200</span>
+    <span>Meta: $28,500</span>
+  </div>
+  <div class="fin-progress-track"><div class="fin-progress-fill" style="width:67%;"></div></div>
+  <p class="fin-subtitle" style="margin-top:10px;">Vas al 67% de tu punto de equilibrio este mes.</p>
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "finanzas/_base_finanzas.html" %}
+
+{% block title %}Pronóstico de ventas · MarIAmiga{% endblock %}
+
+{% block fin_content %}
+<div class="fin-title"><i class="bi bi-graph-up-arrow"></i> Pronóstico de Ventas</div>
+<p class="fin-subtitle">Generado por un modelo de Machine Learning externo entrenado con tu historial de ventas.</p>
+
+<div class="fin-callout">
+  <i class="bi bi-robot"></i> <strong>¿Cómo funciona?</strong> Un modelo de Machine Learning analiza tu historial de
+  <strong>24 semanas</strong> para estimar cuántas unidades venderás esta semana. El AVI te ayuda a interpretar los resultados.
+</div>
+
+<div class="fin-card">
+  <h3>Generar nuevo pronóstico semanal</h3>
+  <button type="button" class="fin-btn-primary" style="margin-bottom:14px;"><i class="bi bi-magic"></i> Consultando modelo ML…</button>
+
+  <div class="fin-status-line"><i class="bi bi-hourglass-split"></i> Procesando historial de 24 semanas…</div>
+
+  <div class="fin-result-group">
+    <h4><i class="bi bi-check-circle-fill"></i> Bebidas</h4>
+    <div class="fin-result-item"><span>Coca-Cola 600ml</span><span class="fin-badge-green">48 uds</span></div>
+    <div class="fin-result-item"><span>Agua 1.5L</span><span class="fin-badge-green">26 uds</span></div>
+    <div class="fin-result-item"><span>Jugo Del Valle</span><span class="fin-badge-green">47 uds</span></div>
+    <div class="fin-result-item"><span>Cerveza Modelo</span><span class="fin-badge-green">13 uds</span></div>
+  </div>
+
+  <div style="margin-top:18px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:6px;">
+      <span><i class="bi bi-bar-chart-fill"></i> Nivel de confianza del modelo</span>
+      <span style="color:var(--color-primary);">76%</span>
+    </div>
+    <div class="fin-progress-track"><div class="fin-progress-fill" style="width:76%;"></div></div>
+    <p class="fin-subtitle" style="margin-top:6px;"><i class="bi bi-exclamation-triangle-fill"></i> Confianza media.</p>
+
+    <div class="fin-insight-purple" style="margin-top:10px;">
+      <i class="bi bi-robot"></i> <strong>AVI interpreta:</strong> estimación de 781 unidades en 18 productos esta semana.
+      Asegura stock antes del viernes.
+    </div>
+    <div class="fin-insight-green" style="margin-top:8px;">
+      <i class="bi bi-box-seam-fill"></i> Total estimado: 781 unidades · Confianza: 76%
+    </div>
+  </div>
+</div>
+{% endblock %}

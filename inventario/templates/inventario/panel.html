@@ -1,7 +1,7 @@
 {% extends "base_app.html" %}
 {% load static %}
 
-{% block title %}Auxiliar de Inventario · Tiendita AI{% endblock %}
+{% block title %}Auxiliar de Inventario · MarIAmiga{% endblock %}
 
 {% block app_extra_head %}
 <link rel="stylesheet" href="{% static 'inventario/css/inventario.css' %}">
@@ -51,9 +51,9 @@
       {% endif %}
 
       <div class="action-row">
-        <a class="btn-action btn-alta" href="{% url 'inventario:producto_alta' %}"><i class="bi bi-box-seam-fill"></i> Alta de productos</a>
+        <button type="button" class="btn-action btn-alta" onclick="openModal('alta')"><i class="bi bi-box-seam-fill"></i> Alta de productos</button>
+        <a class="btn-action btn-modificar" href="#producto-lista"><i class="bi bi-pencil-square"></i> Modificar productos</a>
         <a class="btn-action btn-proveedores" href="{% url 'inventario:proveedores' %}"><i class="bi bi-truck"></i> Proveedores</a>
-        <a class="btn-action" href="{% url 'inventario:alertas' %}"><i class="bi bi-exclamation-triangle-fill"></i> Alertas ({{ alertas_count }})</a>
       </div>
 
       <form method="get" class="search-filter-row">
@@ -69,7 +69,7 @@
         </select>
       </form>
 
-      <div class="catalog-wrap">
+      <div class="catalog-wrap" id="producto-lista">
         <div class="catalog-card">
           <div class="catalog-scroll">
             <table class="catalog-table">
@@ -119,8 +119,84 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="modal-alta">
+  <div class="form-card">
+    <div class="panel-header">
+      <h3><i class="bi bi-box-seam-fill"></i> Alta de producto</h3>
+      <button type="button" class="panel-close" onclick="closeModal('alta')"><i class="bi bi-x-lg"></i></button>
+    </div>
+
+    <form method="post" action="{% url 'inventario:producto_alta' %}" class="panel-body" style="gap:14px;">
+      {% csrf_token %}
+
+      {% if form_alta.non_field_errors %}
+      <div style="background:var(--color-danger-bg);color:var(--color-danger-text);border-radius:8px;padding:8px 12px;font-size:13px;">{{ form_alta.non_field_errors }}</div>
+      {% endif %}
+
+      <div class="form-group">
+        {{ form_alta.nombre.label_tag }}
+        {{ form_alta.nombre }}
+        {% if form_alta.nombre.errors %}<span style="color:var(--color-danger);font-size:12px;">{{ form_alta.nombre.errors|join:", " }}</span>{% endif %}
+      </div>
+
+      <div class="form-group">
+        {{ form_alta.descripcion.label_tag }}
+        {{ form_alta.descripcion }}
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          {{ form_alta.icono.label_tag }}
+          {{ form_alta.icono }}
+        </div>
+        <div class="form-group">
+          {{ form_alta.categoria.label_tag }}
+          {{ form_alta.categoria }}
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="{{ form_alta.costo.id_for_label }}">Costo ($)</label>
+          {{ form_alta.costo }}
+          {% if form_alta.costo.errors %}<span style="color:var(--color-danger);font-size:12px;">{{ form_alta.costo.errors|join:", " }}</span>{% endif %}
+        </div>
+        <div class="form-group">
+          <label for="{{ form_alta.precio_venta.id_for_label }}">Precio de venta ($)</label>
+          {{ form_alta.precio_venta }}
+          {% if form_alta.precio_venta.errors %}<span style="color:var(--color-danger);font-size:12px;">{{ form_alta.precio_venta.errors|join:", " }}</span>{% endif %}
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          {{ form_alta.cantidad_actual.label_tag }}
+          {{ form_alta.cantidad_actual }}
+        </div>
+        <div class="form-group">
+          {{ form_alta.cantidad_minima.label_tag }}
+          {{ form_alta.cantidad_minima }}
+        </div>
+      </div>
+
+      <div class="form-group">
+        {{ form_alta.proveedor.label_tag }}
+        {{ form_alta.proveedor }}
+      </div>
+
+      <div class="panel-footer" style="padding:0; border-top:none;">
+        <button type="submit" class="btn-success">Guardar producto</button>
+        <button type="button" class="btn-ghost" onclick="closeModal('alta')">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block extra_scripts %}
 <script src="{% static 'inventario/js/inventario.js' %}"></script>
+{% if abrir_modal_alta %}
+<script>document.addEventListener('DOMContentLoaded', function () { openModal('alta'); });</script>
+{% endif %}
 {% endblock %}

@@ -12,13 +12,7 @@ def _negocio_o_redirect(request):
     return getattr(request.user, "negocio", None)
 
 
-@login_required
-def panel(request):
-    negocio = _negocio_o_redirect(request)
-    if negocio is None:
-        messages.warning(request, "Primero completa los datos de tu negocio.")
-        return redirect("accounts:datos_negocio")
-
+def _contexto_panel(request, negocio, form_alta=None):
     productos = Producto.objects.filter(negocio=negocio, activo=True).select_related("categoria")
 
     q = request.GET.get("q", "").strip()
@@ -34,14 +28,24 @@ def panel(request):
         negocio=negocio, activo=True, cantidad_actual__lte=F("cantidad_minima"),
     ).count()
 
-    context = {
+    return {
         "productos": productos,
         "categorias": Categoria.objects.all(),
         "q": q,
         "categoria_id": categoria_id,
         "alertas_count": alertas_count,
+        "form_alta": form_alta or ProductoForm(negocio=negocio),
     }
-    return render(request, "inventario/panel.html", context)
+
+
+@login_required
+def panel(request):
+    negocio = _negocio_o_redirect(request)
+    if negocio is None:
+        messages.warning(request, "Primero completa los datos de tu negocio.")
+        return redirect("accounts:datos_negocio")
+
+    return render(request, "inventario/panel.html", _contexto_panel(request, negocio))
 
 
 @login_required
@@ -58,10 +62,14 @@ def producto_alta(request):
             producto.save()
             messages.success(request, f'"{producto.nombre}" se dio de alta correctamente.')
             return redirect("inventario:panel")
-    else:
-        form = ProductoForm(negocio=negocio)
 
-    return render(request, "inventario/producto_form.html", {"form": form, "modo": "alta"})
+        # si el formulario del modal tiene errores, se regresa al panel con el
+        # modal ya abierto (nunca se navega a una vista nueva para el alta)
+        context = _contexto_panel(request, negocio, form_alta=form)
+        context["abrir_modal_alta"] = True
+        return render(request, "inventario/panel.html", context)
+
+    return redirect("inventario:panel")
 
 
 @login_required

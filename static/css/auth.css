@@ -4,6 +4,7 @@
     --color-primary: #4f46e5;
     --color-primary-border: #ddd6fe;
     --alert-banner-border: #fca5a5;
+    --gradient-primary: linear-gradient(90deg, var(--color-primary) 55%, var(--color-primary-border) 85%, var(--alert-banner-border) 100%);
 }
 
 body {
@@ -17,17 +18,11 @@ body {
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
 }
 
-.logo-circle {
+.app-logo {
     width: 60px;
     height: 60px;
-    border-radius: 18px;
-    background: linear-gradient(90deg, var(--color-primary), var(--color-primary-border), var(--alert-banner-border));
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    font-weight: 700;
+    object-fit: contain;
+    display: block;
     margin: 0 auto;
 }
 
@@ -42,7 +37,7 @@ body {
     font-weight: 600;
 }
 
-.step-dot.active { background: linear-gradient(90deg, var(--color-primary), var(--color-primary-border), var(--alert-banner-border)); color: #fff; }
+.step-dot.active { background: var(--gradient-primary); color: #fff; }
 .step-dot.done { background-color: #198754; color: #fff; }
 .step-dot.pending { background-color: #e9ecef; color: #adb5bd; }
 
@@ -56,12 +51,12 @@ body {
 }
 
 .btn-primary {
-    background: linear-gradient(90deg, var(--color-primary), var(--color-primary-border), var(--alert-banner-border));
+    background: var(--gradient-primary);
     border: none;
     border-radius: 50px;
 }
 .btn-primary:hover, .btn-primary:focus {
-    background: linear-gradient(90deg, var(--color-primary), var(--color-primary-border), var(--alert-banner-border));
+    background: var(--gradient-primary);
     opacity: .9;
 }
 

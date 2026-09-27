@@ -56,7 +56,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   padding: 14px 16px;
-  box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  box-shadow: var(--shadow-sm);
 }
 .fin-stat-label { font-size: 12px; color: var(--text-muted); }
 .fin-stat-value { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-top: 4px; }
@@ -80,7 +80,7 @@
   flex-direction: column;
   gap: 10px;
 }
-.fin-module-card.v-pink   { background: #fdf2f8; }
+.fin-module-card.v-pink   { background: var(--bg-muted); }
 .fin-module-card.v-purple { background: var(--color-primary-bg); }
 .fin-module-card.v-green  { background: var(--color-success-bg); }
 .fin-module-card.v-orange { background: var(--color-orange-bg); }
@@ -114,7 +114,7 @@
   background: var(--bg-white);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  box-shadow: var(--shadow-sm);
   padding: 18px;
 }
 .fin-card h3 { font-size: 14px; font-weight: 700; margin-bottom: 12px; }
@@ -193,7 +193,7 @@
 }
 
 .fin-progress-track { height: 10px; background: var(--bg-muted); border-radius: var(--radius-full); overflow: hidden; }
-.fin-progress-fill { height: 100%; background: linear-gradient(90deg, #60a5fa, var(--color-success)); border-radius: var(--radius-full); }
+.fin-progress-fill { height: 100%; background: var(--color-primary); border-radius: var(--radius-full); }
 
 .fin-insight-purple {
   background: var(--color-primary-bg);

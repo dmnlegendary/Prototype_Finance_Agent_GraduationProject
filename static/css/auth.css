@@ -4,17 +4,18 @@
     --color-primary: #4f46e5;
     --color-primary-border: #ddd6fe;
     --alert-banner-border: #fca5a5;
+    --shadow-md: 0 8px 24px rgba(0,0,0,.14);
 }
 
 body {
     background-color: #f5f6fa;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
 .card-auth {
     border: none;
     border-radius: 14px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+    box-shadow: var(--shadow-md);
 }
 
 .app-logo {

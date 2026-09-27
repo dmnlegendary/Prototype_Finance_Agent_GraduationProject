@@ -38,7 +38,7 @@
   gap: 5px;
   background: var(--color-info-bg);
   color: var(--color-info-text);
-  border: 1px solid #a5f3fc;
+  border: 1px solid var(--color-warning-border);
   font-size: 11px;
   font-weight: 700;
   padding: 4px 11px;
@@ -100,7 +100,7 @@
 
 .fin-callout {
   background: var(--color-info-bg);
-  border: 1px solid #a5f3fc;
+  border: 1px solid var(--color-warning-border);
   border-radius: var(--radius-xl);
   padding: 12px 16px;
   font-size: 13px;

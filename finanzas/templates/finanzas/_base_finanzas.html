@@ -5,22 +5,17 @@
 <link rel="stylesheet" href="{% static 'finanzas/css/finanzas.css' %}">
 {% endblock %}
 
-{% block app_content %}
-
+{% block avi_panel %}
 <div class="avi-overlay" id="aviOverlay" onclick="closeAvi()"></div>
 <button class="fab-avi" onclick="openAvi()"><i class="bi bi-robot"></i></button>
+{% include "finanzas/_avi_panel.html" %}
+{% endblock %}
 
-<div class="layout">
-  {% include "finanzas/_avi_panel.html" %}
-
-  <div class="main-content">
-    <div class="state active">
-      <div class="fin-content">
-        {% include "finanzas/_subnav.html" %}
-        {% block fin_content %}{% endblock %}
-      </div>
-    </div>
+{% block app_content %}
+<div class="state active">
+  <div class="fin-content">
+    {% include "finanzas/_subnav.html" %}
+    {% block fin_content %}{% endblock %}
   </div>
 </div>
-
 {% endblock %}

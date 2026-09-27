@@ -1,11 +1,11 @@
 :root {
-  --bg-page:            #F1EFEC;
+  --bg-page:            #F8F6F2;
   --bg-white:           #ffffff;
-  --bg-light:           #F8F6F3;
-  --bg-muted:           #ECE8E2;
+  --bg-light:           #F3F0EA;
+  --bg-muted:           #ECE8E1;
 
-  --border:             #E4DFD6;
-  --border-light:       #ECE8E2;
+  --border:             #E3DED4;
+  --border-light:       #ECE8E1;
 
   --text-primary:       #1a1a2e;
   --text-secondary:     #374151;
@@ -47,7 +47,7 @@
   --avi-border:         #ddd6fe;
   --avi-input-bg:       #f5f3ff;
 
-  --nav-bg:             #F1EFEC;
+  --nav-bg:             #F8F6F2;
   --nav-border:         #e2e4e9;
   --nav-tab-active:     #4f46e5;
 
@@ -200,9 +200,29 @@ nav {
 }
 .avatar-picker-grid button:hover { background: var(--color-primary-bg); }
 
+.app-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+.app-right-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+.app-main {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 .layout {
   display: flex;
-  height: calc(100vh - 62px);
+  height: 100%;
   overflow: hidden;
 }
 .main-content {
@@ -598,7 +618,7 @@ nav {
 .cat-pill {
   padding: 6px 14px;
   border-radius: var(--radius-full);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   background: var(--bg-white);
   color: var(--text-secondary);
   font-size: 12px;
@@ -670,6 +690,13 @@ nav {
   .fab-avi { display: flex; }
 }
 
-@media (max-width: 480px) {
-  nav .tab, .tab { padding: 12px 10px; font-size: 12px; }
+@media (max-width: 640px) {
+  nav { height: 54px; padding: 6px 10px; column-gap: 4px; }
+  .nav-logo { height: 26px; margin-right: 4px; }
+  .nav-tabs-center { gap: 2px; }
+  .tab { padding: 8px 10px; font-size: 12px; gap: 4px; }
+  .tab i { font-size: 14px; }
+  .tab span { display: none; }
+  .tab.active::after { left: 8px; right: 8px; }
+  .avatar { width: 32px; height: 32px; font-size: 14px; }
 }

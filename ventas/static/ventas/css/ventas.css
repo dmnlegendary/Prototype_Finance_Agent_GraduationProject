@@ -39,7 +39,7 @@
   height: 44px;
   padding: 0 16px;
   border-radius: var(--radius-full);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   background: var(--bg-white);
   color: var(--text-secondary);
   font-size: 13px;
@@ -55,14 +55,14 @@
 .search-box {
   display: flex;
   align-items: center;
-  background: var(--color-primary-bg);
-  border: 2px solid var(--color-primary-border);
+  background: var(--bg-white);
+  border: 1px solid var(--border);
   border-radius: var(--radius-full);
   padding: 0 14px;
   gap: 8px;
   height: 44px;
 }
-.search-box i { color: var(--color-primary); font-size: 15px; flex-shrink: 0; }
+.search-box i { color: var(--text-muted); font-size: 15px; flex-shrink: 0; }
 .search-box input {
   flex: 1;
   border: none;

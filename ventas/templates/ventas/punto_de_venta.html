@@ -5,6 +5,38 @@
 <link rel="stylesheet" href="{% static 'ventas/css/ventas.css' %}">
 {% endblock %}
 
+{% block avi_panel %}
+<div class="avi-overlay" id="aviOverlay" onclick="closeAvi()"></div>
+<button class="fab-avi" onclick="openAvi()" title="Abrir AVI"><i class="bi bi-robot"></i></button>
+
+<div class="avi-panel" id="aviPanel">
+  <div class="avi-title">
+    <span><i class="bi bi-robot"></i> Asistente Virtual</span>
+    <div class="avi-title-actions">
+      <button class="avi-clear-btn" onclick="limpiarChatAvi()" title="Vaciar chat"><i class="bi bi-trash3"></i></button>
+      <button class="avi-minimize-btn" onclick="toggleAviMinimize()" title="Minimizar"><i class="bi bi-dash-lg"></i></button>
+      <button class="avi-expand-btn" onclick="toggleAviExpand()" title="Pantalla completa"><i class="bi bi-arrows-fullscreen"></i></button>
+      <button class="avi-toggle-btn" onclick="closeAvi()"><i class="bi bi-x-lg"></i></button>
+    </div>
+  </div>
+  <div class="avi-chat" id="aviChat">
+    <div class="bubble bot">Hola 👋 Puedo agregar productos al carrito por texto. Intenta: "agrega 2 pepsis".</div>
+  </div>
+  <form class="avi-input" id="aviForm" onsubmit="return enviarMensajeAvi(event)">
+    {% csrf_token %}
+    <input type="text" id="aviTexto" placeholder="Ej: 2 coca cola 600…" autocomplete="off"/>
+    <button type="submit"><i class="bi bi-send-fill"></i></button>
+  </form>
+  <div class="avi-config">
+    <i class="bi bi-gear-fill"></i> Modelo:
+    <select id="aviModelo">
+      <option value="chatgpt">ChatGPT</option>
+      <option value="gemini">Gemini</option>
+    </select>
+  </div>
+</div>
+{% endblock %}
+
 {% block app_content %}
 
 {% if messages %}
@@ -15,121 +47,86 @@
 </div>
 {% endif %}
 
-<div class="avi-overlay" id="aviOverlay" onclick="closeAvi()"></div>
-<button class="fab-avi" onclick="openAvi()" title="Abrir AVI"><i class="bi bi-robot"></i></button>
+<div class="state active main">
 
-<div class="layout">
-
-  <div class="avi-panel" id="aviPanel">
-    <div class="avi-title">
-      <span><i class="bi bi-robot"></i> Asistente Virtual</span>
-      <div class="avi-title-actions">
-        <button class="avi-clear-btn" onclick="limpiarChatAvi()" title="Vaciar chat"><i class="bi bi-trash3"></i></button>
-        <button class="avi-minimize-btn" onclick="toggleAviMinimize()" title="Minimizar"><i class="bi bi-dash-lg"></i></button>
-        <button class="avi-expand-btn" onclick="toggleAviExpand()" title="Pantalla completa"><i class="bi bi-arrows-fullscreen"></i></button>
-        <button class="avi-toggle-btn" onclick="closeAvi()"><i class="bi bi-x-lg"></i></button>
+  <div class="search-row">
+    <div class="search-wrapper">
+      <div class="search-box">
+        <i class="bi bi-search"></i>
+        <input type="text" id="buscarProducto" placeholder="Buscar producto…" autocomplete="off"/>
       </div>
+      <div class="search-dropdown" id="resultadosBusqueda" style="display:none;"></div>
     </div>
-    <div class="avi-chat" id="aviChat">
-      <div class="bubble bot">Hola 👋 Puedo agregar productos al carrito por texto. Intenta: "agrega 2 pepsis".</div>
+    <button type="button" class="btn-no-encontrado" onclick="openModal('no-encontrado')">
+      <i class="bi bi-plus-circle"></i> No encontrado
+    </button>
+    <a href="{% url 'ventas:historial' %}" class="btn-historial" data-sin-loader>
+      <i class="bi bi-clock-history"></i> Historial de ventas
+    </a>
+  </div>
+
+  <div class="sale-meta">
+    <span><strong>Folio:</strong> #{{ venta.folio|stringformat:"04d" }}</span>
+    <span><strong>Fecha:</strong> <span id="fechaActual"></span></span>
+    <span><strong>Hora:</strong> <span id="horaActual"></span></span>
+  </div>
+
+  <div class="cart-card">
+    <div class="cart-scroll">
+      <table class="cart-table">
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th>Cantidad</th>
+            <th class="right">Precio</th>
+            <th class="right">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+          <tr data-pk="{{ item.pk }}" onclick="seleccionarFilaCarrito(this)">
+            <td>{{ item.producto.icono }} {{ item.producto.nombre }}</td>
+            <td>
+              <div class="qty">
+                <form method="post" action="{% url 'ventas:item_decrementar' item.pk %}" style="display:contents;">
+                  {% csrf_token %}
+                  <button type="submit" onclick="event.stopPropagation()">&minus;</button>
+                </form>
+                <span>{{ item.cantidad|floatformat:"-2" }}</span>
+                <form method="post" action="{% url 'ventas:item_incrementar' item.pk %}" style="display:contents;">
+                  {% csrf_token %}
+                  <button type="submit" onclick="event.stopPropagation()">+</button>
+                </form>
+              </div>
+            </td>
+            <td class="right">${{ item.precio_unitario }}</td>
+            <td class="right">${{ item.subtotal }}</td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="4" style="text-align:center;color:var(--text-faint);padding:24px;">
+              <i class="bi bi-cart3"></i> Carrito vacío. Busca un producto para comenzar.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-    <form class="avi-input" id="aviForm" onsubmit="return enviarMensajeAvi(event)">
-      {% csrf_token %}
-      <input type="text" id="aviTexto" placeholder="Ej: 2 coca cola 600…" autocomplete="off"/>
-      <button type="submit"><i class="bi bi-send-fill"></i></button>
-    </form>
-    <div class="avi-config">
-      <i class="bi bi-gear-fill"></i> Modelo:
-      <select id="aviModelo">
-        <option value="chatgpt">ChatGPT</option>
-        <option value="gemini">Gemini</option>
-      </select>
+
+    <div class="bottom-bar">
+      <form method="post" action="{% url 'ventas:cancelar_venta' %}" style="display:contents;" onsubmit="return confirm('¿Cancelar esta venta?');">
+        {% csrf_token %}
+        <button type="submit" class="btn-cancel"{% if not items %} disabled style="opacity:.4;cursor:not-allowed;"{% endif %}>Cancelar venta</button>
+      </form>
+      <div class="bottom-spacer"></div>
+      <div class="total-display">Total: ${{ venta.total }}</div>
+      <form method="post" action="{% url 'ventas:cobrar' %}" style="display:contents;">
+        {% csrf_token %}
+        <button type="submit" class="btn-cobrar"{% if not items %} disabled style="opacity:.4;cursor:not-allowed;"{% endif %}>Cobrar</button>
+      </form>
     </div>
   </div>
 
-  <div style="flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0;">
-    <div class="state active main">
-
-      <div class="search-row">
-        <div class="search-wrapper">
-          <div class="search-box">
-            <i class="bi bi-search"></i>
-            <input type="text" id="buscarProducto" placeholder="Buscar producto…" autocomplete="off"/>
-          </div>
-          <div class="search-dropdown" id="resultadosBusqueda" style="display:none;"></div>
-        </div>
-        <button type="button" class="btn-no-encontrado" onclick="openModal('no-encontrado')">
-          <i class="bi bi-plus-circle"></i> No encontrado
-        </button>
-        <a href="{% url 'ventas:historial' %}" class="btn-historial" data-sin-loader>
-          <i class="bi bi-clock-history"></i> Historial de ventas
-        </a>
-      </div>
-
-      <div class="sale-meta">
-        <span><strong>Folio:</strong> #{{ venta.folio|stringformat:"04d" }}</span>
-        <span><strong>Fecha:</strong> <span id="fechaActual"></span></span>
-        <span><strong>Hora:</strong> <span id="horaActual"></span></span>
-      </div>
-
-      <div class="cart-card">
-        <div class="cart-scroll">
-          <table class="cart-table">
-            <thead>
-              <tr>
-                <th>Producto</th>
-                <th>Cantidad</th>
-                <th class="right">Precio</th>
-                <th class="right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for item in items %}
-              <tr data-pk="{{ item.pk }}" onclick="seleccionarFilaCarrito(this)">
-                <td>{{ item.producto.icono }} {{ item.producto.nombre }}</td>
-                <td>
-                  <div class="qty">
-                    <form method="post" action="{% url 'ventas:item_decrementar' item.pk %}" style="display:contents;">
-                      {% csrf_token %}
-                      <button type="submit" onclick="event.stopPropagation()">&minus;</button>
-                    </form>
-                    <span>{{ item.cantidad|floatformat:"-2" }}</span>
-                    <form method="post" action="{% url 'ventas:item_incrementar' item.pk %}" style="display:contents;">
-                      {% csrf_token %}
-                      <button type="submit" onclick="event.stopPropagation()">+</button>
-                    </form>
-                  </div>
-                </td>
-                <td class="right">${{ item.precio_unitario }}</td>
-                <td class="right">${{ item.subtotal }}</td>
-              </tr>
-              {% empty %}
-              <tr>
-                <td colspan="4" style="text-align:center;color:var(--text-faint);padding:24px;">
-                  <i class="bi bi-cart3"></i> Carrito vacío. Busca un producto para comenzar.
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="bottom-bar">
-        <form method="post" action="{% url 'ventas:cancelar_venta' %}" style="display:contents;" onsubmit="return confirm('¿Cancelar esta venta?');">
-          {% csrf_token %}
-          <button type="submit" class="btn-cancel"{% if not items %} disabled style="opacity:.4;cursor:not-allowed;"{% endif %}>Cancelar venta</button>
-        </form>
-        <div class="bottom-spacer"></div>
-        <div class="total-display">Total: ${{ venta.total }}</div>
-        <form method="post" action="{% url 'ventas:cobrar' %}" style="display:contents;">
-          {% csrf_token %}
-          <button type="submit" class="btn-cobrar"{% if not items %} disabled style="opacity:.4;cursor:not-allowed;"{% endif %}>Cobrar</button>
-        </form>
-      </div>
-
-    </div>
-  </div>
 </div>
 
 <div class="modal-backdrop" id="modal-no-encontrado">

@@ -6,8 +6,15 @@
 {% endblock %}
 
 {% block content %}
-{% include "partials/navbar.html" %}
-{% block app_content %}{% endblock %}
+<div class="app-shell">
+  {% block avi_panel %}{% endblock %}
+  <div class="app-right-col">
+    {% include "partials/navbar.html" %}
+    <div class="app-main">
+      {% block app_content %}{% endblock %}
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_scripts %}

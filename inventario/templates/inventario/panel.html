@@ -1,9 +1,40 @@
 {% extends "base_app.html" %}
 {% load static %}
 
-
 {% block app_extra_head %}
 <link rel="stylesheet" href="{% static 'inventario/css/inventario.css' %}">
+{% endblock %}
+
+{% block avi_panel %}
+<div class="avi-overlay" id="aviOverlay" onclick="closeAvi()"></div>
+<button class="fab-avi" onclick="openAvi()"><i class="bi bi-robot"></i></button>
+
+<div class="avi-panel" id="aviPanel">
+  <div class="avi-title">
+    <span><i class="bi bi-robot"></i> Asistente Virtual</span>
+    <div class="avi-title-actions">
+      <button class="avi-clear-btn" onclick="limpiarChatAvi()" title="Vaciar chat"><i class="bi bi-trash3"></i></button>
+      <button class="avi-minimize-btn" onclick="toggleAviMinimize()" title="Minimizar"><i class="bi bi-dash-lg"></i></button>
+      <button class="avi-expand-btn" onclick="toggleAviExpand()" title="Pantalla completa"><i class="bi bi-arrows-fullscreen"></i></button>
+      <button class="avi-close-btn" onclick="closeAvi()"><i class="bi bi-x-lg"></i></button>
+    </div>
+  </div>
+  <div class="avi-chat" id="aviChat">
+    <div class="bubble bot">Hola 👋 Soy tu auxiliar de inventario. Puedo ayudarte a dar de alta productos, revisar stock o buscar proveedores. Escribe algo para empezar.</div>
+  </div>
+  <form class="avi-input" id="aviForm" onsubmit="return enviarMensajeAvi(event)">
+    {% csrf_token %}
+    <input type="text" id="aviTexto" placeholder="Escribe aquí…" autocomplete="off"/>
+    <button type="submit"><i class="bi bi-send-fill"></i></button>
+  </form>
+  <div class="avi-config">
+    <i class="bi bi-gear-fill"></i> Modelo:
+    <select id="aviModelo">
+      <option value="chatgpt">ChatGPT</option>
+      <option value="gemini">Gemini</option>
+    </select>
+  </div>
+</div>
 {% endblock %}
 
 {% block app_content %}
@@ -16,116 +47,81 @@
 </div>
 {% endif %}
 
-<div class="avi-overlay" id="aviOverlay" onclick="closeAvi()"></div>
-<button class="fab-avi" onclick="openAvi()"><i class="bi bi-robot"></i></button>
+<div class="state active">
+  {% if alertas_count %}
+  <a class="alert-banner" href="{% url 'inventario:alertas' %}">
+    <i class="bi bi-bell-fill"></i> ¡Alertas de reabastecimiento!
+    <span class="alert-badge">{{ alertas_count }}</span>
+    <span class="arrow">Ver todas →</span>
+  </a>
+  {% else %}
+  <div class="alert-banner" style="background:var(--color-success-bg);color:var(--color-success-text);cursor:default;">
+    <i class="bi bi-check-circle-fill"></i> Sin alertas de stock por ahora
+  </div>
+  {% endif %}
 
-<div class="layout">
-
-  <div class="avi-panel" id="aviPanel">
-    <div class="avi-title">
-      <span><i class="bi bi-robot"></i> Asistente Virtual</span>
-      <div class="avi-title-actions">
-        <button class="avi-clear-btn" onclick="limpiarChatAvi()" title="Vaciar chat"><i class="bi bi-trash3"></i></button>
-        <button class="avi-minimize-btn" onclick="toggleAviMinimize()" title="Minimizar"><i class="bi bi-dash-lg"></i></button>
-        <button class="avi-expand-btn" onclick="toggleAviExpand()" title="Pantalla completa"><i class="bi bi-arrows-fullscreen"></i></button>
-        <button class="avi-close-btn" onclick="closeAvi()"><i class="bi bi-x-lg"></i></button>
-      </div>
-    </div>
-    <div class="avi-chat" id="aviChat">
-      <div class="bubble bot">Hola 👋 Soy tu auxiliar de inventario. Puedo ayudarte a dar de alta productos, revisar stock o buscar proveedores. Escribe algo para empezar.</div>
-    </div>
-    <form class="avi-input" id="aviForm" onsubmit="return enviarMensajeAvi(event)">
-      {% csrf_token %}
-      <input type="text" id="aviTexto" placeholder="Escribe aquí…" autocomplete="off"/>
-      <button type="submit"><i class="bi bi-send-fill"></i></button>
-    </form>
-    <div class="avi-config">
-      <i class="bi bi-gear-fill"></i> Modelo:
-      <select id="aviModelo">
-        <option value="chatgpt">ChatGPT</option>
-        <option value="gemini">Gemini</option>
-      </select>
-    </div>
+  <div class="action-row">
+    <button type="button" class="btn-action btn-alta" onclick="openModal('alta')"><i class="bi bi-box-seam-fill"></i> Alta de productos</button>
+    <button type="button" class="btn-action btn-modificar" onclick="openModal('modificar-picker')"><i class="bi bi-pencil-square"></i> Modificar productos</button>
+    <button type="button" class="btn-action btn-proveedores" onclick="openModal('proveedores')"><i class="bi bi-truck"></i> Proveedores</button>
   </div>
 
-  <div class="main-content">
-    <div class="state active">
-      {% if alertas_count %}
-      <a class="alert-banner" href="{% url 'inventario:alertas' %}">
-        <i class="bi bi-bell-fill"></i> ¡Alertas de reabastecimiento!
-        <span class="alert-badge">{{ alertas_count }}</span>
-        <span class="arrow">Ver todas →</span>
-      </a>
-      {% else %}
-      <div class="alert-banner" style="background:var(--color-success-bg);color:var(--color-success-text);cursor:default;">
-        <i class="bi bi-check-circle-fill"></i> Sin alertas de stock por ahora
-      </div>
-      {% endif %}
+  <form method="get" class="search-filter-row">
+    <div class="search-inv">
+      <i class="bi bi-search"></i>
+      <input type="text" name="q" value="{{ q }}" placeholder="Buscar por nombre…"/>
+    </div>
+    <select class="filter-select" name="categoria" onchange="this.form.submit()">
+      <option value="">Filtrar por categoría</option>
+      {% for cat in categorias %}
+      <option value="{{ cat.id }}" {% if categoria_id == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.icono }} {{ cat.nombre }}</option>
+      {% endfor %}
+    </select>
+  </form>
 
-      <div class="action-row">
-        <button type="button" class="btn-action btn-alta" onclick="openModal('alta')"><i class="bi bi-box-seam-fill"></i> Alta de productos</button>
-        <button type="button" class="btn-action btn-modificar" onclick="openModal('modificar-picker')"><i class="bi bi-pencil-square"></i> Modificar productos</button>
-        <button type="button" class="btn-action btn-proveedores" onclick="openModal('proveedores')"><i class="bi bi-truck"></i> Proveedores</button>
-      </div>
-
-      <form method="get" class="search-filter-row">
-        <div class="search-inv">
-          <i class="bi bi-search"></i>
-          <input type="text" name="q" value="{{ q }}" placeholder="Buscar por nombre…"/>
-        </div>
-        <select class="filter-select" name="categoria" onchange="this.form.submit()">
-          <option value="">Filtrar por categoría</option>
-          {% for cat in categorias %}
-          <option value="{{ cat.id }}" {% if categoria_id == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.icono }} {{ cat.nombre }}</option>
-          {% endfor %}
-        </select>
-      </form>
-
-      <div class="catalog-wrap" id="producto-lista">
-        <div class="catalog-card">
-          <div class="catalog-scroll">
-            <table class="catalog-table">
-              <thead>
-                <tr>
-                  <th>Producto</th>
-                  <th>Categoría</th>
-                  <th>Existencias</th>
-                  <th>Mín.</th>
-                  <th class="right">Costo / Precio</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for producto in productos %}
-                <tr>
-                  <td>{{ producto.icono }} {{ producto.nombre }}</td>
-                  <td>{% if producto.categoria %}<span class="badge-cat cat-{{ producto.categoria.nombre|lower }}">{{ producto.categoria.nombre }}</span>{% endif %}</td>
-                  <td class="{% if producto.stock_critico %}stock-low{% else %}stock-ok{% endif %}">{{ producto.cantidad_actual }} pzas</td>
-                  <td>{{ producto.cantidad_minima }}</td>
-                  <td class="right">${{ producto.costo }} / ${{ producto.precio_venta }}</td>
-                  <td style="display:flex; gap:6px;">
-                    <button type="button" class="btn-edit-row" onclick="openModal('editar-{{ producto.pk }}')">Editar</button>
-                    <form method="post" action="{% url 'inventario:producto_eliminar' producto.pk %}" onsubmit="return confirm('¿Dar de baja {{ producto.nombre|escapejs }}?');">
-                      {% csrf_token %}
-                      <button type="submit" class="btn-edit-row" style="color:var(--color-danger);border-color:var(--color-danger);">Baja</button>
-                    </form>
-                  </td>
-                </tr>
-                {% empty %}
-                <tr>
-                  <td colspan="6" style="text-align:center;color:var(--text-faint);padding:24px;">
-                    {% if q or categoria_id %}
-                    No se encontró ningún producto con ese filtro.
-                    {% else %}
-                    Aún no has dado de alta ningún producto. Usa "Alta de productos" para empezar.
-                    {% endif %}
-                  </td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </div>
+  <div class="catalog-wrap" id="producto-lista">
+    <div class="catalog-card">
+      <div class="catalog-scroll">
+        <table class="catalog-table">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th>Categoría</th>
+              <th>Existencias</th>
+              <th>Mín.</th>
+              <th class="right">Costo / Precio</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for producto in productos %}
+            <tr>
+              <td>{{ producto.icono }} {{ producto.nombre }}</td>
+              <td>{% if producto.categoria %}<span class="badge-cat cat-{{ producto.categoria.nombre|lower }}">{{ producto.categoria.nombre }}</span>{% endif %}</td>
+              <td class="{% if producto.stock_critico %}stock-low{% else %}stock-ok{% endif %}">{{ producto.cantidad_actual }} pzas</td>
+              <td>{{ producto.cantidad_minima }}</td>
+              <td class="right">${{ producto.costo }} / ${{ producto.precio_venta }}</td>
+              <td style="display:flex; gap:6px;">
+                <button type="button" class="btn-edit-row" onclick="openModal('editar-{{ producto.pk }}')">Editar</button>
+                <form method="post" action="{% url 'inventario:producto_eliminar' producto.pk %}" onsubmit="return confirm('¿Dar de baja {{ producto.nombre|escapejs }}?');">
+                  {% csrf_token %}
+                  <button type="submit" class="btn-edit-row" style="color:var(--color-danger);border-color:var(--color-danger);">Baja</button>
+                </form>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="6" style="text-align:center;color:var(--text-faint);padding:24px;">
+                {% if q or categoria_id %}
+                No se encontró ningún producto con ese filtro.
+                {% else %}
+                Aún no has dado de alta ningún producto. Usa "Alta de productos" para empezar.
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
     </div>
   </div>

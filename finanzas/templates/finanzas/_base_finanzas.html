@@ -14,7 +14,7 @@
 {% block app_content %}
 <div class="state active">
   <div class="fin-content">
-    {% include "finanzas/_subnav.html" %}
+    {% if activo != "inicio" %}{% include "finanzas/_subnav.html" %}{% endif %}
     {% block fin_content %}{% endblock %}
   </div>
 </div>

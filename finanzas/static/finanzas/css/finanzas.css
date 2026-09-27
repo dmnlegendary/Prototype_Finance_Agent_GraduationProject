@@ -52,11 +52,21 @@
   gap: 12px;
 }
 .fin-stat-card {
+  display: block;
   background: var(--bg-white);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   padding: 14px 16px;
   box-shadow: var(--shadow-sm);
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: transform .15s, box-shadow .15s, border-color .15s;
+}
+.fin-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-primary-border);
 }
 .fin-stat-label { font-size: 12px; color: var(--text-muted); }
 .fin-stat-value { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-top: 4px; }

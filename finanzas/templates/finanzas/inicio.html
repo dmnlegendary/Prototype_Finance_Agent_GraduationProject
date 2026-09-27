@@ -2,30 +2,27 @@
 
 
 {% block fin_content %}
-<div class="fin-title"><i class="bi bi-robot"></i> Agente Financiero</div>
-<p class="fin-subtitle">Dashboard · Resumen inteligente de tu negocio</p>
-
 <div class="fin-stat-grid">
-  <div class="fin-stat-card">
+  <a href="{% url 'ventas:historial' %}" class="fin-stat-card" data-sin-loader>
     <div class="fin-stat-label">Ventas hoy</div>
     <div class="fin-stat-value">$3,240</div>
     <div class="fin-stat-delta up">+8% vs ayer</div>
-  </div>
-  <div class="fin-stat-card">
+  </a>
+  <a href="{% url 'finanzas:historial_gastos' %}" class="fin-stat-card" data-sin-loader>
     <div class="fin-stat-label">Gastos del mes</div>
     <div class="fin-stat-value">$123,917</div>
     <div class="fin-stat-delta down">+2% vs mes ant.</div>
-  </div>
-  <div class="fin-stat-card">
+  </a>
+  <a href="{% url 'finanzas:reportes_financieros' %}" class="fin-stat-card" data-sin-loader>
     <div class="fin-stat-label">Utilidad neta</div>
     <div class="fin-stat-value">$17,000</div>
     <div class="fin-stat-delta up">+6% vs mes ant.</div>
-  </div>
-  <div class="fin-stat-card">
+  </a>
+  <a href="{% url 'finanzas:punto_equilibrio' %}" class="fin-stat-card" data-sin-loader>
     <div class="fin-stat-label">Punto de equilibrio</div>
     <div class="fin-stat-value">$28,500</div>
     <div class="fin-stat-delta neutral">meta mensual</div>
-  </div>
+  </a>
 </div>
 
 <div class="fin-module-grid">

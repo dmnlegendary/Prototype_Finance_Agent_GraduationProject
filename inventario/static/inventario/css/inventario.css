@@ -9,12 +9,12 @@
 .filtro-picker:focus { border-color: var(--color-primary-deep); }
 
 .alert-banner {
-  background: transparent;
-  border-bottom: 1px solid var(--border);
+  background: var(--alert-banner-bg);
+  border-bottom: 1px solid var(--alert-banner-border);
   color: var(--alert-banner-text);
   padding: 9px 16px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -22,9 +22,9 @@
   transition: background .15s;
   flex-shrink: 0;
 }
-.alert-banner:hover { background: var(--bg-muted); }
+.alert-banner:hover { background: #fde3e3; }
 .alert-badge {
-  background: var(--color-primary);
+  background: var(--color-danger);
   color: var(--bg-white);
   font-size: 11px;
   font-weight: 700;
@@ -60,10 +60,10 @@
   text-decoration: none;
 }
 .btn-action:hover { opacity: .9; color: var(--bg-white); }
-.btn-alta { background: var(--bg-muted); color: var(--text-secondary); border: 1px solid var(--border); }
-.btn-alta:hover { background: var(--border); color: var(--text-secondary); }
-.btn-modificar { background: var(--color-lila); }
-.btn-modificar:hover { background: var(--color-primary-deep); }
+.btn-alta { background: var(--color-success); }
+.btn-alta:hover { background: var(--color-success-dark); }
+.btn-modificar { background: var(--color-primary-deep); }
+.btn-modificar:hover { background: #6d28d9; }
 .btn-proveedores { background: var(--color-azul); }
 .btn-proveedores:hover { background: var(--color-primary-dark); }
 
@@ -79,15 +79,15 @@
   min-width: 160px;
   display: flex;
   align-items: center;
-  background: var(--bg-white);
-  border: 1px solid var(--border);
+  background: var(--color-yellow-bg);
+  border: 1px solid var(--color-yellow-border);
   border-right: none;
   border-radius: var(--radius-full) 0 0 var(--radius-full);
   padding: 0 14px;
   height: 44px;
   gap: 7px;
 }
-.search-inv i { color: var(--text-muted); font-size: 14px; }
+.search-inv i { color: #a16207; font-size: 14px; }
 .search-inv input {
   flex: 1;
   border: none;
@@ -97,12 +97,12 @@
   color: var(--text-secondary);
   min-width: 0;
 }
-.search-inv input::placeholder { color: var(--text-faint); }
+.search-inv input::placeholder { color: #a16207; opacity: .7; }
 .filter-select {
   height: 44px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-yellow-border);
   border-radius: 0 var(--radius-full) var(--radius-full) 0;
-  background: var(--bg-white);
+  background: var(--color-yellow-bg);
   color: var(--text-secondary);
   font-size: 13px;
   font-weight: 600;

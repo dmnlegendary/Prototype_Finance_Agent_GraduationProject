@@ -105,7 +105,7 @@
                 <button type="button" class="btn-edit-row" onclick="openModal('editar-{{ producto.pk }}')">Editar</button>
                 <form method="post" action="{% url 'inventario:producto_eliminar' producto.pk %}" onsubmit="return confirm('¿Dar de baja {{ producto.nombre|escapejs }}?');">
                   {% csrf_token %}
-                  <button type="submit" class="btn-edit-row" style="color:var(--color-danger);border-color:var(--color-danger);">Baja</button>
+                  <button type="submit" class="btn-edit-row btn-danger-row">Baja</button>
                 </form>
               </td>
             </tr>

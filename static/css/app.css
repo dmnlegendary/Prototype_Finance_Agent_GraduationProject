@@ -21,26 +21,30 @@
   --color-lila:         #8b5cf6;
   --color-azul:         #2563eb;
 
-  --color-success:      #2563eb;
-  --color-success-dark: #1d4ed8;
-  --color-success-bg:   #eff6ff;
-  --color-success-text: #1e40af;
+  --color-success:      #16a34a;
+  --color-success-dark: #15803d;
+  --color-success-bg:   #f0fdf4;
+  --color-success-text: #166534;
 
   --color-danger:       #dc2626;
   --color-danger-bg:    #fef2f2;
   --color-danger-text:  #991b1b;
 
-  --color-warning:      #2563eb;
-  --color-warning-bg:   #eff6ff;
-  --color-warning-text: #1e40af;
-  --color-warning-border: #bfdbfe;
+  --color-warning:      #d97706;
+  --color-warning-bg:   #fffbeb;
+  --color-warning-text: #92400e;
+  --color-warning-border: #fcd34d;
 
   --color-info:         #2563eb;
   --color-info-bg:      #eff6ff;
   --color-info-text:    #1e40af;
 
-  --color-orange:       #8b5cf6;
-  --color-orange-bg:    #f5f3ff;
+  --color-orange:       #ea580c;
+  --color-orange-bg:    #fff7ed;
+
+  --color-yellow:       #fbbf24;
+  --color-yellow-bg:    #fef9c3;
+  --color-yellow-border: #f5c542;
 
   --avi-header-bg:      #7c3aed;
   --avi-panel-bg:       #ede9fe;
@@ -51,8 +55,9 @@
   --nav-border:         #e2e4e9;
   --nav-tab-active:     #4f46e5;
 
-  --alert-banner-border:#ddd6fe;
-  --alert-banner-text:  #4338ca;
+  --alert-banner-bg:    #fef2f2;
+  --alert-banner-border:#fca5a5;
+  --alert-banner-text:  #991b1b;
 
   --gradient-primary: linear-gradient(90deg, var(--color-primary) 55%, var(--color-primary-border) 85%, var(--color-lila) 100%);
 
@@ -507,16 +512,19 @@ nav {
 
 .btn-edit-row {
   background: none;
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--color-primary);
   border-radius: var(--radius-full);
   padding: 4px 12px;
   font-size: 11px;
+  font-weight: 700;
   cursor: pointer;
-  color: var(--text-muted);
+  color: var(--color-primary);
   text-decoration: none;
   transition: all .15s;
 }
-.btn-edit-row:hover { background: var(--bg-muted); color: var(--text-secondary); }
+.btn-edit-row:hover { background: var(--color-primary); color: var(--bg-white); }
+.btn-edit-row.btn-danger-row { border-color: var(--color-danger); color: var(--color-danger); }
+.btn-edit-row.btn-danger-row:hover { background: var(--color-danger); color: var(--bg-white); }
 
 .modal-backdrop {
   display: none;

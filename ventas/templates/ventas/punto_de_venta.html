@@ -90,12 +90,12 @@
               <div class="qty">
                 <form method="post" action="{% url 'ventas:item_decrementar' item.pk %}" style="display:contents;">
                   {% csrf_token %}
-                  <button type="submit" onclick="event.stopPropagation()">&minus;</button>
+                  <button type="submit" class="btn-qty-menos" onclick="event.stopPropagation()">&minus;</button>
                 </form>
                 <span>{{ item.cantidad|floatformat:"-2" }}</span>
                 <form method="post" action="{% url 'ventas:item_incrementar' item.pk %}" style="display:contents;">
                   {% csrf_token %}
-                  <button type="submit" onclick="event.stopPropagation()">+</button>
+                  <button type="submit" class="btn-qty-mas" onclick="event.stopPropagation()">+</button>
                 </form>
               </div>
             </td>

@@ -1,13 +1,15 @@
 {% extends "finanzas/_base_finanzas.html" %}
 
-{% block title %}Pronóstico de ventas · MarIAmiga{% endblock %}
 
 {% block fin_content %}
-<div class="fin-title"><i class="bi bi-graph-up-arrow"></i> Pronóstico de Ventas</div>
-<p class="fin-subtitle">Generado por un modelo de Machine Learning externo entrenado con tu historial de ventas.</p>
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+  <div class="fin-title"><i class="bi bi-graph-up-arrow"></i> Pronóstico de Ventas</div>
+  <span class="badge-ia-local"><i class="bi bi-cpu-fill"></i> IA local · sin conexión externa</span>
+</div>
+<p class="fin-subtitle">Generado por un modelo de Machine Learning que corre en tu propio servidor, entrenado con tu historial de ventas.</p>
 
 <div class="fin-callout">
-  <i class="bi bi-robot"></i> <strong>¿Cómo funciona?</strong> Un modelo de Machine Learning analiza tu historial de
+  <i class="bi bi-robot"></i> <strong>¿Cómo funciona?</strong> Un modelo de Machine Learning local (no llama a ningún servicio externo) analiza tu historial de
   <strong>24 semanas</strong> para estimar cuántas unidades venderás esta semana. El AVI te ayuda a interpretar los resultados.
 </div>
 

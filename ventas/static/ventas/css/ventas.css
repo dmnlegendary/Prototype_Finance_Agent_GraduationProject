@@ -110,7 +110,10 @@
   color: var(--text-secondary);
 }
 .cart-table td.right { text-align: right; font-weight: 600; }
+.cart-table tbody tr { cursor: pointer; }
 .cart-table tbody tr:hover { background: var(--bg-light); }
+.cart-table tbody tr.selected { background: var(--color-primary-bg); }
+.cart-table tbody tr.selected:hover { background: var(--color-primary-bg); }
 
 .qty {
   display: flex;

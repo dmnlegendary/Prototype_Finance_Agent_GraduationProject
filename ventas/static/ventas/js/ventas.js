@@ -23,7 +23,40 @@ function renderResultadosBusqueda(datos) {
   caja.style.display = 'block';
 }
 
+let filaCarritoSeleccionada = null;
+
+function seleccionarFilaCarrito(tr) {
+  if (filaCarritoSeleccionada) filaCarritoSeleccionada.classList.remove('selected');
+  filaCarritoSeleccionada = tr;
+  tr.classList.add('selected');
+}
+
+document.addEventListener('keydown', function (event) {
+  if (!filaCarritoSeleccionada) return;
+  if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
+
+  if (event.key === '+') {
+    event.preventDefault();
+    filaCarritoSeleccionada.querySelector('form[action*="/mas/"]').submit();
+  } else if (event.key === '-') {
+    event.preventDefault();
+    filaCarritoSeleccionada.querySelector('form[action*="/menos/"]').submit();
+  }
+});
+
 document.addEventListener('DOMContentLoaded', function () {
+  const params = new URLSearchParams(window.location.search);
+  const seleccionadoPk = params.get('seleccionado');
+  if (seleccionadoPk) {
+    const fila = document.querySelector('.cart-table tr[data-pk="' + seleccionadoPk + '"]');
+    if (fila) seleccionarFilaCarrito(fila);
+    if (window.history.replaceState) {
+      params.delete('seleccionado');
+      const query = params.toString();
+      window.history.replaceState({}, '', window.location.pathname + (query ? '?' + query : ''));
+    }
+  }
+
   const input = document.getElementById('buscarProducto');
   const caja = document.getElementById('resultadosBusqueda');
   if (!input) return;

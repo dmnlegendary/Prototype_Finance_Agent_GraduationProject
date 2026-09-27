@@ -1,7 +1,6 @@
 {% extends "base_auth.html" %}
 {% load static %}
 
-{% block title %}Iniciar sesión · MarIAmiga{% endblock %}
 {% block body_attrs %} class="d-flex align-items-center justify-content-center min-vh-100 p-3"{% endblock %}
 
 {% block content %}
@@ -20,7 +19,7 @@
         <div class="alert alert-danger py-2 small">Usuario o contraseña incorrectos.</div>
         {% endif %}
 
-        <form method="post" novalidate>
+        <form method="post" novalidate onsubmit="mostrarLoaderCompleto('Iniciando sesión…')">
             {% csrf_token %}
             <div class="mb-3">
                 <label class="form-label small fw-semibold">Teléfono / usuario</label>

@@ -4,15 +4,15 @@
 
   <a href="{% url 'ventas:punto_de_venta' %}" class="tab{% if request.resolver_match.app_name == 'ventas' %} active{% endif %}">
     <i class="bi bi-cart3"></i>
-    <span>Ventas</span>
+    <span>Módulo de ventas</span>
   </a>
   <a href="{% url 'inventario:panel' %}" class="tab{% if request.resolver_match.app_name == 'inventario' %} active{% endif %}">
     <i class="bi bi-boxes"></i>
-    <span>Inventario</span>
+    <span>Auxiliar de inventario</span>
   </a>
   <a href="{% url 'finanzas:inicio' %}" class="tab{% if request.resolver_match.app_name == 'finanzas' %} active{% endif %}">
     <i class="bi bi-graph-up-arrow"></i>
-    <span>Finanzas</span>
+    <span>Agente financiero</span>
   </a>
 
   <div class="nav-spacer spacer"></div>

@@ -49,7 +49,7 @@
 }
 
 .ai-loader-text {
-  color: #94a3b8;
+  color: #6b7280;
   font-size: 10px;
   letter-spacing: 2px;
   text-transform: uppercase;
@@ -58,14 +58,14 @@
 }
 .ai-loader-wrapper.grande .ai-loader-text { font-size: 13px; letter-spacing: 3px; margin-top: 6px; }
 @keyframes fadeText {
-  from { opacity: .5; }
-  to { opacity: 1; color: #00c2d4; }
+  from { opacity: .6; }
+  to { opacity: 1; color: #0891b2; }
 }
 
 .ai-loader-overlay {
   position: fixed;
   inset: 0;
-  background: #090a10;
+  background: #f5f6fa;
   z-index: 9999;
   display: flex;
   align-items: center;
@@ -73,3 +73,17 @@
   transition: opacity .35s ease;
 }
 .ai-loader-overlay.oculto { opacity: 0; pointer-events: none; }
+
+.ai-loader-corner {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: var(--bg-white, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  padding: 10px 14px;
+  z-index: 400;
+}
+.ai-loader-corner .ai-svg-loader { width: 44px; height: 38px; }
+.ai-loader-corner .ai-loader-text { font-size: 9px; }

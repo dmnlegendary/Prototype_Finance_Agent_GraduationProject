@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+{% load static %}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{% block title %}MarIAmiga{% endblock %}</title>
-{% load static %}
+<title>MarIAmiga</title>
+<link rel="icon" href="{% static 'img/logo_mariamiga.webp' %}">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <link rel="stylesheet" href="{% static 'css/loader.css' %}">
 {% block extra_head %}{% endblock %}
@@ -19,13 +20,18 @@
 {% block extra_scripts %}{% endblock %}
 
 <script>
+  function mostrarLoaderCompleto(texto) {
+    const loader = document.getElementById('loaderInicial');
+    if (!loader) return;
+    const textoEl = loader.querySelector('.ai-loader-text');
+    if (textoEl && texto) textoEl.textContent = texto;
+    loader.classList.remove('oculto');
+  }
+
   window.addEventListener('load', function () {
     setTimeout(function () {
       const loader = document.getElementById('loaderInicial');
-      if (loader) {
-        loader.classList.add('oculto');
-        setTimeout(function () { loader.remove(); }, 400);
-      }
+      if (loader) loader.classList.add('oculto');
     }, 700);
   });
 </script>

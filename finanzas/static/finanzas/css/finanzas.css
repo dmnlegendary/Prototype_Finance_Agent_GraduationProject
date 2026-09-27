@@ -32,6 +32,18 @@
 }
 
 .fin-title { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700; color: var(--text-primary); }
+.badge-ia-local {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+  border: 1px solid #a5f3fc;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 11px;
+  border-radius: var(--radius-full);
+}
 .fin-subtitle { font-size: 13px; color: var(--text-muted); margin-top: -8px; }
 
 .fin-stat-grid {

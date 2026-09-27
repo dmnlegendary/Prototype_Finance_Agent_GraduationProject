@@ -151,7 +151,7 @@ def item_incrementar(request, item_pk):
     negocio = _negocio_o_none(request)
     if negocio is not None and request.method == "POST":
         _cambiar_cantidad(negocio, item_pk, Decimal("1"))
-    return redirect("ventas:punto_de_venta")
+    return redirect(f"{reverse('ventas:punto_de_venta')}?seleccionado={item_pk}")
 
 
 @login_required
@@ -159,7 +159,7 @@ def item_decrementar(request, item_pk):
     negocio = _negocio_o_none(request)
     if negocio is not None and request.method == "POST":
         _cambiar_cantidad(negocio, item_pk, Decimal("-1"))
-    return redirect("ventas:punto_de_venta")
+    return redirect(f"{reverse('ventas:punto_de_venta')}?seleccionado={item_pk}")
 
 
 @login_required

@@ -32,13 +32,27 @@ function closeModal(id) {
 
 function toggleAviMinimize() {
   const panel = document.getElementById('aviPanel');
-  if (panel) panel.classList.toggle('minimized');
+  if (!panel) return;
+  panel.classList.toggle('minimized');
+  localStorage.setItem('avi_minimizado', panel.classList.contains('minimized') ? '1' : '0');
 }
 
 function toggleAviExpand() {
   const panel = document.getElementById('aviPanel');
   if (panel) panel.classList.toggle('expanded');
 }
+
+function limpiarChatAvi() {
+  const chat = document.getElementById('aviChat');
+  if (chat) chat.innerHTML = '<div class="bubble bot">Chat vaciado. ¿En qué puedo ayudarte?</div>';
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  const panel = document.getElementById('aviPanel');
+  if (panel && localStorage.getItem('avi_minimizado') === '1') {
+    panel.classList.add('minimized');
+  }
+});
 
 function aiLoaderHTML(texto) {
   return ''

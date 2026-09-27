@@ -9,9 +9,9 @@
 {% block app_content %}
 
 {% if messages %}
-<div style="padding:10px 16px 0;">
+<div class="notif-flotante-wrap">
   {% for message in messages %}
-  <div style="background:var(--color-success-bg);color:var(--color-success-text);border:1px solid var(--color-success);border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:8px;">{{ message }}</div>
+  <div class="notif-flotante"><i class="bi bi-check-circle-fill"></i> {{ message }}</div>
   {% endfor %}
 </div>
 {% endif %}
@@ -190,6 +190,7 @@
           {% for radio in form_alta.categoria %}
           <label class="cat-pill">{{ radio.tag }} {{ radio.choice_label }}</label>
           {% endfor %}
+          <button type="button" class="cat-pill" onclick="abrirNuevaCategoria('alta')"><i class="bi bi-plus-lg"></i> Nueva</button>
         </div>
       </div>
 
@@ -282,6 +283,7 @@
           {% for radio in producto.form_editar.categoria %}
           <label class="cat-pill">{{ radio.tag }} {{ radio.choice_label }}</label>
           {% endfor %}
+          <button type="button" class="cat-pill" onclick="abrirNuevaCategoria('editar-{{ producto.pk }}')"><i class="bi bi-plus-lg"></i> Nueva</button>
         </div>
       </div>
       <div class="form-group">
@@ -401,6 +403,32 @@
   </div>
 </div>
 {% endfor %}
+
+<!-- Modal: nueva categoría (se abre desde "Alta" o "Editar") -->
+<div class="modal-backdrop" id="modal-categoria-nueva">
+  <div class="form-card" style="max-width:360px;">
+    <div class="panel-header">
+      <h3><i class="bi bi-tag-fill"></i> Nueva categoría</h3>
+      <button type="button" class="panel-close" onclick="closeModal('categoria-nueva')"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <form method="post" action="{% url 'inventario:categoria_alta' %}" class="panel-body" style="gap:14px;" data-validar>
+      {% csrf_token %}
+      <input type="hidden" name="origen" id="categoriaOrigen" value="alta">
+      <div class="form-group">
+        <label>Nombre de la categoría <span class="campo-requerido">*</span></label>
+        <input type="text" name="nombre" placeholder="Ej. Panadería" required>
+      </div>
+      <div class="form-group">
+        <label>Ícono (emoji, opcional)</label>
+        <input type="text" name="icono" placeholder="🍞" maxlength="4">
+      </div>
+      <div class="panel-footer" style="padding:0;border-top:none;">
+        <button type="submit" class="btn-success">Guardar categoría</button>
+        <button type="button" class="btn-ghost" onclick="closeModal('categoria-nueva')">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 {% endblock %}
 

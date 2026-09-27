@@ -107,6 +107,34 @@ def producto_editar(request, pk):
 
 
 @login_required
+def categoria_alta(request):
+    negocio = _negocio_o_redirect(request)
+    if negocio is None:
+        return redirect("accounts:datos_negocio")
+
+    if request.method == "POST":
+        nombre = request.POST.get("nombre", "").strip()
+        icono = request.POST.get("icono", "").strip() or "📦"
+        origen = request.POST.get("origen", "alta")
+
+        if nombre:
+            _, creada = Categoria.objects.get_or_create(nombre=nombre, defaults={"icono": icono})
+            if creada:
+                messages.success(request, f'Categoría "{nombre}" agregada.')
+            else:
+                messages.info(request, f'Ya existía una categoría "{nombre}".')
+
+        context = _contexto_panel(request, negocio)
+        if origen.startswith("editar-"):
+            context["abrir_modal_editar_pk"] = origen.split("-", 1)[1]
+        else:
+            context["abrir_modal_alta"] = True
+        return render(request, "inventario/panel.html", context)
+
+    return redirect("inventario:panel")
+
+
+@login_required
 def producto_eliminar(request, pk):
     negocio = _negocio_o_redirect(request)
     producto = get_object_or_404(Producto, pk=pk, negocio=negocio)

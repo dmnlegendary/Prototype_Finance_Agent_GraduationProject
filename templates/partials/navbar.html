@@ -2,20 +2,20 @@
 <nav>
   <img src="{% static 'img/logo_mariamiga.webp' %}" alt="MarIAmiga" class="nav-logo">
 
-  <a href="{% url 'ventas:punto_de_venta' %}" class="tab{% if request.resolver_match.app_name == 'ventas' %} active{% endif %}">
-    <i class="bi bi-cart3"></i>
-    <span>Módulo de ventas</span>
-  </a>
-  <a href="{% url 'inventario:panel' %}" class="tab{% if request.resolver_match.app_name == 'inventario' %} active{% endif %}">
-    <i class="bi bi-boxes"></i>
-    <span>Auxiliar de inventario</span>
-  </a>
-  <a href="{% url 'finanzas:inicio' %}" class="tab{% if request.resolver_match.app_name == 'finanzas' %} active{% endif %}">
-    <i class="bi bi-graph-up-arrow"></i>
-    <span>Agente financiero</span>
-  </a>
-
-  <div class="nav-spacer spacer"></div>
+  <div class="nav-tabs-center">
+    <a href="{% url 'ventas:punto_de_venta' %}" class="tab{% if request.resolver_match.app_name == 'ventas' %} active{% endif %}">
+      <i class="bi bi-cart3"></i>
+      <span>Módulo de ventas</span>
+    </a>
+    <a href="{% url 'inventario:panel' %}" class="tab{% if request.resolver_match.app_name == 'inventario' %} active{% endif %}">
+      <i class="bi bi-boxes"></i>
+      <span>Auxiliar de inventario</span>
+    </a>
+    <a href="{% url 'finanzas:inicio' %}" class="tab{% if request.resolver_match.app_name == 'finanzas' %} active{% endif %}">
+      <i class="bi bi-graph-up-arrow"></i>
+      <span>Agente financiero</span>
+    </a>
+  </div>
 
   <div class="user-menu">
     <div class="avatar" onclick="toggleUserMenu(event)"><i class="bi bi-person-fill"></i></div>

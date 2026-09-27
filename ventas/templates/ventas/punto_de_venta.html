@@ -9,9 +9,9 @@
 {% block app_content %}
 
 {% if messages %}
-<div style="padding:10px 16px 0;">
+<div class="notif-flotante-wrap">
   {% for message in messages %}
-  <div style="background:var(--color-success-bg);color:var(--color-success-text);border:1px solid var(--color-success);border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:8px;">{{ message }}</div>
+  <div class="notif-flotante"><i class="bi bi-check-circle-fill"></i> {{ message }}</div>
   {% endfor %}
 </div>
 {% endif %}

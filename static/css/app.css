@@ -92,6 +92,13 @@ nav::-webkit-scrollbar { display: none; }
   margin-right: 10px;
   flex-shrink: 0;
 }
+.nav-tabs-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+}
 .tab {
   display: flex;
   flex-direction: row;
@@ -113,7 +120,7 @@ nav::-webkit-scrollbar { display: none; }
   background: var(--color-primary-bg);
 }
 .tab:hover:not(.active) { background: var(--bg-muted); color: var(--text-secondary); }
-.nav-spacer, .spacer { flex: 1; min-width: 8px; }
+.user-menu { margin-left: auto; }
 .avatar {
   width: 38px; height: 38px;
   background: var(--bg-muted);
@@ -127,9 +134,9 @@ nav::-webkit-scrollbar { display: none; }
 .user-menu { position: relative; }
 .user-dropdown {
   display: none;
-  position: absolute;
-  top: 48px;
-  right: 0;
+  position: fixed;
+  top: 70px;
+  right: 20px;
   width: 220px;
   background: var(--bg-white);
   border: 1px solid var(--border);
@@ -197,7 +204,7 @@ nav::-webkit-scrollbar { display: none; }
 .avi-panel.expanded .avi-chat { max-width: 720px; margin: 0 auto; width: 100%; }
 .avi-panel.expanded .avi-input { max-width: 720px; margin: 0 auto; width: 100%; }
 .avi-title {
-  background: var(--avi-header-bg);
+  background: linear-gradient(135deg, #7c3aed, #3b0764);
   color: var(--bg-white);
   font-size: 13px;
   font-weight: 600;
@@ -369,6 +376,33 @@ nav::-webkit-scrollbar { display: none; }
 .toast.info { border-left-color: var(--color-primary); }
 @keyframes toast-in { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
+.notif-flotante-wrap {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+.notif-flotante {
+  background: var(--color-success);
+  color: var(--bg-white);
+  padding: 10px 20px;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  animation: toast-in .25s ease, notif-out .3s ease 3.7s forwards;
+}
+@keyframes notif-out { to { opacity: 0; transform: translateY(10px); } }
+
 .modal-backdrop {
   display: none;
   position: fixed;
@@ -472,7 +506,11 @@ nav::-webkit-scrollbar { display: none; }
   color: var(--text-secondary);
   font-size: 12px;
   font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 .cat-pill input { display: none; }
 .cat-pill.selected, .cat-pill:has(input:checked) {

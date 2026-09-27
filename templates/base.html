@@ -12,7 +12,7 @@
 </head>
 <body{% block body_attrs %}{% endblock %}>
 
-<div class="ai-loader-overlay" id="loaderInicial">
+<div class="ai-loader-overlay" id="loaderInicial" style="display:none;">
   {% include "partials/ai_loader.html" with texto="Cargando…" grande=True %}
 </div>
 
@@ -26,14 +26,34 @@
     const textoEl = loader.querySelector('.ai-loader-text');
     if (textoEl && texto) textoEl.textContent = texto;
     loader.classList.remove('oculto');
+    loader.style.display = 'flex';
   }
 
-  window.addEventListener('load', function () {
-    setTimeout(function () {
-      const loader = document.getElementById('loaderInicial');
-      if (loader) loader.classList.add('oculto');
-    }, 700);
-  });
+  (function () {
+    const loader = document.getElementById('loaderInicial');
+    if (!loader) return;
+
+    // "recargar la página" (F5) se detecta con la Navigation Timing API;
+    // una redirección de una acción (agregar al carrito, +/-, etc.) regresa
+    // a la MISMA ruta de donde salió, así que esa no cuenta como "cargar".
+    let tipoNavegacion = 'navigate';
+    const entradas = performance.getEntriesByType ? performance.getEntriesByType('navigation') : [];
+    if (entradas && entradas.length) tipoNavegacion = entradas[0].type;
+
+    let rutaAnterior = null;
+    try { rutaAnterior = document.referrer ? new URL(document.referrer).pathname : null; } catch (e) {}
+    const mismaRuta = rutaAnterior === window.location.pathname;
+
+    const esRecarga = tipoNavegacion === 'reload';
+    const esNavegacionNueva = !mismaRuta;
+
+    if (esRecarga || esNavegacionNueva) {
+      loader.style.display = 'flex';
+      window.addEventListener('load', function () {
+        setTimeout(function () { loader.classList.add('oculto'); }, 4200);
+      });
+    }
+  })();
 </script>
 </body>
 </html>

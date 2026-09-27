@@ -1,14 +1,10 @@
-// JS de inventario: abrir/cerrar el panel del AVI (aún sin LLM conectado)
-// y el cálculo en vivo del margen al capturar costo/precio.
+// JS de inventario: el picker de "modificar producto", el cálculo en vivo
+// del margen, y el modal de nueva categoría. Abrir/cerrar AVI y modales
+// genéricos vive en static/js/app.js.
 
-function openAvi() {
-  document.getElementById('aviPanel').classList.add('open');
-  document.getElementById('aviOverlay').classList.add('open');
-}
-
-function closeAvi() {
-  document.getElementById('aviPanel').classList.remove('open');
-  document.getElementById('aviOverlay').classList.remove('open');
+function abrirNuevaCategoria(origen) {
+  document.getElementById('categoriaOrigen').value = origen;
+  openModal('categoria-nueva');
 }
 
 function filtrarPicker(texto) {

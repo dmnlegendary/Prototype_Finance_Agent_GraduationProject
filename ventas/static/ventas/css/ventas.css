@@ -19,6 +19,22 @@
   flex-wrap: wrap;
 }
 .search-wrapper { position: relative; flex: 1; min-width: 160px; }
+.btn-no-encontrado {
+  height: 44px;
+  padding: 0 16px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: var(--color-orange);
+  color: var(--bg-white);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.btn-no-encontrado:hover { opacity: .9; }
 .search-box {
   display: flex;
   align-items: center;
@@ -261,7 +277,7 @@
 }
 .btn-download {
   flex: 1;
-  background: var(--gradient-primary);
+  background: var(--color-primary);
   color: var(--bg-white);
   border: none;
   border-radius: var(--radius-full);

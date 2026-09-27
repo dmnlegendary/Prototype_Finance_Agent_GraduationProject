@@ -1,0 +1,22 @@
+<div class="ai-loader-wrapper{% if grande %} grande{% endif %}">
+  <div class="ai-core-glow"></div>
+  <svg class="ai-svg-loader" viewBox="0 0 280 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="aiRibbonGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#f43f5e" />
+        <stop offset="30%" stop-color="#d946ef" />
+        <stop offset="70%" stop-color="#8b5cf6" />
+        <stop offset="100%" stop-color="#3b0764" />
+      </linearGradient>
+      <linearGradient id="aiLaserGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#00f2fe" />
+        <stop offset="100%" stop-color="#2563eb" />
+      </linearGradient>
+    </defs>
+    <path class="m-path"
+          d="M 45,175 C 32,110 42,75 75,75 C 100,75 112,115 135,115 C 158,115 152,28 198,28 C 238,28 232,140 226,210"
+          stroke="url(#aiRibbonGradient)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round" />
+    <rect class="blue-laser" x="175" y="78" width="30" height="12" rx="6" fill="url(#aiLaserGradient)" />
+  </svg>
+  <div class="ai-loader-text">{{ texto|default:"Cargando…" }}</div>
+</div>

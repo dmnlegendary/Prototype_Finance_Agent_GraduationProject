@@ -13,33 +13,57 @@
 
 <div class="fin-card">
   <h3>Generar nuevo pronóstico semanal</h3>
-  <button type="button" class="fin-btn-primary" style="margin-bottom:14px;"><i class="bi bi-magic"></i> Consultando modelo ML…</button>
+  <button type="button" class="fin-btn-primary" style="margin-bottom:14px;" id="btnGenerarPronostico" onclick="generarPronosticoDemo()">
+    <i class="bi bi-magic"></i> Generar pronóstico
+  </button>
 
-  <div class="fin-status-line"><i class="bi bi-hourglass-split"></i> Procesando historial de 24 semanas…</div>
-
-  <div class="fin-result-group">
-    <h4><i class="bi bi-check-circle-fill"></i> Bebidas</h4>
-    <div class="fin-result-item"><span>Coca-Cola 600ml</span><span class="fin-badge-green">48 uds</span></div>
-    <div class="fin-result-item"><span>Agua 1.5L</span><span class="fin-badge-green">26 uds</span></div>
-    <div class="fin-result-item"><span>Jugo Del Valle</span><span class="fin-badge-green">47 uds</span></div>
-    <div class="fin-result-item"><span>Cerveza Modelo</span><span class="fin-badge-green">13 uds</span></div>
+  <div id="pronosticoCargando" style="display:none; justify-content:center; padding:20px 0;">
+    {% include "partials/ai_loader.html" with texto="Procesando historial…" %}
   </div>
 
-  <div style="margin-top:18px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:6px;">
-      <span><i class="bi bi-bar-chart-fill"></i> Nivel de confianza del modelo</span>
-      <span style="color:var(--color-primary);">76%</span>
+  <div id="pronosticoResultado" style="display:none;">
+    <div class="fin-result-group">
+      <h4><i class="bi bi-check-circle-fill"></i> Bebidas</h4>
+      <div class="fin-result-item"><span>Coca-Cola 600ml</span><span class="fin-badge-green">48 uds</span></div>
+      <div class="fin-result-item"><span>Agua 1.5L</span><span class="fin-badge-green">26 uds</span></div>
+      <div class="fin-result-item"><span>Jugo Del Valle</span><span class="fin-badge-green">47 uds</span></div>
+      <div class="fin-result-item"><span>Cerveza Modelo</span><span class="fin-badge-green">13 uds</span></div>
     </div>
-    <div class="fin-progress-track"><div class="fin-progress-fill" style="width:76%;"></div></div>
-    <p class="fin-subtitle" style="margin-top:6px;"><i class="bi bi-exclamation-triangle-fill"></i> Confianza media.</p>
 
-    <div class="fin-insight-purple" style="margin-top:10px;">
-      <i class="bi bi-robot"></i> <strong>AVI interpreta:</strong> estimación de 781 unidades en 18 productos esta semana.
-      Asegura stock antes del viernes.
-    </div>
-    <div class="fin-insight-green" style="margin-top:8px;">
-      <i class="bi bi-box-seam-fill"></i> Total estimado: 781 unidades · Confianza: 76%
+    <div style="margin-top:18px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:6px;">
+        <span><i class="bi bi-bar-chart-fill"></i> Nivel de confianza del modelo</span>
+        <span style="color:var(--color-primary);">76%</span>
+      </div>
+      <div class="fin-progress-track"><div class="fin-progress-fill" style="width:76%;"></div></div>
+      <p class="fin-subtitle" style="margin-top:6px;"><i class="bi bi-exclamation-triangle-fill"></i> Confianza media.</p>
+
+      <div class="fin-insight-purple" style="margin-top:10px;">
+        <i class="bi bi-robot"></i> <strong>AVI interpreta:</strong> estimación de 781 unidades en 18 productos esta semana.
+        Asegura stock antes del viernes.
+      </div>
+      <div class="fin-insight-green" style="margin-top:8px;">
+        <i class="bi bi-box-seam-fill"></i> Total estimado: 781 unidades · Confianza: 76%
+      </div>
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block app_extra_scripts %}
+<script>
+  // demo visual del estado de carga; en la fase 2 esto se reemplaza por la
+  // llamada real al modelo de pronóstico
+  function generarPronosticoDemo() {
+    document.getElementById('btnGenerarPronostico').style.display = 'none';
+    document.getElementById('pronosticoResultado').style.display = 'none';
+    document.getElementById('pronosticoCargando').style.display = 'flex';
+
+    setTimeout(function () {
+      document.getElementById('pronosticoCargando').style.display = 'none';
+      document.getElementById('pronosticoResultado').style.display = 'block';
+      document.getElementById('btnGenerarPronostico').style.display = 'inline-flex';
+    }, 1800);
+  }
+</script>
 {% endblock %}

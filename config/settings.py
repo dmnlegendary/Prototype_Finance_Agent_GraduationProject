@@ -1,6 +1,7 @@
 # Configuración de Django del proyecto (MarIAmiga).
-# Por ahora todo corre en local con SQLite, sin variables de entorno.
+# Por ahora todo corre en local con SQLite.
 
+import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -105,3 +106,10 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "ventas:punto_de_venta"
 LOGOUT_REDIRECT_URL = "accounts:login"
+
+
+# API keys del AVI (nunca hardcodeadas). Se definen como variables de entorno:
+#   Windows:  set OPENAI_API_KEY=sk-...
+#   Linux/Mac: export OPENAI_API_KEY=sk-...
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")

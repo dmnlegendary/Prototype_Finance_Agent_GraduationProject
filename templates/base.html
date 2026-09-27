@@ -6,10 +6,28 @@
 <title>{% block title %}MarIAmiga{% endblock %}</title>
 {% load static %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="{% static 'css/loader.css' %}">
 {% block extra_head %}{% endblock %}
 </head>
 <body{% block body_attrs %}{% endblock %}>
+
+<div class="ai-loader-overlay" id="loaderInicial">
+  {% include "partials/ai_loader.html" with texto="Cargando…" grande=True %}
+</div>
+
 {% block content %}{% endblock %}
 {% block extra_scripts %}{% endblock %}
+
+<script>
+  window.addEventListener('load', function () {
+    setTimeout(function () {
+      const loader = document.getElementById('loaderInicial');
+      if (loader) {
+        loader.classList.add('oculto');
+        setTimeout(function () { loader.remove(); }, 400);
+      }
+    }, 700);
+  });
+</script>
 </body>
 </html>

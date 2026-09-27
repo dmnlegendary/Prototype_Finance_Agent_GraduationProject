@@ -1,3 +1,13 @@
+.filtro-picker {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 9px 12px;
+  font-size: 14px;
+  outline: none;
+  margin-bottom: 4px;
+}
+.filtro-picker:focus { border-color: var(--color-primary-deep); }
+
 .alert-banner {
   background: var(--alert-banner-bg);
   border-bottom: 1px solid var(--alert-banner-border);
@@ -56,20 +66,6 @@
 .btn-modificar:hover { background: #6d28d9; }
 .btn-proveedores { background: #2563eb; }
 .btn-proveedores:hover { background: #1d4ed8; }
-
-.modal-backdrop {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(17,24,39,.45);
-  z-index: 300;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
-.modal-backdrop.open { display: flex; }
-.modal-backdrop .form-card { max-height: 90vh; }
-.modal-backdrop .panel-body { overflow-y: auto; }
 
 .search-filter-row {
   display: flex;
@@ -193,122 +189,6 @@
 }
 .btn-edit-row:hover { background: var(--bg-muted); color: var(--text-secondary); }
 
-.form-page {
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  justify-content: center;
-  padding: 24px 16px;
-}
-.form-card {
-  width: 100%;
-  max-width: 480px;
-  height: fit-content;
-  background: var(--bg-white);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border);
-  box-shadow: 0 1px 4px rgba(0,0,0,.06);
-  display: flex;
-  flex-direction: column;
-}
-
-.panel-header {
-  padding: 16px 18px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--bg-light);
-}
-.panel-header h3 { font-size: 15px; font-weight: 700; color: var(--text-primary); }
-.panel-close {
-  background: none; border: none;
-  font-size: 18px; color: var(--text-muted);
-  cursor: pointer; line-height: 1;
-}
-.panel-close:hover { color: var(--text-primary); }
-.panel-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.panel-footer {
-  padding: 14px 18px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  gap: 10px;
-}
-
-.form-group { display: flex; flex-direction: column; gap: 5px; }
-.form-group label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: .4px;
-}
-.form-group input,
-.form-group select,
-.form-group textarea {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 9px 12px;
-  font-size: 14px;
-  color: var(--text-secondary);
-  outline: none;
-  background: var(--bg-white);
-  transition: border-color .15s;
-  font-family: inherit;
-  width: 100%;
-}
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus { border-color: var(--color-primary-deep); }
-.form-group textarea { resize: vertical; min-height: 70px; }
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-
-.btn-primary {
-  flex: 1;
-  background: var(--gradient-primary);
-  color: var(--bg-white);
-  border: none;
-  border-radius: var(--radius-full);
-  padding: 11px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity .15s;
-}
-.btn-primary:hover { opacity: .9; }
-.btn-success {
-  flex: 1;
-  background: var(--color-success);
-  color: var(--bg-white);
-  border: none;
-  border-radius: var(--radius-full);
-  padding: 11px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background .15s;
-}
-.btn-success:hover { background: var(--color-success-dark); }
-.btn-ghost {
-  background: var(--bg-muted);
-  color: var(--text-secondary);
-  border: none;
-  border-radius: var(--radius-full);
-  padding: 11px 16px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background .15s;
-}
-.btn-ghost:hover { background: var(--border); }
-
 .margin-bar-wrap { display: flex; flex-direction: column; gap: 5px; }
 .margin-bar-wrap label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
 .margin-bar {
@@ -339,7 +219,7 @@
 .provider-card:hover { background: var(--color-primary-bg); border-color: var(--color-primary-border); }
 .prov-avatar {
   width: 40px; height: 40px;
-  background: var(--gradient-primary);
+  background: var(--color-primary);
   border-radius: var(--radius-full);
   display: flex; align-items: center; justify-content: center;
   color: var(--bg-white);

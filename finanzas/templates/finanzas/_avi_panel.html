@@ -1,15 +1,28 @@
+{% load static %}
 <div class="avi-panel" id="aviPanel">
   <div class="avi-title">
     <span><i class="bi bi-robot"></i> Asistente Virtual Inteligente</span>
-    <button class="avi-toggle-btn" onclick="closeAvi()"><i class="bi bi-x-lg"></i></button>
+    <div class="avi-title-actions">
+      <button class="avi-minimize-btn" onclick="toggleAviMinimize()" title="Minimizar"><i class="bi bi-dash-lg"></i></button>
+      <button class="avi-expand-btn" onclick="toggleAviExpand()" title="Pantalla completa"><i class="bi bi-arrows-fullscreen"></i></button>
+      <button class="avi-toggle-btn" onclick="closeAvi()"><i class="bi bi-x-lg"></i></button>
+    </div>
   </div>
   <div class="avi-chat" id="aviChat">
     <div class="bubble bot">Hola Don Raúl. Hoy tus ventas van bien. ¿Quieres ver el pronóstico de esta semana o revisar tus gastos?</div>
     <div class="bubble bot">El pronóstico lo genera un modelo de Machine Learning externo entrenado con tu historial de ventas. Yo solo te ayudo a interpretarlo.</div>
     <div class="bubble bot">Abril fue tu mes más ajustado. El gasto subió pero las ventas no acompañaron. ¿Quieres revisar qué pasó?</div>
   </div>
-  <div class="avi-input">
-    <input type="text" placeholder="Escribe aquí…" disabled/>
-    <button disabled><i class="bi bi-send-fill"></i></button>
+  <form class="avi-input" id="aviForm" onsubmit="return enviarMensajeAvi(event)">
+    {% csrf_token %}
+    <input type="text" id="aviTexto" placeholder="Escribe aquí…" autocomplete="off"/>
+    <button type="submit"><i class="bi bi-send-fill"></i></button>
+  </form>
+  <div class="avi-config">
+    <i class="bi bi-gear-fill"></i> Modelo:
+    <select id="aviModelo">
+      <option value="chatgpt">ChatGPT</option>
+      <option value="gemini">Gemini</option>
+    </select>
   </div>
 </div>

@@ -12,7 +12,7 @@ def _negocio_o_redirect(request):
     return getattr(request.user, "negocio", None)
 
 
-def _contexto_panel(request, negocio, form_alta=None):
+def _contexto_panel(request, negocio, form_alta=None, form_proveedor=None):
     productos = Producto.objects.filter(negocio=negocio, activo=True).select_related("categoria")
 
     q = request.GET.get("q", "").strip()
@@ -23,10 +23,18 @@ def _contexto_panel(request, negocio, form_alta=None):
     if categoria_id:
         productos = productos.filter(categoria_id=categoria_id)
 
+    productos = list(productos)
+    for p in productos:
+        p.form_editar = ProductoForm(instance=p, negocio=negocio, auto_id=f"id_producto_{p.pk}_%s")
+
     # productos con cantidad_actual <= cantidad_minima (se comparan dos campos, por eso F())
     alertas_count = Producto.objects.filter(
         negocio=negocio, activo=True, cantidad_actual__lte=F("cantidad_minima"),
     ).count()
+
+    proveedores_lista = list(Proveedor.objects.filter(negocio=negocio).prefetch_related("categorias"))
+    for prov in proveedores_lista:
+        prov.form_editar = ProveedorForm(instance=prov, auto_id=f"id_proveedor_{prov.pk}_%s")
 
     return {
         "productos": productos,
@@ -34,7 +42,9 @@ def _contexto_panel(request, negocio, form_alta=None):
         "q": q,
         "categoria_id": categoria_id,
         "alertas_count": alertas_count,
-        "form_alta": form_alta or ProductoForm(negocio=negocio),
+        "form_alta": form_alta or ProductoForm(negocio=negocio, auto_id="id_alta_%s"),
+        "proveedores_lista": proveedores_lista,
+        "form_proveedor": form_proveedor or ProveedorForm(auto_id="id_proveedor_nuevo_%s"),
     }
 
 
@@ -55,7 +65,7 @@ def producto_alta(request):
         return redirect("accounts:datos_negocio")
 
     if request.method == "POST":
-        form = ProductoForm(request.POST, negocio=negocio)
+        form = ProductoForm(request.POST, negocio=negocio, auto_id="id_alta_%s")
         if form.is_valid():
             producto = form.save(commit=False)
             producto.negocio = negocio
@@ -63,8 +73,7 @@ def producto_alta(request):
             messages.success(request, f'"{producto.nombre}" se dio de alta correctamente.')
             return redirect("inventario:panel")
 
-        # si el formulario del modal tiene errores, se regresa al panel con el
-        # modal ya abierto (nunca se navega a una vista nueva para el alta)
+        # si el modal tiene errores, se regresa al panel con el modal ya abierto
         context = _contexto_panel(request, negocio, form_alta=form)
         context["abrir_modal_alta"] = True
         return render(request, "inventario/panel.html", context)
@@ -81,17 +90,20 @@ def producto_editar(request, pk):
     producto = get_object_or_404(Producto, pk=pk, negocio=negocio)
 
     if request.method == "POST":
-        form = ProductoForm(request.POST, instance=producto, negocio=negocio)
+        form = ProductoForm(request.POST, instance=producto, negocio=negocio, auto_id=f"id_producto_{producto.pk}_%s")
         if form.is_valid():
             form.save()
             messages.success(request, f'"{producto.nombre}" se actualizó correctamente.')
             return redirect("inventario:panel")
-    else:
-        form = ProductoForm(instance=producto, negocio=negocio)
 
-    return render(request, "inventario/producto_form.html", {
-        "form": form, "modo": "editar", "producto": producto,
-    })
+        context = _contexto_panel(request, negocio)
+        for p in context["productos"]:
+            if p.pk == producto.pk:
+                p.form_editar = form
+        context["abrir_modal_editar_pk"] = producto.pk
+        return render(request, "inventario/panel.html", context)
+
+    return redirect("inventario:panel")
 
 
 @login_required
@@ -113,21 +125,20 @@ def proveedores(request):
         return redirect("accounts:datos_negocio")
 
     if request.method == "POST":
-        form = ProveedorForm(request.POST)
+        form = ProveedorForm(request.POST, auto_id="id_proveedor_nuevo_%s")
         if form.is_valid():
             proveedor = form.save(commit=False)
             proveedor.negocio = negocio
             proveedor.save()
             form.save_m2m()
             messages.success(request, f'Proveedor "{proveedor.nombre}" agregado.')
-            return redirect("inventario:proveedores")
-    else:
-        form = ProveedorForm()
+            return redirect("inventario:panel")
 
-    return render(request, "inventario/proveedores.html", {
-        "form": form,
-        "proveedores": Proveedor.objects.filter(negocio=negocio).prefetch_related("categorias"),
-    })
+        context = _contexto_panel(request, negocio, form_proveedor=form)
+        context["abrir_modal_proveedores"] = True
+        return render(request, "inventario/panel.html", context)
+
+    return redirect("inventario:panel")
 
 
 @login_required
@@ -136,19 +147,20 @@ def proveedor_editar(request, pk):
     proveedor = get_object_or_404(Proveedor, pk=pk, negocio=negocio)
 
     if request.method == "POST":
-        form = ProveedorForm(request.POST, instance=proveedor)
+        form = ProveedorForm(request.POST, instance=proveedor, auto_id=f"id_proveedor_{proveedor.pk}_%s")
         if form.is_valid():
             form.save()
             messages.success(request, f'Proveedor "{proveedor.nombre}" actualizado.')
-            return redirect("inventario:proveedores")
-    else:
-        form = ProveedorForm(instance=proveedor)
+            return redirect("inventario:panel")
 
-    return render(request, "inventario/proveedores.html", {
-        "form": form,
-        "proveedor_editando": proveedor,
-        "proveedores": Proveedor.objects.filter(negocio=negocio).prefetch_related("categorias"),
-    })
+        context = _contexto_panel(request, negocio)
+        for prov in context["proveedores_lista"]:
+            if prov.pk == proveedor.pk:
+                prov.form_editar = form
+        context["abrir_modal_proveedor_editar_pk"] = proveedor.pk
+        return render(request, "inventario/panel.html", context)
+
+    return redirect("inventario:panel")
 
 
 @login_required

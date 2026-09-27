@@ -1,7 +1,36 @@
+{% load static %}
 <nav>
-  <a href="{% url 'ventas:punto_de_venta' %}" class="tab{% if request.resolver_match.app_name == 'ventas' %} active{% endif %}" style="text-decoration:none;">Módulo de ventas</a>
-  <a href="{% url 'inventario:panel' %}" class="tab{% if request.resolver_match.app_name == 'inventario' %} active{% endif %}" style="text-decoration:none;">Auxiliar de inventario</a>
-  <a href="{% url 'finanzas:inicio' %}" class="tab{% if request.resolver_match.app_name == 'finanzas' %} active{% endif %}" style="text-decoration:none;">Agente financiero</a>
+  <img src="{% static 'img/logo_mariamiga.webp' %}" alt="MarIAmiga" class="nav-logo">
+
+  <a href="{% url 'ventas:punto_de_venta' %}" class="tab{% if request.resolver_match.app_name == 'ventas' %} active{% endif %}">
+    <i class="bi bi-cart3"></i>
+    <span>Ventas</span>
+  </a>
+  <a href="{% url 'inventario:panel' %}" class="tab{% if request.resolver_match.app_name == 'inventario' %} active{% endif %}">
+    <i class="bi bi-boxes"></i>
+    <span>Inventario</span>
+  </a>
+  <a href="{% url 'finanzas:inicio' %}" class="tab{% if request.resolver_match.app_name == 'finanzas' %} active{% endif %}">
+    <i class="bi bi-graph-up-arrow"></i>
+    <span>Finanzas</span>
+  </a>
+
   <div class="nav-spacer spacer"></div>
-  <div class="avatar"><i class="bi bi-person-fill"></i></div>
+
+  <div class="user-menu">
+    <div class="avatar" onclick="toggleUserMenu(event)"><i class="bi bi-person-fill"></i></div>
+    <div class="user-dropdown" id="userDropdown">
+      <div class="user-dropdown-head">
+        <div class="avatar"><i class="bi bi-person-fill"></i></div>
+        <div>
+          <div class="user-dropdown-name">{{ request.user.nombre_completo|default:request.user.username }}</div>
+          <div class="user-dropdown-negocio">{{ negocio.nombre_tienda|default:"Sin negocio" }}</div>
+        </div>
+      </div>
+      <form method="post" action="{% url 'accounts:logout' %}">
+        {% csrf_token %}
+        <button type="submit" class="user-dropdown-logout"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</button>
+      </form>
+    </div>
+  </div>
 </nav>

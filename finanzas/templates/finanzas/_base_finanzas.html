@@ -14,9 +14,11 @@
   {% include "finanzas/_avi_panel.html" %}
 
   <div class="main-content">
-    <div class="state active fin-content">
-      {% include "finanzas/_subnav.html" %}
-      {% block fin_content %}{% endblock %}
+    <div class="state active">
+      <div class="fin-content">
+        {% include "finanzas/_subnav.html" %}
+        {% block fin_content %}{% endblock %}
+      </div>
     </div>
   </div>
 </div>

@@ -1,12 +1,16 @@
 # El carrito es la Venta en estado EN_CURSO del negocio. Las acciones
 # (agregar, +/-, cobrar, cancelar) son formularios POST con redirect,
-# no Fetch/JSON.
-from decimal import Decimal
+# no Fetch/JSON. La única excepción es la búsqueda instantánea, que sí
+# usa fetch/JSON porque necesita responder mientras el usuario escribe.
+from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.views.decorators.http import require_POST
 
 from inventario.models import Producto
 
@@ -40,14 +44,39 @@ def punto_de_venta(request):
     venta = _venta_en_curso(negocio)
     items = venta.items.select_related("producto").all()
 
-    q = request.GET.get("q", "").strip()
-    # None = no se ha buscado nada; [] = se buscó y no hubo resultados
-    resultados = None
-    if q:
-        resultados = Producto.objects.filter(negocio=negocio, activo=True, nombre__icontains=q)[:8]
+    ticket_venta = None
+    ticket_items = None
+    ticket_id = request.GET.get("ticket", "").strip()
+    if ticket_id:
+        ticket_venta = Venta.objects.filter(pk=ticket_id, negocio=negocio, estado=Venta.Estado.COBRADA).first()
+        if ticket_venta:
+            ticket_items = ticket_venta.items.select_related("producto")
 
-    context = {"venta": venta, "items": items, "q": q, "resultados": resultados}
+    context = {
+        "venta": venta,
+        "items": items,
+        "ticket_venta": ticket_venta,
+        "ticket_items": ticket_items,
+    }
     return render(request, "ventas/punto_de_venta.html", context)
+
+
+def buscar_productos_json(request):
+    """Búsqueda instantánea (sin recargar la página) para la barra de ventas."""
+    negocio = _negocio_o_none(request)
+    if negocio is None:
+        return JsonResponse({"resultados": []})
+
+    q = request.GET.get("q", "").strip()
+    if not q:
+        return JsonResponse({"resultados": []})
+
+    productos = Producto.objects.filter(negocio=negocio, activo=True, nombre__icontains=q)[:8]
+    resultados = [
+        {"id": p.pk, "nombre": p.nombre, "icono": p.icono, "precio_venta": str(p.precio_venta)}
+        for p in productos
+    ]
+    return JsonResponse({"resultados": resultados, "q": q})
 
 
 @login_required
@@ -69,6 +98,37 @@ def agregar_item(request, producto_pk):
 
     venta.recalcular_total()
     messages.success(request, f'"{producto.nombre}" agregado al carrito.')
+    return redirect("ventas:punto_de_venta")
+
+
+@login_required
+@require_POST
+def agregar_no_encontrado(request):
+    """Alta rápida de un producto que no está en el catálogo, con lo mínimo
+    (nombre y precio), para poder cobrarlo de una vez."""
+    negocio = _negocio_o_none(request)
+    if negocio is None:
+        return redirect("ventas:punto_de_venta")
+
+    nombre = request.POST.get("nombre", "").strip()
+    try:
+        precio = Decimal(request.POST.get("precio", "0").replace(",", "."))
+    except InvalidOperation:
+        precio = Decimal("0")
+
+    if not nombre or precio <= 0:
+        messages.warning(request, "Escribe un nombre y un precio válido para poder cobrarlo.")
+        return redirect("ventas:punto_de_venta")
+
+    producto = Producto.objects.create(
+        negocio=negocio, nombre=nombre, costo=0, precio_venta=precio,
+        cantidad_actual=0, cantidad_minima=0, activo=False,
+    )
+    venta = _venta_en_curso(negocio)
+    ItemVenta.objects.create(venta=venta, producto=producto, cantidad=1, precio_unitario=precio)
+    venta.recalcular_total()
+
+    messages.success(request, f'"{nombre}" agregado al carrito.')
     return redirect("ventas:punto_de_venta")
 
 
@@ -124,8 +184,9 @@ def cobrar(request):
         venta.save(update_fields=["estado"])
         venta.recalcular_total()
 
-    messages.success(request, f"Venta registrada. Folio #{venta.folio:04d} · ${venta.total}.")
-    return redirect("ventas:ticket", pk=venta.pk)
+    # el ticket se muestra como notificación + modal en la propia pantalla,
+    # no en una página aparte
+    return redirect(f"{reverse('ventas:punto_de_venta')}?ticket={venta.pk}")
 
 
 @login_required

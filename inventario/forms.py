@@ -7,17 +7,17 @@ class ProductoForm(forms.ModelForm):
     class Meta:
         model = Producto
         fields = [
-            "nombre", "descripcion", "icono", "costo", "precio_venta",
+            "nombre", "descripcion", "costo", "precio_venta",
             "cantidad_actual", "cantidad_minima", "categoria", "proveedor",
         ]
         widgets = {
             "nombre": forms.TextInput(attrs={"placeholder": "Ej: Coca Cola 2lt"}),
             "descripcion": forms.Textarea(attrs={"rows": 3, "placeholder": "Descripción breve del producto…"}),
-            "icono": forms.TextInput(attrs={"placeholder": "📦 (emoji opcional)"}),
             "costo": forms.NumberInput(attrs={"step": "0.01", "placeholder": "0.00"}),
             "precio_venta": forms.NumberInput(attrs={"step": "0.01", "placeholder": "0.00"}),
             "cantidad_actual": forms.NumberInput(attrs={"step": "1", "placeholder": "0"}),
             "cantidad_minima": forms.NumberInput(attrs={"step": "1", "placeholder": "0"}),
+            "categoria": forms.RadioSelect(),
         }
 
     def __init__(self, *args, negocio=None, **kwargs):

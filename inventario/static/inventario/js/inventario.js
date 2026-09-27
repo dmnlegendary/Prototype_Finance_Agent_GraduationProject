@@ -11,19 +11,17 @@ function closeAvi() {
   document.getElementById('aviOverlay').classList.remove('open');
 }
 
-function openModal(id) {
-  const modal = document.getElementById('modal-' + id);
-  if (modal) modal.classList.add('open');
-}
-
-function closeModal(id) {
-  const modal = document.getElementById('modal-' + id);
-  if (modal) modal.classList.remove('open');
+function filtrarPicker(texto) {
+  const filtro = texto.trim().toLowerCase();
+  document.querySelectorAll('#listaModificar .picker-item').forEach(function (item) {
+    const nombre = item.getAttribute('data-nombre') || '';
+    item.style.display = nombre.includes(filtro) ? 'flex' : 'none';
+  });
 }
 
 function calcMargen() {
-  const costoInput = document.getElementById('id_costo');
-  const precioInput = document.getElementById('id_precio_venta');
+  const costoInput = document.getElementById('id_alta_costo');
+  const precioInput = document.getElementById('id_alta_precio_venta');
   const label = document.getElementById('margenLabel');
   const fill = document.getElementById('margenFill');
   if (!costoInput || !precioInput || !label || !fill) return;
@@ -41,8 +39,8 @@ function calcMargen() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  const costoInput = document.getElementById('id_costo');
-  const precioInput = document.getElementById('id_precio_venta');
+  const costoInput = document.getElementById('id_alta_costo');
+  const precioInput = document.getElementById('id_alta_precio_venta');
   if (costoInput && precioInput) {
     costoInput.addEventListener('input', calcMargen);
     precioInput.addEventListener('input', calcMargen);

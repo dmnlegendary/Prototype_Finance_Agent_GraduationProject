@@ -25,14 +25,26 @@
   <div class="avi-panel" id="aviPanel">
     <div class="avi-title">
       <span><i class="bi bi-robot"></i> Asistente Virtual</span>
-      <button class="avi-close-btn" onclick="closeAvi()"><i class="bi bi-x-lg"></i></button>
+      <div class="avi-title-actions">
+        <button class="avi-minimize-btn" onclick="toggleAviMinimize()" title="Minimizar"><i class="bi bi-dash-lg"></i></button>
+        <button class="avi-expand-btn" onclick="toggleAviExpand()" title="Pantalla completa"><i class="bi bi-arrows-fullscreen"></i></button>
+        <button class="avi-close-btn" onclick="closeAvi()"><i class="bi bi-x-lg"></i></button>
+      </div>
     </div>
     <div class="avi-chat" id="aviChat">
-      <div class="bubble bot">Hola 👋 Soy tu auxiliar de inventario. Todavía no estoy conectado a un modelo de lenguaje — por ahora usa los botones de la pantalla para dar de alta productos, editarlos o gestionar proveedores.</div>
+      <div class="bubble bot">Hola 👋 Soy tu auxiliar de inventario. Puedo ayudarte a dar de alta productos, revisar stock o buscar proveedores. Escribe algo para empezar.</div>
     </div>
-    <div class="avi-input">
-      <input type="text" placeholder="Próximamente…" disabled/>
-      <button disabled>Enviar</button>
+    <form class="avi-input" id="aviForm" onsubmit="return enviarMensajeAvi(event)">
+      {% csrf_token %}
+      <input type="text" id="aviTexto" placeholder="Escribe aquí…" autocomplete="off"/>
+      <button type="submit"><i class="bi bi-send-fill"></i></button>
+    </form>
+    <div class="avi-config">
+      <i class="bi bi-gear-fill"></i> Modelo:
+      <select id="aviModelo">
+        <option value="chatgpt">ChatGPT</option>
+        <option value="gemini">Gemini</option>
+      </select>
     </div>
   </div>
 
@@ -52,8 +64,8 @@
 
       <div class="action-row">
         <button type="button" class="btn-action btn-alta" onclick="openModal('alta')"><i class="bi bi-box-seam-fill"></i> Alta de productos</button>
-        <a class="btn-action btn-modificar" href="#producto-lista"><i class="bi bi-pencil-square"></i> Modificar productos</a>
-        <a class="btn-action btn-proveedores" href="{% url 'inventario:proveedores' %}"><i class="bi bi-truck"></i> Proveedores</a>
+        <button type="button" class="btn-action btn-modificar" onclick="openModal('modificar-picker')"><i class="bi bi-pencil-square"></i> Modificar productos</button>
+        <button type="button" class="btn-action btn-proveedores" onclick="openModal('proveedores')"><i class="bi bi-truck"></i> Proveedores</button>
       </div>
 
       <form method="get" class="search-filter-row">
@@ -92,7 +104,7 @@
                   <td>{{ producto.cantidad_minima }}</td>
                   <td class="right">${{ producto.costo }} / ${{ producto.precio_venta }}</td>
                   <td style="display:flex; gap:6px;">
-                    <a class="btn-edit-row" href="{% url 'inventario:producto_editar' producto.pk %}">Editar</a>
+                    <button type="button" class="btn-edit-row" onclick="openModal('editar-{{ producto.pk }}')">Editar</button>
                     <form method="post" action="{% url 'inventario:producto_eliminar' producto.pk %}" onsubmit="return confirm('¿Dar de baja {{ producto.nombre|escapejs }}?');">
                       {% csrf_token %}
                       <button type="submit" class="btn-edit-row" style="color:var(--color-danger);border-color:var(--color-danger);">Baja</button>
@@ -119,22 +131,21 @@
   </div>
 </div>
 
+<!-- Modal: alta de producto -->
 <div class="modal-backdrop" id="modal-alta">
   <div class="form-card">
     <div class="panel-header">
       <h3><i class="bi bi-box-seam-fill"></i> Alta de producto</h3>
       <button type="button" class="panel-close" onclick="closeModal('alta')"><i class="bi bi-x-lg"></i></button>
     </div>
-
-    <form method="post" action="{% url 'inventario:producto_alta' %}" class="panel-body" style="gap:14px;">
+    <form method="post" action="{% url 'inventario:producto_alta' %}" class="panel-body" style="gap:14px;" data-validar>
       {% csrf_token %}
-
       {% if form_alta.non_field_errors %}
       <div style="background:var(--color-danger-bg);color:var(--color-danger-text);border-radius:8px;padding:8px 12px;font-size:13px;">{{ form_alta.non_field_errors }}</div>
       {% endif %}
 
       <div class="form-group">
-        {{ form_alta.nombre.label_tag }}
+        <label>Nombre del producto <span class="campo-requerido">*</span></label>
         {{ form_alta.nombre }}
         {% if form_alta.nombre.errors %}<span style="color:var(--color-danger);font-size:12px;">{{ form_alta.nombre.errors|join:", " }}</span>{% endif %}
       </div>
@@ -146,26 +157,20 @@
 
       <div class="form-row">
         <div class="form-group">
-          {{ form_alta.icono.label_tag }}
-          {{ form_alta.icono }}
-        </div>
-        <div class="form-group">
-          {{ form_alta.categoria.label_tag }}
-          {{ form_alta.categoria }}
-        </div>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label for="{{ form_alta.costo.id_for_label }}">Costo ($)</label>
+          <label>Costo ($) <span class="campo-requerido">*</span></label>
           {{ form_alta.costo }}
           {% if form_alta.costo.errors %}<span style="color:var(--color-danger);font-size:12px;">{{ form_alta.costo.errors|join:", " }}</span>{% endif %}
         </div>
         <div class="form-group">
-          <label for="{{ form_alta.precio_venta.id_for_label }}">Precio de venta ($)</label>
+          <label>Precio de venta ($) <span class="campo-requerido">*</span></label>
           {{ form_alta.precio_venta }}
           {% if form_alta.precio_venta.errors %}<span style="color:var(--color-danger);font-size:12px;">{{ form_alta.precio_venta.errors|join:", " }}</span>{% endif %}
         </div>
+      </div>
+
+      <div class="margin-bar-wrap">
+        <label>Margen estimado: <span class="margin-label" id="margenLabel">0%</span></label>
+        <div class="margin-bar"><div class="margin-fill" id="margenFill" style="width:0%;"></div></div>
       </div>
 
       <div class="form-row">
@@ -176,6 +181,15 @@
         <div class="form-group">
           {{ form_alta.cantidad_minima.label_tag }}
           {{ form_alta.cantidad_minima }}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Categoría</label>
+        <div class="cat-pills">
+          {% for radio in form_alta.categoria %}
+          <label class="cat-pill">{{ radio.tag }} {{ radio.choice_label }}</label>
+          {% endfor %}
         </div>
       </div>
 
@@ -192,11 +206,216 @@
   </div>
 </div>
 
+<!-- Modal: elegir qué producto modificar -->
+<div class="modal-backdrop" id="modal-modificar-picker">
+  <div class="form-card" style="max-width:460px;">
+    <div class="panel-header">
+      <h3><i class="bi bi-pencil-square"></i> Modificar productos</h3>
+      <button type="button" class="panel-close" onclick="closeModal('modificar-picker')"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="panel-body">
+      <input type="text" id="buscarModificar" placeholder="Buscar producto…" class="filtro-picker" oninput="filtrarPicker(this.value)">
+      <div id="listaModificar" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto;">
+        {% for producto in productos %}
+        <div class="provider-card picker-item" data-nombre="{{ producto.nombre|lower }}" onclick="closeModal('modificar-picker'); openModal('editar-{{ producto.pk }}')">
+          <div class="prov-avatar">{{ producto.icono }}</div>
+          <div class="prov-info">
+            <div class="prov-name">{{ producto.nombre }}</div>
+            <div class="prov-contact">${{ producto.precio_venta }} · {{ producto.cantidad_actual }} pzas</div>
+          </div>
+          <i class="bi bi-chevron-right" style="color:var(--text-faint);"></i>
+        </div>
+        {% empty %}
+        <p style="font-size:13px;color:var(--text-faint);text-align:center;">Aún no tienes productos dados de alta.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modales: editar producto (uno por fila) -->
+{% for producto in productos %}
+<div class="modal-backdrop" id="modal-editar-{{ producto.pk }}">
+  <div class="form-card">
+    <div class="panel-header">
+      <h3><i class="bi bi-pencil-square"></i> Editar producto</h3>
+      <button type="button" class="panel-close" onclick="closeModal('editar-{{ producto.pk }}')"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <form method="post" action="{% url 'inventario:producto_editar' producto.pk %}" class="panel-body" style="gap:14px;">
+      {% csrf_token %}
+      <div class="form-group">
+        <label>Nombre del producto <span class="campo-requerido">*</span></label>
+        {{ producto.form_editar.nombre }}
+        {% if producto.form_editar.nombre.errors %}<span style="color:var(--color-danger);font-size:12px;">{{ producto.form_editar.nombre.errors|join:", " }}</span>{% endif %}
+      </div>
+      <div class="form-group">
+        {{ producto.form_editar.descripcion.label_tag }}
+        {{ producto.form_editar.descripcion }}
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Costo ($) <span class="campo-requerido">*</span></label>
+          {{ producto.form_editar.costo }}
+        </div>
+        <div class="form-group">
+          <label>Precio de venta ($) <span class="campo-requerido">*</span></label>
+          {{ producto.form_editar.precio_venta }}
+        </div>
+      </div>
+      <div class="margin-bar-wrap">
+        <label>Margen actual: <span class="margin-label">{{ producto.margen_porcentaje }}%</span></label>
+        <div class="margin-bar"><div class="margin-fill" style="width:{{ producto.margen_porcentaje }}%;"></div></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          {{ producto.form_editar.cantidad_actual.label_tag }}
+          {{ producto.form_editar.cantidad_actual }}
+        </div>
+        <div class="form-group">
+          {{ producto.form_editar.cantidad_minima.label_tag }}
+          {{ producto.form_editar.cantidad_minima }}
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Categoría</label>
+        <div class="cat-pills">
+          {% for radio in producto.form_editar.categoria %}
+          <label class="cat-pill">{{ radio.tag }} {{ radio.choice_label }}</label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="form-group">
+        {{ producto.form_editar.proveedor.label_tag }}
+        {{ producto.form_editar.proveedor }}
+      </div>
+      <div class="panel-footer" style="padding:0; border-top:none;">
+        <button type="submit" class="btn-success">Guardar cambios</button>
+        <button type="button" class="btn-ghost" onclick="closeModal('editar-{{ producto.pk }}')">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endfor %}
+
+<!-- Modal: proveedores -->
+<div class="modal-backdrop" id="modal-proveedores">
+  <div class="form-card" style="max-width:560px;">
+    <div class="panel-header">
+      <h3><i class="bi bi-truck"></i> Gestión de proveedores</h3>
+      <button type="button" class="panel-close" onclick="closeModal('proveedores')"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="panel-body">
+      {% for p in proveedores_lista %}
+      <div class="provider-card" style="cursor:pointer;" onclick="closeModal('proveedores'); openModal('proveedor-editar-{{ p.pk }}')">
+        <div class="prov-avatar">{{ p.nombre|first|upper }}</div>
+        <div class="prov-info">
+          <div class="prov-name">{{ p.nombre }}</div>
+          <div class="prov-contact">{{ p.telefono|default:"Sin teléfono" }} · {{ p.correo|default:"Sin correo" }}</div>
+          {% if p.categorias.all %}
+          <div class="prov-cats">
+            {% for cat in p.categorias.all %}
+            <span class="badge-cat cat-{{ cat.nombre|lower }}">{{ cat.icono }} {{ cat.nombre }}</span>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        <i class="bi bi-chevron-right" style="color:var(--text-faint);"></i>
+      </div>
+      {% empty %}
+      <p style="color:var(--text-faint); font-size:13px; text-align:center;">Aún no has registrado ningún proveedor.</p>
+      {% endfor %}
+
+      <hr style="border:none;border-top:1px solid var(--border);margin:6px 0;">
+
+      <form method="post" action="{% url 'inventario:proveedores' %}" style="display:flex;flex-direction:column;gap:14px;">
+        {% csrf_token %}
+        <h3 style="font-size:13px;"><i class="bi bi-plus-circle"></i> Nuevo proveedor</h3>
+        <div class="form-group">
+          <label>Nombre <span class="campo-requerido">*</span></label>
+          {{ form_proveedor.nombre }}
+          {% if form_proveedor.nombre.errors %}<span style="color:var(--color-danger);font-size:12px;">{{ form_proveedor.nombre.errors|join:", " }}</span>{% endif %}
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            {{ form_proveedor.telefono.label_tag }}
+            {{ form_proveedor.telefono }}
+          </div>
+          <div class="form-group">
+            {{ form_proveedor.correo.label_tag }}
+            {{ form_proveedor.correo }}
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Categorías que surte</label>
+          <div class="cat-tags">
+            {% for checkbox in form_proveedor.categorias %}
+            <label for="{{ checkbox.id_for_label }}">{{ checkbox.tag }} {{ checkbox.choice_label }}</label>
+            {% empty %}
+            <span style="font-size:12px; color:var(--text-faint);">Aún no hay categorías registradas.</span>
+            {% endfor %}
+          </div>
+        </div>
+        <button type="submit" class="btn-success">Agregar proveedor</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modales: editar proveedor (uno por proveedor) -->
+{% for p in proveedores_lista %}
+<div class="modal-backdrop" id="modal-proveedor-editar-{{ p.pk }}">
+  <div class="form-card" style="max-width:460px;">
+    <div class="panel-header">
+      <h3><i class="bi bi-pencil-square"></i> Editar proveedor</h3>
+      <button type="button" class="panel-close" onclick="closeModal('proveedor-editar-{{ p.pk }}')"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <form method="post" action="{% url 'inventario:proveedor_editar' p.pk %}" class="panel-body" style="gap:14px;">
+      {% csrf_token %}
+      <div class="form-group">
+        <label>Nombre <span class="campo-requerido">*</span></label>
+        {{ p.form_editar.nombre }}
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          {{ p.form_editar.telefono.label_tag }}
+          {{ p.form_editar.telefono }}
+        </div>
+        <div class="form-group">
+          {{ p.form_editar.correo.label_tag }}
+          {{ p.form_editar.correo }}
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Categorías que surte</label>
+        <div class="cat-tags">
+          {% for checkbox in p.form_editar.categorias %}
+          <label for="{{ checkbox.id_for_label }}">{{ checkbox.tag }} {{ checkbox.choice_label }}</label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="panel-footer" style="padding:0;border-top:none;">
+        <button type="submit" class="btn-success">Guardar cambios</button>
+        <button type="button" class="btn-ghost" onclick="closeModal('proveedor-editar-{{ p.pk }}')">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endfor %}
+
 {% endblock %}
 
-{% block extra_scripts %}
+{% block app_extra_scripts %}
 <script src="{% static 'inventario/js/inventario.js' %}"></script>
 {% if abrir_modal_alta %}
 <script>document.addEventListener('DOMContentLoaded', function () { openModal('alta'); });</script>
+{% endif %}
+{% if abrir_modal_editar_pk %}
+<script>document.addEventListener('DOMContentLoaded', function () { openModal('editar-{{ abrir_modal_editar_pk }}'); });</script>
+{% endif %}
+{% if abrir_modal_proveedores %}
+<script>document.addEventListener('DOMContentLoaded', function () { openModal('proveedores'); });</script>
+{% endif %}
+{% if abrir_modal_proveedor_editar_pk %}
+<script>document.addEventListener('DOMContentLoaded', function () { openModal('proveedor-editar-{{ abrir_modal_proveedor_editar_pk }}'); });</script>
 {% endif %}
 {% endblock %}

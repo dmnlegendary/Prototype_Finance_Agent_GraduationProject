@@ -25,14 +25,26 @@
   <div class="avi-panel" id="aviPanel">
     <div class="avi-title">
       <span><i class="bi bi-robot"></i> Asistente Virtual</span>
-      <button class="avi-toggle-btn" onclick="closeAvi()"><i class="bi bi-x-lg"></i></button>
+      <div class="avi-title-actions">
+        <button class="avi-minimize-btn" onclick="toggleAviMinimize()" title="Minimizar"><i class="bi bi-dash-lg"></i></button>
+        <button class="avi-expand-btn" onclick="toggleAviExpand()" title="Pantalla completa"><i class="bi bi-arrows-fullscreen"></i></button>
+        <button class="avi-toggle-btn" onclick="closeAvi()"><i class="bi bi-x-lg"></i></button>
+      </div>
     </div>
     <div class="avi-chat" id="aviChat">
-      <div class="bubble bot">Hola 👋 Todavía no estoy conectado a un modelo de lenguaje. Por ahora, usa el buscador para agregar productos al carrito.</div>
+      <div class="bubble bot">Hola 👋 Puedo agregar productos al carrito por texto. Intenta: "agrega 2 pepsis".</div>
     </div>
-    <div class="avi-input">
-      <input type="text" placeholder="Próximamente…" disabled/>
-      <button disabled>Enviar</button>
+    <form class="avi-input" id="aviForm" onsubmit="return enviarMensajeAvi(event)">
+      {% csrf_token %}
+      <input type="text" id="aviTexto" placeholder="Ej: 2 coca cola 600…" autocomplete="off"/>
+      <button type="submit"><i class="bi bi-send-fill"></i></button>
+    </form>
+    <div class="avi-config">
+      <i class="bi bi-gear-fill"></i> Modelo:
+      <select id="aviModelo">
+        <option value="chatgpt">ChatGPT</option>
+        <option value="gemini">Gemini</option>
+      </select>
     </div>
   </div>
 
@@ -41,26 +53,15 @@
 
       <div class="search-row">
         <div class="search-wrapper">
-          <form method="get" style="display:contents;">
-            <div class="search-box">
-              <i class="bi bi-search"></i>
-              <input type="text" name="q" value="{{ q }}" placeholder="Buscar producto…" autocomplete="off"/>
-            </div>
-          </form>
-          {% if resultados is not None %}
-          <div class="search-dropdown">
-            {% for producto in resultados %}
-            <form method="post" action="{% url 'ventas:agregar_item' producto.pk %}" class="dropdown-item">
-              {% csrf_token %}
-              <span>{{ producto.icono }} {{ producto.nombre }} — ${{ producto.precio_venta }}</span>
-              <button type="submit" class="btn-select">Seleccionar</button>
-            </form>
-            {% empty %}
-            <div class="dropdown-item"><span>Sin resultados para "{{ q }}".</span></div>
-            {% endfor %}
+          <div class="search-box">
+            <i class="bi bi-search"></i>
+            <input type="text" id="buscarProducto" placeholder="Buscar producto…" autocomplete="off"/>
           </div>
-          {% endif %}
+          <div class="search-dropdown" id="resultadosBusqueda" style="display:none;"></div>
         </div>
+        <button type="button" class="btn-no-encontrado" onclick="openModal('no-encontrado')">
+          <i class="bi bi-plus-circle"></i> No encontrado
+        </button>
       </div>
 
       <div class="sale-meta">
@@ -129,8 +130,71 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="modal-no-encontrado">
+  <div class="form-card" style="max-width:400px;">
+    <div class="panel-header">
+      <h3><i class="bi bi-plus-circle"></i> Producto no encontrado</h3>
+      <button type="button" class="panel-close" onclick="closeModal('no-encontrado')"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <form method="post" action="{% url 'ventas:agregar_no_encontrado' %}" class="panel-body" style="gap:14px;" data-validar>
+      {% csrf_token %}
+      <p style="font-size:13px;color:var(--text-muted);">
+        Si el producto no está en tu catálogo, cóbralo con lo mínimo: nombre y precio.
+      </p>
+      <div class="form-group">
+        <label>Nombre del producto <span class="campo-requerido">*</span></label>
+        <input type="text" name="nombre" placeholder="Ej. Bolsa de hielo" required>
+      </div>
+      <div class="form-group">
+        <label>Precio ($) <span class="campo-requerido">*</span></label>
+        <input type="text" name="precio" placeholder="0.00" required>
+      </div>
+      <div class="panel-footer" style="padding:0;border-top:none;">
+        <button type="submit" class="btn-success">Agregar al carrito</button>
+        <button type="button" class="btn-ghost" onclick="closeModal('no-encontrado')">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if ticket_venta %}
+<div class="toast-stack">
+  <div class="toast success" style="cursor:pointer;" onclick="openModal('ticket')">
+    <i class="bi bi-check-circle-fill"></i>
+    <span>Venta cobrada. Folio #{{ ticket_venta.folio|stringformat:"04d" }} · ${{ ticket_venta.total }} — <strong>Ver ticket</strong></span>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal-ticket">
+  <div class="form-card" style="max-width:420px;">
+    <div class="panel-header">
+      <h3><i class="bi bi-receipt"></i> Ticket digital</h3>
+      <button type="button" class="panel-close" onclick="closeModal('ticket')"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="panel-body">
+      <div class="ticket-receipt">
+        <div class="receipt-title">
+          {{ ticket_venta.negocio.nombre_tienda }}<br/>
+          <span style="font-weight:400;font-size:12px;color:var(--text-muted)">{{ ticket_venta.creado_en|date:"d/m/Y" }} · {{ ticket_venta.creado_en|date:"H:i" }} · Folio #{{ ticket_venta.folio|stringformat:"04d" }}</span>
+        </div>
+        {% for item in ticket_items %}
+        <div class="receipt-row"><span>{{ item.producto.nombre }} x{{ item.cantidad|floatformat:"-2" }}</span><span>${{ item.subtotal }}</span></div>
+        {% endfor %}
+        <div class="receipt-total"><span>Total</span><span>${{ ticket_venta.total }}</span></div>
+      </div>
+    </div>
+    <div class="panel-footer">
+      <button type="button" class="btn-ghost" style="flex:1;" onclick="closeModal('ticket')">Cerrar</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {% endblock %}
 
-{% block extra_scripts %}
+{% block app_extra_scripts %}
 <script src="{% static 'ventas/js/ventas.js' %}"></script>
+{% if ticket_venta %}
+<script>document.addEventListener('DOMContentLoaded', function () { openModal('ticket'); });</script>
+{% endif %}
 {% endblock %}

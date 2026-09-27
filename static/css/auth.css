@@ -4,7 +4,6 @@
     --color-primary: #4f46e5;
     --color-primary-border: #ddd6fe;
     --alert-banner-border: #fca5a5;
-    --gradient-primary: linear-gradient(90deg, var(--color-primary) 55%, var(--color-primary-border) 85%, var(--alert-banner-border) 100%);
 }
 
 body {
@@ -37,7 +36,7 @@ body {
     font-weight: 600;
 }
 
-.step-dot.active { background: var(--gradient-primary); color: #fff; }
+.step-dot.active { background: var(--color-primary); color: #fff; }
 .step-dot.done { background-color: #198754; color: #fff; }
 .step-dot.pending { background-color: #e9ecef; color: #adb5bd; }
 
@@ -51,12 +50,12 @@ body {
 }
 
 .btn-primary {
-    background: var(--gradient-primary);
+    background: var(--color-primary);
     border: none;
     border-radius: 50px;
 }
 .btn-primary:hover, .btn-primary:focus {
-    background: var(--gradient-primary);
+    background: var(--color-primary);
     opacity: .9;
 }
 

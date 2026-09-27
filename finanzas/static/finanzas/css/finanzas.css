@@ -1,5 +1,6 @@
 .fin-content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 16px 20px 32px;
   display: flex;
@@ -25,7 +26,7 @@
 }
 .fin-tab:hover { background: var(--bg-light); }
 .fin-tab.active {
-  background: var(--gradient-primary);
+  background: var(--color-primary);
   border-color: transparent;
   color: var(--bg-white);
 }
@@ -118,7 +119,7 @@
   font-weight: 600;
   cursor: pointer;
 }
-.fin-toggle button.active { background: var(--gradient-primary); border-color: transparent; color: var(--bg-white); }
+.fin-toggle button.active { background: var(--color-primary); border-color: transparent; color: var(--bg-white); }
 
 .fin-form-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
 .fin-form-group label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; }
@@ -135,7 +136,7 @@
   padding: 11px;
   border: none;
   border-radius: var(--radius-full);
-  background: var(--gradient-primary);
+  background: var(--color-primary);
   color: var(--bg-white);
   font-size: 14px;
   font-weight: 700;
@@ -209,7 +210,7 @@
   font-weight: 600;
   cursor: pointer;
 }
-.fin-period-toggle button.active { background: var(--gradient-primary); border-color: transparent; color: var(--bg-white); }
+.fin-period-toggle button.active { background: var(--color-primary); border-color: transparent; color: var(--bg-white); }
 
 .fin-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .fin-table th {

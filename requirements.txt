@@ -1,8 +1,7 @@
 Django>=5.0,<6.0
+openai
+google-generativeai
 
-# Se agregan más adelante cuando se conecte el pronóstico de ventas (ARIMA / regresión)
-# y el AVI (API de OpenAI o Gemini):
+# Se agregan hasta la fase 2, cuando se elija el modelo de pronóstico de ventas:
 # scikit-learn
 # statsmodels
-# openai
-# google-generativeai

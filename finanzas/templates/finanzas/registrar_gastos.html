@@ -1,6 +1,5 @@
 {% extends "finanzas/_base_finanzas.html" %}
 
-
 {% block fin_content %}
 <div class="fin-title"><i class="bi bi-receipt"></i> Registro de Gastos</div>
 <p class="fin-subtitle">Registra tus gastos fijos (siempre los pagas) y variables (cambian cada mes).</p>
@@ -14,47 +13,59 @@
 <div class="fin-grid-2">
   <div class="fin-card">
     <h3>Registrar nuevo gasto</h3>
-    <div class="fin-toggle">
-      <button type="button" class="active"><i class="bi bi-lock-fill"></i> Gasto fijo</button>
-      <button type="button"><i class="bi bi-arrow-repeat"></i> Gasto variable</button>
-    </div>
-    <div class="fin-form-group">
-      <label>Concepto</label>
-      <input type="text" placeholder="Ej. Renta, Luz…">
-    </div>
-    <div class="fin-form-group">
-      <label>Monto ($)</label>
-      <input type="text" placeholder="0.00">
-    </div>
-    <div class="fin-form-group">
-      <label>Nota (opcional)</label>
-      <input type="text" placeholder="Descripción breve…">
-    </div>
-    <button type="button" class="fin-btn-primary">Guardar gasto</button>
+    <form method="post" data-validar>
+      {% csrf_token %}
+      {{ form.tipo }}
+      <div class="fin-toggle">
+        <button type="button" class="active" id="btnTipoFijo" onclick="elegirTipoGasto('FIJO')"><i class="bi bi-lock-fill"></i> Gasto fijo</button>
+        <button type="button" id="btnTipoVariable" onclick="elegirTipoGasto('VARIABLE')"><i class="bi bi-arrow-repeat"></i> Gasto variable</button>
+      </div>
+      <div class="fin-form-group">
+        <label>Concepto <span class="campo-requerido">*</span></label>
+        {{ form.concepto }}
+      </div>
+      <div class="fin-form-group">
+        <label>Monto ($) <span class="campo-requerido">*</span></label>
+        {{ form.monto }}
+      </div>
+      <div class="fin-form-group">
+        <label>Nota (opcional)</label>
+        {{ form.nota }}
+      </div>
+      <button type="submit" class="fin-btn-primary">Guardar gasto</button>
+    </form>
   </div>
 
   <div class="fin-card">
-    <h3>Resumen de gastos del mes</h3>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <h3 style="margin:0;">Resumen de gastos del mes</h3>
+      <a href="{% url 'finanzas:historial_gastos' %}" class="fin-tab" data-sin-loader><i class="bi bi-clock-history"></i> Historial</a>
+    </div>
     <div class="fin-mini-stats">
       <div class="fin-mini-stat">
         <div class="fin-stat-label">Gastos fijos</div>
-        <div class="fin-stat-value">$5,950</div>
+        <div class="fin-stat-value">${{ total_fijos }}</div>
       </div>
       <div class="fin-mini-stat">
         <div class="fin-stat-label">Gastos variables</div>
-        <div class="fin-stat-value">$117,967</div>
+        <div class="fin-stat-value">${{ total_variables }}</div>
       </div>
       <div class="fin-mini-stat">
         <div class="fin-stat-label">Total general</div>
-        <div class="fin-stat-value">$123,917</div>
+        <div class="fin-stat-value">${{ total_general }}</div>
       </div>
     </div>
-    <svg viewBox="0 0 300 140" width="100%" height="140">
-      <rect x="40" y="120" width="60" height="10" fill="var(--color-primary)"/>
-      <rect x="180" y="20" width="60" height="110" fill="var(--color-primary)"/>
-      <text x="70" y="138" font-size="11" fill="var(--text-muted)" text-anchor="middle">Fijos</text>
-      <text x="210" y="138" font-size="11" fill="var(--text-muted)" text-anchor="middle">Variables</text>
-    </svg>
+    <p class="fin-subtitle" style="margin-top:10px;">Con base en los gastos que ya registraste este mes.</p>
   </div>
 </div>
+{% endblock %}
+
+{% block app_extra_scripts %}
+<script>
+  function elegirTipoGasto(tipo) {
+    document.getElementById('id_tipo').value = tipo;
+    document.getElementById('btnTipoFijo').classList.toggle('active', tipo === 'FIJO');
+    document.getElementById('btnTipoVariable').classList.toggle('active', tipo === 'VARIABLE');
+  }
+</script>
 {% endblock %}

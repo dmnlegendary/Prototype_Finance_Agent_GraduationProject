@@ -3,15 +3,15 @@
   <img src="{% static 'img/logo_mariamiga.webp' %}" alt="MarIAmiga" class="nav-logo">
 
   <div class="nav-tabs-center">
-    <a href="{% url 'ventas:punto_de_venta' %}" class="tab{% if request.resolver_match.app_name == 'ventas' %} active{% endif %}">
+    <a href="{% url 'ventas:punto_de_venta' %}" class="tab{% if request.resolver_match.app_name == 'ventas' %} active{% endif %}" data-sin-loader>
       <i class="bi bi-cart3"></i>
       <span>Módulo de ventas</span>
     </a>
-    <a href="{% url 'inventario:panel' %}" class="tab{% if request.resolver_match.app_name == 'inventario' %} active{% endif %}">
+    <a href="{% url 'inventario:panel' %}" class="tab{% if request.resolver_match.app_name == 'inventario' %} active{% endif %}" data-sin-loader>
       <i class="bi bi-boxes"></i>
       <span>Auxiliar de inventario</span>
     </a>
-    <a href="{% url 'finanzas:inicio' %}" class="tab{% if request.resolver_match.app_name == 'finanzas' %} active{% endif %}">
+    <a href="{% url 'finanzas:inicio' %}" class="tab{% if request.resolver_match.app_name == 'finanzas' %} active{% endif %}" data-sin-loader>
       <i class="bi bi-graph-up-arrow"></i>
       <span>Agente financiero</span>
     </a>
@@ -27,6 +27,23 @@
           <div class="user-dropdown-negocio">{{ negocio.nombre_tienda|default:"Sin negocio" }}</div>
         </div>
       </div>
+
+      <div class="avatar-picker">
+        <div class="avatar-picker-label">Elige tu ícono</div>
+        <div class="avatar-picker-grid">
+          <button type="button" onclick="elegirAvatar('🦊')">🦊</button>
+          <button type="button" onclick="elegirAvatar('🐱')">🐱</button>
+          <button type="button" onclick="elegirAvatar('🐶')">🐶</button>
+          <button type="button" onclick="elegirAvatar('🦁')">🦁</button>
+          <button type="button" onclick="elegirAvatar('🐼')">🐼</button>
+          <button type="button" onclick="elegirAvatar('🐸')">🐸</button>
+          <button type="button" onclick="elegirAvatar('🤠')">🤠</button>
+          <button type="button" onclick="elegirAvatar('🥷')">🥷</button>
+          <button type="button" onclick="elegirAvatar('👽')">👽</button>
+          <button type="button" onclick="elegirAvatar('🤖')">🤖</button>
+        </div>
+      </div>
+
       <form method="post" action="{% url 'accounts:logout' %}">
         {% csrf_token %}
         <button type="submit" class="user-dropdown-logout"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</button>

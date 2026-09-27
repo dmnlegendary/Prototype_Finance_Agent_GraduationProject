@@ -13,5 +13,6 @@ urlpatterns = [
     path("carrito/item/<int:item_pk>/menos/", views.item_decrementar, name="item_decrementar"),
     path("cobrar/", views.cobrar, name="cobrar"),
     path("cancelar/", views.cancelar_venta, name="cancelar_venta"),
+    path("historial/", views.historial, name="historial"),
     path("ticket/<int:pk>/", views.ticket, name="ticket"),
 ]

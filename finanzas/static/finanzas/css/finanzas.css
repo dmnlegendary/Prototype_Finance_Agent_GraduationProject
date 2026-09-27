@@ -54,7 +54,7 @@
 .fin-stat-card {
   background: var(--bg-white);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   padding: 14px 16px;
   box-shadow: 0 1px 3px rgba(0,0,0,.05);
 }
@@ -101,7 +101,7 @@
 .fin-callout {
   background: var(--color-info-bg);
   border: 1px solid #a5f3fc;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   padding: 12px 16px;
   font-size: 13px;
   color: var(--color-info-text);
@@ -156,7 +156,7 @@
 }
 
 .fin-mini-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
-.fin-mini-stat { background: var(--bg-light); border-radius: var(--radius-md); padding: 10px; text-align: center; }
+.fin-mini-stat { background: var(--bg-light); border-radius: var(--radius-xl); padding: 10px; text-align: center; }
 .fin-mini-stat .fin-stat-label { font-size: 11px; }
 .fin-mini-stat .fin-stat-value { font-size: 16px; }
 
@@ -197,14 +197,14 @@
 
 .fin-insight-purple {
   background: var(--color-primary-bg);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-xl);
   padding: 10px 12px;
   font-size: 13px;
   color: var(--color-primary-dark);
 }
 .fin-insight-green {
   background: var(--color-success-bg);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-xl);
   padding: 10px 12px;
   font-size: 13px;
   color: var(--color-success-text);

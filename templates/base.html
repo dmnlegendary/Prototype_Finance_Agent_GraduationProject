@@ -33,6 +33,13 @@
     const loader = document.getElementById('loaderInicial');
     if (!loader) return;
 
+    let omitir = false;
+    try {
+      omitir = sessionStorage.getItem('omitir_loader') === '1';
+      sessionStorage.removeItem('omitir_loader');
+    } catch (e) {}
+    if (omitir) return;
+
     // "recargar la página" (F5) se detecta con la Navigation Timing API;
     // una redirección de una acción (agregar al carrito, +/-, etc.) regresa
     // a la MISMA ruta de donde salió, así que esa no cuenta como "cargar".

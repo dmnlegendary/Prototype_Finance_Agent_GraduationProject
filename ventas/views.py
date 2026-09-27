@@ -204,6 +204,16 @@ def cancelar_venta(request):
 
 
 @login_required
+def historial(request):
+    negocio = _negocio_o_none(request)
+    if negocio is None:
+        return redirect("accounts:datos_negocio")
+
+    ventas = Venta.objects.filter(negocio=negocio).exclude(estado=Venta.Estado.EN_CURSO).order_by("-creado_en")
+    return render(request, "ventas/historial.html", {"ventas": ventas})
+
+
+@login_required
 def ticket(request, pk):
     negocio = _negocio_o_none(request)
     venta = get_object_or_404(Venta, pk=pk, negocio=negocio)

@@ -1,0 +1,64 @@
+{% extends "base_app.html" %}
+{% load static %}
+
+{% block app_extra_head %}
+<link rel="stylesheet" href="{% static 'ventas/css/ventas.css' %}">
+{% endblock %}
+
+{% block app_content %}
+<div class="layout">
+  <div class="main-content">
+    <div class="state active" style="padding:16px; gap:12px; overflow-y:auto;">
+
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <h2 style="font-size:16px;"><i class="bi bi-clock-history"></i> Historial de ventas</h2>
+        <a href="{% url 'ventas:punto_de_venta' %}" class="btn-historial" data-sin-loader>← Volver al punto de venta</a>
+      </div>
+
+      <div class="card-simple">
+        <table class="tabla-datos">
+          <thead>
+            <tr>
+              <th>Folio</th>
+              <th>Fecha</th>
+              <th>Hora</th>
+              <th>Estado</th>
+              <th class="right">Total</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for venta in ventas %}
+            <tr>
+              <td>#{{ venta.folio|stringformat:"04d" }}</td>
+              <td>{{ venta.creado_en|date:"d/m/Y" }}</td>
+              <td>{{ venta.creado_en|date:"H:i" }}</td>
+              <td>
+                {% if venta.estado == "COBRADA" %}
+                <span class="badge-estado cobrada">Cobrada</span>
+                {% else %}
+                <span class="badge-estado cancelada">Cancelada</span>
+                {% endif %}
+              </td>
+              <td class="right">${{ venta.total }}</td>
+              <td>
+                {% if venta.estado == "COBRADA" %}
+                <a href="{% url 'ventas:ticket' venta.pk %}" class="btn-edit-row" data-sin-loader>Ver ticket</a>
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="6" style="text-align:center;color:var(--text-faint);padding:24px;">
+                Todavía no tienes ventas registradas.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

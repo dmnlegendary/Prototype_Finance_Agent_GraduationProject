@@ -1,5 +1,12 @@
+from decimal import Decimal
+
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
+from django.shortcuts import redirect, render
+from django.utils import timezone
+
+from .forms import GastoOperativoForm
+from .models import GastoOperativo
 
 
 @login_required
@@ -9,7 +16,43 @@ def inicio(request):
 
 @login_required
 def registrar_gastos(request):
-    return render(request, "finanzas/registrar_gastos.html", {"activo": "gastos"})
+    negocio = getattr(request.user, "negocio", None)
+    if negocio is None:
+        return redirect("accounts:datos_negocio")
+
+    if request.method == "POST":
+        form = GastoOperativoForm(request.POST)
+        if form.is_valid():
+            gasto = form.save(commit=False)
+            gasto.negocio = negocio
+            gasto.save()
+            messages.success(request, f'Gasto "{gasto.concepto}" registrado.')
+            return redirect("finanzas:registrar_gastos")
+    else:
+        form = GastoOperativoForm(initial={"tipo": GastoOperativo.Tipo.FIJO})
+
+    hoy = timezone.localdate()
+    gastos_mes = GastoOperativo.objects.filter(negocio=negocio, fecha__year=hoy.year, fecha__month=hoy.month)
+    total_fijos = sum((g.monto for g in gastos_mes if g.tipo == GastoOperativo.Tipo.FIJO), start=Decimal("0"))
+    total_variables = sum((g.monto for g in gastos_mes if g.tipo == GastoOperativo.Tipo.VARIABLE), start=Decimal("0"))
+
+    return render(request, "finanzas/registrar_gastos.html", {
+        "activo": "gastos",
+        "form": form,
+        "total_fijos": total_fijos,
+        "total_variables": total_variables,
+        "total_general": total_fijos + total_variables,
+    })
+
+
+@login_required
+def historial_gastos(request):
+    negocio = getattr(request.user, "negocio", None)
+    if negocio is None:
+        return redirect("accounts:datos_negocio")
+
+    gastos = GastoOperativo.objects.filter(negocio=negocio).order_by("-fecha", "-id")
+    return render(request, "finanzas/historial_gastos.html", {"activo": "gastos", "gastos": gastos})
 
 
 @login_required

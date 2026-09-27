@@ -13,14 +13,22 @@ function renderResultadosBusqueda(datos) {
   let html = '';
   datos.resultados.forEach(function (producto) {
     html += ''
-      + '<form method="post" action="/ventas/carrito/agregar/' + producto.id + '/" class="dropdown-item">'
+      + '<form method="post" action="/ventas/carrito/agregar/' + producto.id + '/" class="dropdown-item" style="cursor:pointer;" onclick="this.submit()">'
       + '<input type="hidden" name="csrfmiddlewaretoken" value="' + document.querySelector('[name=csrfmiddlewaretoken]').value + '">'
       + '<span>' + producto.icono + ' ' + producto.nombre + ' — $' + producto.precio_venta + '</span>'
-      + '<button type="submit" class="btn-select">Seleccionar</button>'
+      + '<button type="button" class="btn-select">Seleccionar</button>'
       + '</form>';
   });
   caja.innerHTML = html;
   caja.style.display = 'block';
+}
+
+function actualizarRelojVenta() {
+  const ahora = new Date();
+  const fechaEl = document.getElementById('fechaActual');
+  const horaEl = document.getElementById('horaActual');
+  if (fechaEl) fechaEl.textContent = ahora.toLocaleDateString('es-MX');
+  if (horaEl) horaEl.textContent = ahora.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
 }
 
 let filaCarritoSeleccionada = null;
@@ -45,6 +53,9 @@ document.addEventListener('keydown', function (event) {
 });
 
 document.addEventListener('DOMContentLoaded', function () {
+  actualizarRelojVenta();
+  setInterval(actualizarRelojVenta, 30000);
+
   const params = new URLSearchParams(window.location.search);
   const seleccionadoPk = params.get('seleccionado');
   if (seleccionadoPk) {

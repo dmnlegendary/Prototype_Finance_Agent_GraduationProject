@@ -1,3 +1,10 @@
+document.addEventListener('click', function (event) {
+  const el = event.target.closest('[data-sin-loader]');
+  if (el) {
+    try { sessionStorage.setItem('omitir_loader', '1'); } catch (e) {}
+  }
+});
+
 function toggleUserMenu(event) {
   event.stopPropagation();
   document.getElementById('userDropdown').classList.toggle('open');
@@ -52,7 +59,18 @@ document.addEventListener('DOMContentLoaded', function () {
   if (panel && localStorage.getItem('avi_minimizado') === '1') {
     panel.classList.add('minimized');
   }
+
+  let avatarGuardado = null;
+  try { avatarGuardado = localStorage.getItem('avatar_elegido'); } catch (e) {}
+  if (avatarGuardado) {
+    document.querySelectorAll('.avatar').forEach(function (el) { el.textContent = avatarGuardado; });
+  }
 });
+
+function elegirAvatar(emoji) {
+  try { localStorage.setItem('avatar_elegido', emoji); } catch (e) {}
+  document.querySelectorAll('.avatar').forEach(function (el) { el.textContent = emoji; });
+}
 
 function aiLoaderHTML(texto) {
   return ''

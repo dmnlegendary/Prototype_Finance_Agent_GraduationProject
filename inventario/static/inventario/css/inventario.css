@@ -177,18 +177,6 @@
 .stock-low  { color: var(--color-danger);  font-weight: 700; }
 .stock-warn { color: var(--color-warning); font-weight: 700; }
 
-.btn-edit-row {
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-full);
-  padding: 4px 12px;
-  font-size: 11px;
-  cursor: pointer;
-  color: var(--text-muted);
-  transition: all .15s;
-}
-.btn-edit-row:hover { background: var(--bg-muted); color: var(--text-secondary); }
-
 .margin-bar-wrap { display: flex; flex-direction: column; gap: 5px; }
 .margin-bar-wrap label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
 .margin-bar {
@@ -208,7 +196,7 @@
 .provider-card {
   background: var(--bg-light);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   padding: 14px;
   display: flex;
   align-items: center;
@@ -249,7 +237,7 @@
 
 .alert-list { display: flex; flex-direction: column; gap: 10px; }
 .alert-item {
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   padding: 12px 14px;
   display: flex;
   align-items: flex-start;

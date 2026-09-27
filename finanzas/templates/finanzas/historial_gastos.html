@@ -1,0 +1,45 @@
+{% extends "finanzas/_base_finanzas.html" %}
+
+{% block fin_content %}
+<div style="display:flex;align-items:center;justify-content:space-between;">
+  <div class="fin-title"><i class="bi bi-clock-history"></i> Historial de Gastos</div>
+  <a href="{% url 'finanzas:registrar_gastos' %}" class="fin-tab" data-sin-loader>← Volver a registrar gastos</a>
+</div>
+
+<div class="card-simple">
+  <table class="tabla-datos">
+    <thead>
+      <tr>
+        <th>Concepto</th>
+        <th>Tipo</th>
+        <th>Nota</th>
+        <th>Fecha</th>
+        <th class="right">Monto</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for gasto in gastos %}
+      <tr>
+        <td>{{ gasto.concepto }}</td>
+        <td>
+          {% if gasto.tipo == "FIJO" %}
+          <span class="badge-estado cobrada">Fijo</span>
+          {% else %}
+          <span class="badge-estado cancelada">Variable</span>
+          {% endif %}
+        </td>
+        <td>{{ gasto.nota|default:"—" }}</td>
+        <td>{{ gasto.fecha|date:"d/m/Y" }}</td>
+        <td class="right">${{ gasto.monto }}</td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="5" style="text-align:center;color:var(--text-faint);padding:24px;">
+          Todavía no has registrado ningún gasto.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

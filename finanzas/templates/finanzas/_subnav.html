@@ -1,8 +1,8 @@
 <div class="fin-subnav">
-  <a href="{% url 'finanzas:inicio' %}" class="fin-tab{% if activo == 'inicio' %} active{% endif %}">Inicio</a>
-  <a href="{% url 'finanzas:registrar_gastos' %}" class="fin-tab{% if activo == 'gastos' %} active{% endif %}">Registrar gastos</a>
-  <a href="{% url 'finanzas:punto_equilibrio' %}" class="fin-tab{% if activo == 'equilibrio' %} active{% endif %}">Punto de equilibrio</a>
-  <a href="{% url 'finanzas:sugerir_precios' %}" class="fin-tab{% if activo == 'precios' %} active{% endif %}">Sugerir precios</a>
-  <a href="{% url 'finanzas:pronostico_ventas' %}" class="fin-tab{% if activo == 'pronostico' %} active{% endif %}">Pronóstico de ventas</a>
-  <a href="{% url 'finanzas:reportes_financieros' %}" class="fin-tab{% if activo == 'reportes' %} active{% endif %}">Reportes financieros</a>
+  <a href="{% url 'finanzas:inicio' %}" class="fin-tab{% if activo == 'inicio' %} active{% endif %}" data-sin-loader><i class="bi bi-house-fill"></i> Inicio</a>
+  <a href="{% url 'finanzas:registrar_gastos' %}" class="fin-tab{% if activo == 'gastos' %} active{% endif %}" data-sin-loader><i class="bi bi-receipt"></i> Registrar gastos</a>
+  <a href="{% url 'finanzas:punto_equilibrio' %}" class="fin-tab{% if activo == 'equilibrio' %} active{% endif %}" data-sin-loader><i class="bi bi-graph-up"></i> Punto de equilibrio</a>
+  <a href="{% url 'finanzas:sugerir_precios' %}" class="fin-tab{% if activo == 'precios' %} active{% endif %}" data-sin-loader><i class="bi bi-tag-fill"></i> Sugerir precios</a>
+  <a href="{% url 'finanzas:pronostico_ventas' %}" class="fin-tab{% if activo == 'pronostico' %} active{% endif %}" data-sin-loader><i class="bi bi-magic"></i> Pronóstico de ventas</a>
+  <a href="{% url 'finanzas:reportes_financieros' %}" class="fin-tab{% if activo == 'reportes' %} active{% endif %}" data-sin-loader><i class="bi bi-bar-chart-fill"></i> Reportes financieros</a>
 </div>

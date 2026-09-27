@@ -1,7 +1,6 @@
 {% extends "base_app.html" %}
 {% load static %}
 
-
 {% block app_extra_head %}
 <link rel="stylesheet" href="{% static 'ventas/css/ventas.css' %}">
 {% endblock %}
@@ -62,12 +61,15 @@
         <button type="button" class="btn-no-encontrado" onclick="openModal('no-encontrado')">
           <i class="bi bi-plus-circle"></i> No encontrado
         </button>
+        <a href="{% url 'ventas:historial' %}" class="btn-historial" data-sin-loader>
+          <i class="bi bi-clock-history"></i> Historial de ventas
+        </a>
       </div>
 
       <div class="sale-meta">
         <span><strong>Folio:</strong> #{{ venta.folio|stringformat:"04d" }}</span>
-        <span><strong>Fecha:</strong> {{ venta.creado_en|date:"d/m/Y" }}</span>
-        <span><strong>Hora:</strong> {{ venta.creado_en|date:"H:i" }}</span>
+        <span><strong>Fecha:</strong> <span id="fechaActual"></span></span>
+        <span><strong>Hora:</strong> <span id="horaActual"></span></span>
       </div>
 
       <div class="cart-card">
@@ -158,10 +160,11 @@
 </div>
 
 {% if ticket_venta %}
-<div class="toast-stack">
-  <div class="toast success" style="cursor:pointer;" onclick="openModal('ticket')">
+<div class="notif-flotante-wrap">
+  <div class="notif-flotante">
     <i class="bi bi-check-circle-fill"></i>
-    <span>Venta cobrada. Folio #{{ ticket_venta.folio|stringformat:"04d" }} · ${{ ticket_venta.total }} — <strong>Ver ticket</strong></span>
+    <span>Venta cobrada · Folio #{{ ticket_venta.folio|stringformat:"04d" }} · ${{ ticket_venta.total }}</span>
+    <button type="button" class="notif-flotante-link" onclick="openModal('ticket')">Ver ticket</button>
   </div>
 </div>
 
@@ -194,7 +197,4 @@
 
 {% block app_extra_scripts %}
 <script src="{% static 'ventas/js/ventas.js' %}"></script>
-{% if ticket_venta %}
-<script>document.addEventListener('DOMContentLoaded', function () { openModal('ticket'); });</script>
-{% endif %}
 {% endblock %}

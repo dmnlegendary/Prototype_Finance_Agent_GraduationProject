@@ -1,7 +1,7 @@
 Django>=5.0,<6.0
 openai
 google-generativeai
-
-# Se agregan hasta la fase 2, cuando se elija el modelo de pronóstico de ventas:
-# scikit-learn
-# statsmodels
+numpy
+pandas
+scikit-learn
+statsmodels

@@ -2,10 +2,12 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 
 from .forms import GastoOperativoForm
+from .forecasting import forecast_sales
 from .models import GastoOperativo
 
 
@@ -68,6 +70,14 @@ def sugerir_precios(request):
 @login_required
 def pronostico_ventas(request):
     return render(request, "finanzas/pronostico_ventas.html", {"activo": "pronostico"})
+
+
+@login_required
+def pronostico_ventas_api(request):
+    negocio = getattr(request.user, "negocio", None)
+    if negocio is None:
+        return JsonResponse({"ok": False, "message": "Completa los datos de tu negocio primero."}, status=400)
+    return JsonResponse(forecast_sales(negocio))
 
 
 @login_required

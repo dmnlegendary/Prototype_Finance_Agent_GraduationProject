@@ -6,11 +6,10 @@
   <div class="fin-title"><i class="bi bi-graph-up-arrow"></i> Pronóstico de Ventas</div>
   <span class="badge-ia-local"><i class="bi bi-cpu-fill"></i> IA local · sin conexión externa</span>
 </div>
-<p class="fin-subtitle">Generado por un modelo de Machine Learning que corre en tu propio servidor, entrenado con tu historial de ventas.</p>
+<p class="fin-subtitle">Compara modelos locales con tu historial de ventas y elige el que tenga menor error en validación temporal.</p>
 
 <div class="fin-callout">
-  <i class="bi bi-robot"></i> <strong>¿Cómo funciona?</strong> Un modelo de Machine Learning local (no llama a ningún servicio externo) analiza tu historial de
-  <strong>24 semanas</strong> para estimar cuántas unidades venderás esta semana. El AVI te ayuda a interpretar los resultados.
+  <i class="bi bi-robot"></i> <strong>¿Cómo funciona?</strong> Se prueban una línea base, regresión lineal, ARIMA y Holt-Winters con las ventas cobradas del negocio. Se elige el modelo con menor MAE en una validación temporal.
 </div>
 
 <div class="fin-card">
@@ -25,28 +24,26 @@
 
   <div id="pronosticoResultado" style="display:none;">
     <div class="fin-result-group">
-      <h4><i class="bi bi-check-circle-fill"></i> Bebidas</h4>
-      <div class="fin-result-item"><span>Coca-Cola 600ml</span><span class="fin-badge-green">48 uds</span></div>
-      <div class="fin-result-item"><span>Agua 1.5L</span><span class="fin-badge-green">26 uds</span></div>
-      <div class="fin-result-item"><span>Jugo Del Valle</span><span class="fin-badge-green">47 uds</span></div>
-      <div class="fin-result-item"><span>Cerveza Modelo</span><span class="fin-badge-green">13 uds</span></div>
+      <h4><i class="bi bi-check-circle-fill"></i> Resultado</h4>
+      <div class="fin-result-item"><span>Modelo seleccionado</span><span class="fin-badge-green" id="modeloElegido"></span></div>
+      <div class="fin-result-item"><span>Pronóstico de unidades</span><span class="fin-badge-green" id="unidadesPronosticadas"></span></div>
+      <div class="fin-result-item"><span>Semanas analizadas</span><span class="fin-badge-green" id="semanasAnalizadas"></span></div>
     </div>
-
     <div style="margin-top:18px;">
       <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:6px;">
         <span><i class="bi bi-bar-chart-fill"></i> Nivel de confianza del modelo</span>
-        <span style="color:var(--color-primary);">76%</span>
+        <span style="color:var(--color-primary);" id="confianzaModelo"></span>
       </div>
-      <div class="fin-progress-track"><div class="fin-progress-fill" style="width:76%;"></div></div>
-      <p class="fin-subtitle" style="margin-top:6px;"><i class="bi bi-exclamation-triangle-fill"></i> Confianza media.</p>
+      <div class="fin-progress-track"><div class="fin-progress-fill" id="barraConfianza"></div></div>
+      <p class="fin-subtitle" style="margin-top:6px;" id="mensajeModelo"></p>
 
       <div class="fin-insight-purple" style="margin-top:10px;">
-        <i class="bi bi-robot"></i> <strong>AVI interpreta:</strong> estimación de 781 unidades en 18 productos esta semana.
-        Asegura stock antes del viernes.
+        <i class="bi bi-robot"></i> <strong>AVI interpreta:</strong> <span id="interpretacionModelo"></span>
       </div>
       <div class="fin-insight-green" style="margin-top:8px;">
-        <i class="bi bi-box-seam-fill"></i> Total estimado: 781 unidades · Confianza: 76%
+        <i class="bi bi-box-seam-fill"></i> MAE de validación: <span id="maeModelo"></span> unidades
       </div>
+      <div id="modelosComparados" style="margin-top:12px;"></div>
     </div>
   </div>
 </div>
@@ -54,18 +51,35 @@
 
 {% block app_extra_scripts %}
 <script>
-  // demo visual del estado de carga; en la fase 2 esto se reemplaza por la
-  // llamada real al modelo de pronóstico
-  function generarPronosticoDemo() {
+  async function generarPronosticoDemo() {
     document.getElementById('btnGenerarPronostico').style.display = 'none';
     document.getElementById('pronosticoResultado').style.display = 'none';
     document.getElementById('pronosticoCargando').style.display = 'flex';
 
-    setTimeout(function () {
+    try {
+      const response = await fetch("{% url 'finanzas:pronostico_ventas_api' %}");
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.message || 'No se pudo generar el pronóstico.');
+      document.getElementById('modeloElegido').textContent = data.model;
+      document.getElementById('unidadesPronosticadas').textContent = `${data.forecast_units} uds`;
+      document.getElementById('semanasAnalizadas').textContent = data.weeks;
+      document.getElementById('confianzaModelo').textContent = `${data.confidence}%`;
+      document.getElementById('barraConfianza').style.width = `${data.confidence}%`;
+      document.getElementById('mensajeModelo').textContent = data.message;
+      document.getElementById('interpretacionModelo').textContent = `se esperan ${data.forecast_units} unidades para la semana del ${data.next_week}.`;
+      document.getElementById('maeModelo').textContent = data.mae;
+      document.getElementById('modelosComparados').innerHTML = data.candidates.length
+        ? `<strong>Modelos comparados</strong><ul>${data.candidates.map(item => `<li>${item.model}: MAE ${item.mae}</li>`).join('')}</ul>`
+        : '';
       document.getElementById('pronosticoCargando').style.display = 'none';
       document.getElementById('pronosticoResultado').style.display = 'block';
+    } catch (error) {
+      document.getElementById('pronosticoCargando').style.display = 'none';
+      document.getElementById('mensajeModelo').textContent = error.message;
+      document.getElementById('pronosticoResultado').style.display = 'block';
+    } finally {
       document.getElementById('btnGenerarPronostico').style.display = 'inline-flex';
-    }, 1800);
+    }
   }
 </script>
 {% endblock %}

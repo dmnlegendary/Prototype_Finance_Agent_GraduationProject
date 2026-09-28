@@ -64,7 +64,7 @@ const aviMessages = {
   gastos:    "📝 Registra tus gastos fijos (renta, luz, internet) y variables (inventario, merma). Entre más datos tengas, más preciso será tu punto de equilibrio.",
   equilibrio:"⚖️ La calidad de tu punto de equilibrio depende directamente de qué tan bien registres tus gastos fijos y variables. ¡Cada peso cuenta!",
   precios:   "💡 El precio sugerido se calcula con una fórmula basada en tu costo de compra más un margen de ganancia.",
-  forecast:  "📈 El pronóstico lo genera un modelo de Machine Learning externo entrenado con tu historial de ventas. Yo solo te ayudo a interpretarlo.",
+  forecast:  "📈 El pronóstico se calcula localmente comparando regresión lineal, ARIMA y Holt-Winters con tu historial de ventas. Yo te ayudo a interpretar el modelo con menor error.",
   reportes:  "📊 Abril fue tu mes más ajustado. El gasto subió pero las ventas no acompañaron. ¿Quieres revisar qué pasó?",
 };
 

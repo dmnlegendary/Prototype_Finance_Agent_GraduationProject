@@ -8,18 +8,21 @@
 }
 .ai-svg-loader { width: 90px; height: 76px; overflow: visible; }
 .ai-loader-wrapper.grande .ai-svg-loader { width: 220px; height: 188px; }
-
+/*M*/
 .m-path {
   stroke-dasharray: 650;
   stroke-dashoffset: 650;
   animation: drawM 4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   filter: drop-shadow(0px 6px 16px rgba(168, 85, 247, 0.4));
 }
+/*Linea azul*/
 .blue-laser {
   transform-origin: 172px 84px;
   animation: shootLaser 4s cubic-bezier(0.175, 0.885, 0.32, 1.275) infinite;
-  filter: drop-shadow(0px 0px 6px #00f2fe);
 }
+
+/*Resplandor de fondo*/
+/*
 .ai-core-glow {
   position: absolute;
   width: 70%;
@@ -29,6 +32,7 @@
   z-index: -1;
   animation: pulseAura 4s ease-in-out infinite;
 }
+*/
 
 @keyframes drawM {
   0% { stroke-dashoffset: 650; opacity: 0; }

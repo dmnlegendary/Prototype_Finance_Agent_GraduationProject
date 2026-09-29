@@ -57,6 +57,7 @@ def punto_de_venta(request):
         "items": items,
         "ticket_venta": ticket_venta,
         "ticket_items": ticket_items,
+        "mostrar_resumen_avi": request.session.pop("mostrar_resumen_avi", False),
     }
     return render(request, "ventas/punto_de_venta.html", context)
 

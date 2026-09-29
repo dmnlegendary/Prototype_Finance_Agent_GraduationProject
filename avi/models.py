@@ -5,7 +5,7 @@ from core.models import ModeloBase
 
 
 class HistorialConversacion(ModeloBase):
-    """Un mensaje (del usuario o del asistente) del chat con el AVI. Aún sin usar."""
+    """Un mensaje (del usuario o del asistente) del chat con el AVI."""
 
     class Rol(models.TextChoices):
         USUARIO = "USUARIO", "Usuario"
@@ -26,3 +26,28 @@ class HistorialConversacion(ModeloBase):
 
     def __str__(self):
         return f"[{self.rol}] {self.mensaje[:40]}"
+
+
+class ResumenDiario(ModeloBase):
+    """El resumen que la IA genera una vez al día (con el trigger de las 7am),
+    para no tener que llamarla cada vez que el tendero entra al sistema."""
+
+    negocio = models.ForeignKey(
+        "accounts.Negocio", on_delete=models.CASCADE, related_name="resumenes_avi",
+    )
+    fecha = models.DateField()
+    texto = models.TextField()
+    numero_ventas = models.PositiveIntegerField(default=0)
+    total_ventas = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    ganancia = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    total_gastos = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    class Meta:
+        verbose_name = "Resumen diario (AVI)"
+        ordering = ["-fecha"]
+        constraints = [
+            models.UniqueConstraint(fields=["negocio", "fecha"], name="resumen_avi_unico_por_dia"),
+        ]
+
+    def __str__(self):
+        return f"Resumen {self.fecha} · {self.negocio.nombre_tienda}"

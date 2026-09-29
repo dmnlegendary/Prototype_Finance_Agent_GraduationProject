@@ -2,6 +2,10 @@
 
 
 {% block fin_content %}
+<button type="button" class="btn-avi-explica" onclick="mostrarResumenAvi(document.getElementById('aviModelo') ? document.getElementById('aviModelo').value : 'chatgpt')">
+  <i class="bi bi-robot"></i> Pídele a marIA que te explique tu negocio
+</button>
+
 <div class="fin-stat-grid">
   <a href="{% url 'ventas:historial' %}" class="fin-stat-card" data-sin-loader>
     <div class="fin-stat-label">Ventas hoy</div>

@@ -1,10 +1,15 @@
-# Configuración de Django del proyecto (MarIAmiga).
+# Configuración de Django del proyecto (marIA).
 # Por ahora todo corre en local con SQLite.
 
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Carga las llaves del archivo .env (en la raíz del proyecto, junto a manage.py)
+load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = "django-insecure-cambiar-esta-llave-antes-de-subir-a-produccion"
 

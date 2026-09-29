@@ -78,6 +78,11 @@ class TiendaLoginView(LoginView):
     authentication_form = LoginForm
     redirect_authenticated_user = True
 
+    def form_valid(self, form):
+        respuesta = super().form_valid(form)
+        self.request.session["mostrar_resumen_avi"] = True
+        return respuesta
+
 
 class TiendaLogoutView(LogoutView):
     next_page = "accounts:login"

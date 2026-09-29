@@ -1,5 +1,5 @@
 {% load static %}
-<div class="avi-panel" id="aviPanel">
+<div class="avi-panel" id="aviPanel" data-url-pronostico="{% url 'finanzas:pronostico_ventas' %}">
   <div class="avi-title">
     <span><i class="bi bi-robot"></i> Asistente Virtual Inteligente</span>
     <div class="avi-title-actions">
@@ -17,6 +17,7 @@
   <form class="avi-input" id="aviForm" onsubmit="return enviarMensajeAvi(event)">
     {% csrf_token %}
     <input type="text" id="aviTexto" placeholder="Escribe aquí…" autocomplete="off"/>
+    <button type="button" class="avi-mic-btn" onclick="activarMicrofono()" title="Hablar"><i class="bi bi-mic-fill"></i></button>
     <button type="submit"><i class="bi bi-send-fill"></i></button>
   </form>
   <div class="avi-config">

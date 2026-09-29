@@ -1,3 +1,5 @@
+from decimal import Decimal, ROUND_HALF_UP
+
 from django.conf import settings
 from django.db import models
 
@@ -31,7 +33,8 @@ class Venta(ModeloBase):
         return f"Venta #{self.folio:04d} ({self.negocio.nombre_tienda})"
 
     def recalcular_total(self):
-        self.total = sum((item.subtotal for item in self.items.all()), start=0)
+        total = sum((item.subtotal for item in self.items.all()), start=Decimal("0"))
+        self.total = total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         self.save(update_fields=["total"])
 
 
@@ -52,4 +55,4 @@ class ItemVenta(ModeloBase):
 
     @property
     def subtotal(self):
-        return self.cantidad * self.precio_unitario
+        return (self.cantidad * self.precio_unitario).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)

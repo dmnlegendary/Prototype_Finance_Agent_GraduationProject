@@ -46,6 +46,23 @@
 }
 .fin-subtitle { font-size: 13px; color: var(--text-muted); margin-top: -8px; }
 
+.btn-avi-explica {
+  background: var(--color-primary);
+  color: var(--bg-white);
+  border: none;
+  border-radius: var(--radius-full);
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  transition: opacity .15s;
+}
+.btn-avi-explica:hover { opacity: .9; }
+
 .fin-stat-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

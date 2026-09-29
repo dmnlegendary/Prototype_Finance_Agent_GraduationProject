@@ -9,7 +9,7 @@
 <div class="avi-overlay" id="aviOverlay" onclick="closeAvi()"></div>
 <button class="fab-avi" onclick="openAvi()" title="Abrir AVI"><i class="bi bi-robot"></i></button>
 
-<div class="avi-panel" id="aviPanel">
+<div class="avi-panel" id="aviPanel" data-url-pronostico="{% url 'finanzas:pronostico_ventas' %}">
   <div class="avi-title">
     <span><i class="bi bi-robot"></i> Asistente Virtual</span>
     <div class="avi-title-actions">
@@ -25,6 +25,7 @@
   <form class="avi-input" id="aviForm" onsubmit="return enviarMensajeAvi(event)">
     {% csrf_token %}
     <input type="text" id="aviTexto" placeholder="Ej: 2 coca cola 600…" autocomplete="off"/>
+    <button type="button" class="avi-mic-btn" onclick="activarMicrofono()" title="Hablar"><i class="bi bi-mic-fill"></i></button>
     <button type="submit"><i class="bi bi-send-fill"></i></button>
   </form>
   <div class="avi-config">
@@ -194,4 +195,7 @@
 
 {% block app_extra_scripts %}
 <script src="{% static 'ventas/js/ventas.js' %}"></script>
+{% if mostrar_resumen_avi %}
+<script>document.addEventListener('DOMContentLoaded', function () { mostrarResumenAvi('chatgpt'); });</script>
+{% endif %}
 {% endblock %}

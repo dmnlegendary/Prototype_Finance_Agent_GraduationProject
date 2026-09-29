@@ -1,6 +1,6 @@
 {% load static %}
 <nav>
-  <img src="{% static 'img/logo_mariamiga.png' %}" alt="MarIAmiga" class="nav-logo">
+  <img src="{% static 'img/logo_mariamiga.png' %}" alt="marIA" class="nav-logo">
 
   <div class="nav-tabs-center">
     <a href="{% url 'ventas:punto_de_venta' %}" class="tab{% if request.resolver_match.app_name == 'ventas' %} active{% endif %}" data-sin-loader>

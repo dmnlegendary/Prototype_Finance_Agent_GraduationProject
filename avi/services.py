@@ -4,6 +4,8 @@ en el formato que espera cada proveedor de LLM. Para agregar una función
 nueva: escribe la función en FUNCIONES_DISPONIBLES y descríbela en
 FUNCIONES (nombre, descripción, parámetros).
 """
+from datetime import timedelta
+
 from django.utils import timezone
 
 from finanzas.models import GastoOperativo
@@ -104,6 +106,41 @@ def agregar_al_carrito(negocio, nombre_producto, cantidad=1):
     venta.recalcular_total()
 
     return {"ok": True, "mensaje": f'Agregué {cantidad} de "{producto.nombre}" al carrito.'}
+
+
+def datos_resumen_diario(negocio):
+    """Junta los números de ayer (ventas, ganancia, gastos) para que el AVI los explique."""
+    ayer = timezone.localdate() - timedelta(days=1)
+
+    ventas_ayer = Venta.objects.filter(
+        negocio=negocio, estado=Venta.Estado.COBRADA, creado_en__date=ayer,
+    )
+    total_ventas = sum((v.total for v in ventas_ayer), start=0)
+
+    items_ayer = ItemVenta.objects.filter(venta__in=ventas_ayer).select_related("producto")
+    ganancia = sum(
+        ((item.precio_unitario - item.producto.costo) * item.cantidad for item in items_ayer), start=0,
+    )
+
+    gastos_ayer = GastoOperativo.objects.filter(negocio=negocio, fecha=ayer)
+    total_gastos = sum((g.monto for g in gastos_ayer), start=0)
+
+    return {
+        "numero_ventas": ventas_ayer.count(),
+        "total_ventas": float(total_ventas),
+        "ganancia": float(ganancia),
+        "total_gastos": float(total_gastos),
+    }
+
+
+def construir_mensaje_resumen(datos):
+    """Convierte los números de datos_resumen_diario en el prompt que se le manda a la IA."""
+    return (
+        f"Dame un resumen breve de cómo le fue ayer a mi tienda. "
+        f"Ventas de ayer: ${datos['total_ventas']:.2f} en {datos['numero_ventas']} ventas. "
+        f"Ganancia estimada: ${datos['ganancia']:.2f}. Gastos pagados: ${datos['total_gastos']:.2f}. "
+        f"Sé breve, ve al grano y dame como máximo una recomendación práctica para vender más hoy."
+    )
 
 
 def consultar_ventas_hoy(negocio):

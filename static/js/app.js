@@ -139,6 +139,76 @@ function enviarMensajeAvi(event) {
   return false;
 }
 
+function mostrarResumenAvi(modelo) {
+  const chat = document.getElementById('aviChat');
+  const panel = document.getElementById('aviPanel');
+  if (!chat || !panel) return;
+
+  openAvi();
+
+  const burbuja = document.createElement('div');
+  burbuja.className = 'bubble bot';
+  burbuja.innerHTML = aiLoaderHTML('Revisando cómo te fue ayer…');
+  chat.appendChild(burbuja);
+  chat.scrollTop = chat.scrollHeight;
+
+  fetch('/avi/resumen/?modelo=' + (modelo || 'chatgpt'))
+    .then(function (r) { return r.json(); })
+    .then(function (datos) {
+      const urlPronostico = panel.dataset.urlPronostico || '#';
+      burbuja.innerHTML = '';
+
+      const texto = document.createElement('p');
+      texto.style.margin = '0 0 8px';
+      texto.textContent = datos.respuesta;
+      burbuja.appendChild(texto);
+
+      const acciones = document.createElement('div');
+      acciones.className = 'bubble-acciones';
+      acciones.innerHTML =
+        '<button type="button" onclick="document.getElementById(\'aviTexto\').focus()">Preguntar más</button>'
+        + '<a href="' + urlPronostico + '">Ir a pronóstico de ventas</a>';
+      burbuja.appendChild(acciones);
+    })
+    .catch(function () {
+      burbuja.textContent = 'No pude generar tu resumen de ayer. Intenta de nuevo.';
+    })
+    .finally(function () {
+      chat.scrollTop = chat.scrollHeight;
+    });
+}
+
+function activarMicrofono() {
+  const Reconocimiento = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const boton = event ? event.currentTarget : null;
+
+  if (!Reconocimiento) {
+    showToast('Tu navegador no soporta dictado por voz.', 'info');
+    return;
+  }
+
+  const input = document.getElementById('aviTexto');
+  const reconocimiento = new Reconocimiento();
+  reconocimiento.lang = 'es-MX';
+  reconocimiento.interimResults = false;
+  reconocimiento.maxAlternatives = 1;
+
+  if (boton) boton.classList.add('escuchando');
+
+  reconocimiento.onresult = function (evento) {
+    input.value = evento.results[0][0].transcript;
+    input.focus();
+  };
+  reconocimiento.onerror = function () {
+    showToast('No te escuché bien, intenta otra vez.', 'info');
+  };
+  reconocimiento.onend = function () {
+    if (boton) boton.classList.remove('escuchando');
+  };
+
+  reconocimiento.start();
+}
+
 document.addEventListener('DOMContentLoaded', function () {
   document.querySelectorAll('form[data-validar]').forEach(function (form) {
     form.addEventListener('submit', function (event) {

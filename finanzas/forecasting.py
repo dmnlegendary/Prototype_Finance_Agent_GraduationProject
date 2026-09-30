@@ -6,8 +6,9 @@ from typing import Callable
 import warnings
 
 import numpy as np
-from django.db.models import Sum
+from django.db.models import Max, Min, Sum
 from django.db.models.functions import TruncWeek
+from django.utils import timezone
 from sklearn.linear_model import LinearRegression
 from ventas.models import Venta
 
@@ -81,11 +82,16 @@ def _score_candidate(values: np.ndarray, name: str, predictor: Callable[[np.ndar
 
 
 def _weekly_series(negocio) -> tuple[list[date], np.ndarray]:
+    sales = Venta.objects.filter(
+        negocio=negocio,
+        estado=Venta.Estado.COBRADA,
+    )
+    bounds = sales.aggregate(first=Min("creado_en"), last=Max("creado_en"))
+    if bounds["first"] is None:
+        return [], np.array([], dtype=float)
+
     rows = list(
-        Venta.objects.filter(
-            negocio=negocio,
-            estado=Venta.Estado.COBRADA,
-        )
+        sales
         .annotate(semana=TruncWeek("creado_en"))
         .values("semana")
         .annotate(unidades=Sum("items__cantidad"))
@@ -104,6 +110,16 @@ def _weekly_series(negocio) -> tuple[list[date], np.ndarray]:
         weeks.append(current)
         values.append(by_week.get(current, 0.0))
         current += timedelta(days=7)
+
+    first_sale_date = timezone.localtime(bounds["first"]).date()
+    last_sale_date = timezone.localtime(bounds["last"]).date()
+    if weeks and first_sale_date > weeks[0]:
+        weeks = weeks[1:]
+        values = values[1:]
+    if weeks and last_sale_date < weeks[-1] + timedelta(days=6):
+        weeks = weeks[:-1]
+        values = values[:-1]
+
     return weeks, np.array(values, dtype=float)
 
 
@@ -112,7 +128,7 @@ def forecast_sales(negocio) -> dict:
     if not values.size:
         return {
             "ok": False,
-            "message": "Aún no hay ventas cobradas para entrenar un pronóstico.",
+            "message": "No hay semanas completas de ventas cobradas para entrenar un pronóstico.",
         }
 
     candidates = [

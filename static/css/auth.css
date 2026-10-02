@@ -4,6 +4,8 @@
     --color-primary: #4f46e5;
     --color-primary-border: #ddd6fe;
     --alert-banner-border: #fca5a5;
+    --color-success: #16a34a;
+    --color-danger: #dc2626;
     --shadow-md: 0 8px 24px rgba(0,0,0,.14);
 }
 

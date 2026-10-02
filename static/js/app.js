@@ -128,6 +128,7 @@ function enviarMensajeAvi(event) {
     .then(function (respuesta) { return respuesta.json(); })
     .then(function (datos) {
       burbujaCargando.textContent = datos.respuesta;
+      if (datos.refrescar) refrescarVistaActual();
     })
     .catch(function () {
       burbujaCargando.textContent = 'No pude conectarme con el asistente. Intenta de nuevo.';
@@ -137,6 +138,20 @@ function enviarMensajeAvi(event) {
     });
 
   return false;
+}
+
+function refrescarVistaActual() {
+  // trae la página actual y solo reemplaza el contenido del módulo (carrito,
+  // catálogo, gastos…) sin tocar el panel del chat ni perder la conversación
+  fetch(window.location.pathname + window.location.search)
+    .then(function (r) { return r.text(); })
+    .then(function (html) {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const nuevoMain = doc.querySelector('.app-main');
+      const actual = document.querySelector('.app-main');
+      if (nuevoMain && actual) actual.innerHTML = nuevoMain.innerHTML;
+    })
+    .catch(function () {});
 }
 
 function mostrarResumenAvi(modelo) {
@@ -223,6 +238,99 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
   });
+});
+
+const TUTORIALES = {
+  ventas: [
+    { selector: '.search-box', texto: 'Busca un producto por nombre aquí y selecciónalo para agregarlo al carrito.' },
+    { selector: '.btn-no-encontrado', texto: '¿No encuentras el producto? Cóbralo aquí con solo el nombre y el precio.' },
+    { selector: '.btn-cobrar', texto: 'Cuando termines de agregar productos, cóbrale al cliente desde aquí.' },
+  ],
+  inventario: [
+    { selector: '.btn-alta', texto: 'Da de alta tus productos aquí, uno por uno o poco a poco.' },
+    { selector: '.search-inv', texto: 'Busca cualquier producto de tu catálogo por nombre.' },
+    { selector: '.alert-banner', texto: 'Aquí te avisamos cuando un producto se está agotando.' },
+  ],
+  finanzas: [
+    { selector: '.btn-avi-explica', texto: 'Pídele a marIA que te explique tus números en palabras simples.' },
+    { selector: '.fin-module-card', texto: 'Entra a cada tarjeta para ver gastos, precios de venta y reportes a detalle.' },
+  ],
+};
+
+function mostrarTutorial(modulo) {
+  const shell = document.querySelector('.app-shell');
+  modulo = modulo || (shell ? shell.dataset.modulo : null);
+  const pasos = (TUTORIALES[modulo] || []).filter(function (paso) {
+    return document.querySelector(paso.selector);
+  });
+  if (!pasos.length) {
+    showToast('No hay ayuda disponible para esta pantalla todavía.', 'info');
+    return;
+  }
+
+  let indice = 0;
+  const overlay = document.createElement('div');
+  overlay.className = 'tutorial-overlay';
+  document.body.appendChild(overlay);
+
+  const globo = document.createElement('div');
+  globo.className = 'tutorial-globo';
+  document.body.appendChild(globo);
+
+  function limpiarResaltado() {
+    pasos.forEach(function (p) {
+      const el = document.querySelector(p.selector);
+      if (el) el.classList.remove('tutorial-resaltado');
+    });
+  }
+
+  function mostrarPaso() {
+    limpiarResaltado();
+    const paso = pasos[indice];
+    const el = document.querySelector(paso.selector);
+    el.classList.add('tutorial-resaltado');
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    const r = el.getBoundingClientRect();
+    globo.style.top = Math.max(10, r.bottom + 12) + 'px';
+    globo.style.left = Math.min(Math.max(10, r.left), window.innerWidth - 270) + 'px';
+    globo.innerHTML = ''
+      + '<p>' + paso.texto + '</p>'
+      + '<div class="tutorial-acciones">'
+      + '<button type="button" onclick="cerrarTutorial()">Omitir</button>'
+      + '<button type="button" onclick="siguientePasoTutorial()">' + (indice === pasos.length - 1 ? 'Entendido' : 'Siguiente') + '</button>'
+      + '</div>';
+  }
+
+  window.siguientePasoTutorial = function () {
+    indice += 1;
+    if (indice >= pasos.length) { cerrarTutorial(); return; }
+    mostrarPaso();
+  };
+
+  window.cerrarTutorial = function () {
+    limpiarResaltado();
+    overlay.remove();
+    globo.remove();
+    if (modulo) {
+      try { localStorage.setItem('tutorial_visto_' + modulo, '1'); } catch (e) {}
+    }
+  };
+
+  mostrarPaso();
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  const shell = document.querySelector('.app-shell');
+  if (!shell) return;
+  const modulo = shell.dataset.modulo;
+  if (!modulo) return;
+
+  let visto = null;
+  try { visto = localStorage.getItem('tutorial_visto_' + modulo); } catch (e) {}
+  if (!visto) {
+    setTimeout(function () { mostrarTutorial(modulo); }, 700);
+  }
 });
 
 function showToast(mensaje, tipo) {

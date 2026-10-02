@@ -81,6 +81,7 @@
             <th>Cantidad</th>
             <th class="right">Precio</th>
             <th class="right">Total</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -102,10 +103,16 @@
             </td>
             <td class="right">${{ item.precio_unitario }}</td>
             <td class="right">${{ item.subtotal }}</td>
+            <td>
+              <form method="post" action="{% url 'ventas:item_eliminar' item.pk %}" onsubmit="return confirm('¿Quitar {{ item.producto.nombre|escapejs }} del carrito?');">
+                {% csrf_token %}
+                <button type="submit" class="btn-eliminar-item" onclick="event.stopPropagation()" title="Quitar del carrito"><i class="bi bi-trash3"></i></button>
+              </form>
+            </td>
           </tr>
           {% empty %}
           <tr>
-            <td colspan="4" style="text-align:center;color:var(--text-faint);padding:24px;">
+            <td colspan="5" style="text-align:center;color:var(--text-faint);padding:24px;">
               <i class="bi bi-cart3"></i> Carrito vacío. Busca un producto para comenzar.
             </td>
           </tr>

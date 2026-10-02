@@ -39,6 +39,18 @@ INSTALLED_APPS = [
 # Modelo de usuario propio, definido en accounts/models.py
 AUTH_USER_MODEL = "accounts.Usuario"
 
+# Permite iniciar sesión con teléfono o con correo (ver accounts/backends.py)
+AUTHENTICATION_BACKENDS = [
+    "accounts.backends.TelefonoOCorreoBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
+# Modo desarrollo: el correo de recuperación de contraseña se imprime en la
+# terminal en vez de mandarse de verdad. Cambiar por un backend SMTP real
+# antes de producción.
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = "marIA <no-reply@mariamiga.local>"
+
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",

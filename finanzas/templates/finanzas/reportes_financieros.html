@@ -5,30 +5,30 @@
 <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
   <div>
     <div class="fin-title"><i class="bi bi-bar-chart-fill"></i> Reportes Financieros</div>
-    <p class="fin-subtitle">Resumen visual de ingresos, egresos y utilidades.</p>
+    <p class="fin-subtitle">Resumen de ingresos, egresos y utilidades.</p>
   </div>
   <div class="fin-period-toggle">
-    <button type="button">3 meses</button>
-    <button type="button" class="active">6 meses</button>
+    <a href="?periodo=3" class="{% if periodo_meses == 3 %}active{% endif %}" data-sin-loader>3 meses</a>
+    <a href="?periodo=6" class="{% if periodo_meses == 6 %}active{% endif %}" data-sin-loader>6 meses</a>
   </div>
 </div>
 
 <div class="fin-stat-grid">
   <div class="fin-stat-card">
     <div class="fin-stat-label">Ingresos totales</div>
-    <div class="fin-stat-value" style="color:var(--color-primary);">$265,000</div>
+    <div class="fin-stat-value" style="color:var(--color-primary);">${{ ingresos_totales|floatformat:2 }}</div>
   </div>
   <div class="fin-stat-card">
     <div class="fin-stat-label">Egresos totales</div>
-    <div class="fin-stat-value" style="color:var(--color-danger);">$194,000</div>
+    <div class="fin-stat-value" style="color:var(--color-danger);">${{ egresos_totales|floatformat:2 }}</div>
   </div>
   <div class="fin-stat-card">
     <div class="fin-stat-label">Utilidad neta</div>
-    <div class="fin-stat-value" style="color:var(--color-success);">$71,000</div>
+    <div class="fin-stat-value" style="color:var(--color-success);">${{ utilidad_neta|floatformat:2 }}</div>
   </div>
   <div class="fin-stat-card">
     <div class="fin-stat-label">Margen promedio</div>
-    <div class="fin-stat-value" style="color:var(--color-orange);">26.8%</div>
+    <div class="fin-stat-value" style="color:var(--color-orange);">{{ margen_promedio }}%</div>
   </div>
 </div>
 
@@ -36,24 +36,11 @@
   <div class="fin-card">
     <h3>Ingresos vs Egresos</h3>
     <svg viewBox="0 0 320 160" width="100%" height="160">
-      <rect x="15"  y="70" width="16" height="70" fill="var(--color-primary)"/>
-      <rect x="35"  y="90" width="16" height="50" fill="var(--color-danger)"/>
-      <rect x="65"  y="80" width="16" height="60" fill="var(--color-primary)"/>
-      <rect x="85"  y="100" width="16" height="40" fill="var(--color-danger)"/>
-      <rect x="115" y="55" width="16" height="85" fill="var(--color-primary)"/>
-      <rect x="135" y="85" width="16" height="55" fill="var(--color-danger)"/>
-      <rect x="165" y="65" width="16" height="75" fill="var(--color-primary)"/>
-      <rect x="185" y="75" width="16" height="65" fill="var(--color-danger)"/>
-      <rect x="215" y="45" width="16" height="95" fill="var(--color-primary)"/>
-      <rect x="235" y="80" width="16" height="60" fill="var(--color-danger)"/>
-      <rect x="265" y="35" width="16" height="105" fill="var(--color-primary)"/>
-      <rect x="285" y="78" width="16" height="62" fill="var(--color-danger)"/>
-      <text x="30" y="155" font-size="10" fill="var(--text-muted)" text-anchor="middle">Ene</text>
-      <text x="80" y="155" font-size="10" fill="var(--text-muted)" text-anchor="middle">Feb</text>
-      <text x="130" y="155" font-size="10" fill="var(--text-muted)" text-anchor="middle">Mar</text>
-      <text x="180" y="155" font-size="10" fill="var(--text-muted)" text-anchor="middle">Abr</text>
-      <text x="230" y="155" font-size="10" fill="var(--text-muted)" text-anchor="middle">May</text>
-      <text x="280" y="155" font-size="10" fill="var(--text-muted)" text-anchor="middle">Jun</text>
+      {% for m in datos_meses %}
+      <rect x="{{ m.x_ingresos }}" y="{{ m.y_ingresos }}" width="10" height="{{ m.h_ingresos }}" fill="var(--color-primary)"/>
+      <rect x="{{ m.x_egresos }}" y="{{ m.y_egresos }}" width="10" height="{{ m.h_egresos }}" fill="var(--color-danger)"/>
+      <text x="{{ m.x_texto }}" y="152" font-size="10" fill="var(--text-muted)" text-anchor="middle">{{ m.etiqueta }}</text>
+      {% endfor %}
     </svg>
     <div style="display:flex;gap:14px;font-size:12px;color:var(--text-muted);margin-top:6px;">
       <span><span style="display:inline-block;width:10px;height:10px;background:var(--color-primary);border-radius:2px;"></span> Ingresos</span>
@@ -64,26 +51,38 @@
   <div class="fin-card">
     <h3>Utilidad neta mensual</h3>
     <svg viewBox="0 0 320 160" width="100%" height="160">
-      <polyline points="20,90 70,95 120,70 170,110 220,50 270,35" fill="none" stroke="var(--color-success)" stroke-width="3"/>
-      <circle cx="20" cy="90" r="4" fill="var(--color-success)"/>
-      <circle cx="70" cy="95" r="4" fill="var(--color-success)"/>
-      <circle cx="120" cy="70" r="4" fill="var(--color-success)"/>
-      <circle cx="170" cy="110" r="4" fill="var(--color-success)"/>
-      <circle cx="220" cy="50" r="4" fill="var(--color-success)"/>
-      <circle cx="270" cy="35" r="4" fill="var(--color-success)"/>
-      <text x="20" y="150" font-size="10" fill="var(--text-muted)" text-anchor="middle">Ene</text>
-      <text x="70" y="150" font-size="10" fill="var(--text-muted)" text-anchor="middle">Feb</text>
-      <text x="120" y="150" font-size="10" fill="var(--text-muted)" text-anchor="middle">Mar</text>
-      <text x="170" y="150" font-size="10" fill="var(--text-muted)" text-anchor="middle">Abr</text>
-      <text x="220" y="150" font-size="10" fill="var(--text-muted)" text-anchor="middle">May</text>
-      <text x="270" y="150" font-size="10" fill="var(--text-muted)" text-anchor="middle">Jun</text>
+      <line x1="0" y1="90" x2="320" y2="90" stroke="var(--border)" stroke-width="1" stroke-dasharray="3,3"/>
+      <polyline points="{{ puntos_linea }}" fill="none" stroke="var(--color-success)" stroke-width="3"/>
+      {% for m in datos_meses %}
+      <circle cx="{{ m.x_texto }}" cy="{{ m.y_punto }}" r="4" fill="var(--color-success)"/>
+      <text x="{{ m.x_texto }}" y="152" font-size="10" fill="var(--text-muted)" text-anchor="middle">{{ m.etiqueta }}</text>
+      {% endfor %}
     </svg>
   </div>
 </div>
 
 <div class="fin-card">
-  <h3><i class="bi bi-robot"></i> Alertas y sugerencias del AVI</h3>
-  <div class="fin-result-item"><span><i class="bi bi-exclamation-triangle-fill" style="color:var(--color-warning);"></i> Abril fue tu mes más ajustado: el gasto subió pero las ventas no acompañaron.</span></div>
-  <div class="fin-result-item"><span><i class="bi bi-lightbulb-fill" style="color:var(--color-orange);"></i> Considera revisar el precio de los productos con menor margen este mes.</span></div>
+  <h3><i class="bi bi-robot"></i> Alertas y sugerencias</h3>
+  {% if baja_rotacion %}
+  <div class="fin-result-item">
+    <span>
+      <i class="bi bi-exclamation-triangle-fill" style="color:var(--color-warning);"></i>
+      No has vendido nada de {% for p in baja_rotacion %}<strong>{{ p.nombre }}</strong>{% if not forloop.last %}, {% endif %}{% endfor %} en este periodo. Considera una promoción o revisar si sigue siendo relevante en tu catálogo.
+    </span>
+  </div>
+  {% endif %}
+  {% if gasto_inusual %}
+  <div class="fin-result-item">
+    <span>
+      <i class="bi bi-lightbulb-fill" style="color:var(--color-orange);"></i>
+      El gasto "<strong>{{ gasto_inusual.concepto }}</strong>" de ${{ gasto_inusual.monto }} fue mucho más alto de lo normal este periodo. Vale la pena revisarlo.
+    </span>
+  </div>
+  {% endif %}
+  {% if not baja_rotacion and not gasto_inusual %}
+  <div class="fin-result-item">
+    <span><i class="bi bi-check-circle-fill" style="color:var(--color-success);"></i> No encontramos nada fuera de lo normal en este periodo.</span>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

@@ -152,6 +152,18 @@
 .qty button:hover { opacity: .85; }
 .btn-qty-menos { background: var(--color-danger); }
 .btn-qty-mas { background: var(--color-success); }
+
+.btn-eliminar-item {
+  width: 28px; height: 28px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: color .15s, background .15s;
+}
+.btn-eliminar-item:hover { background: var(--color-danger-bg); color: var(--color-danger); }
 .qty span {
   min-width: 26px;
   text-align: center;

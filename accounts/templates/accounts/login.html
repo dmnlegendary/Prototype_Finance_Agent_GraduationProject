@@ -22,7 +22,7 @@
         <form method="post" novalidate onsubmit="mostrarLoaderCompleto('Iniciando sesión…')">
             {% csrf_token %}
             <div class="mb-3">
-                <label class="form-label small fw-semibold">Teléfono / usuario</label>
+                <label class="form-label small fw-semibold">Correo o teléfono</label>
                 {{ form.username }}
             </div>
             <div class="mb-3">
@@ -32,7 +32,10 @@
             <button type="submit" class="btn btn-primary w-100 fw-bold py-2">Entrar</button>
         </form>
 
-        <p class="text-center small text-muted mt-3 mb-0">
+        <p class="text-center small mt-3 mb-0">
+            <a href="{% url 'accounts:password_reset' %}">¿Olvidaste tu contraseña?</a>
+        </p>
+        <p class="text-center small text-muted mt-2 mb-0">
             ¿No tienes cuenta? <a href="{% url 'accounts:registro' %}">Regístrate</a>
         </p>
     </div>

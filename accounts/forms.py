@@ -1,5 +1,5 @@
 from django import forms
-from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, SetPasswordForm
 from django.contrib.auth.password_validation import validate_password
 
 from .models import Negocio, Usuario
@@ -20,7 +20,7 @@ class RegistroForm(forms.ModelForm):
         widget=forms.TextInput(attrs={"placeholder": "55 1234 5678", "class": INPUT_CLASSES}),
     )
     email = forms.EmailField(
-        label="Correo electrónico", required=False,
+        label="Correo electrónico", required=True,
         widget=forms.EmailInput(attrs={"placeholder": "correo@ejemplo.com", "class": INPUT_CLASSES}),
     )
     password = forms.CharField(
@@ -42,6 +42,12 @@ class RegistroForm(forms.ModelForm):
         if Usuario.objects.filter(telefono=telefono).exists():
             raise forms.ValidationError("Ya existe una cuenta con este teléfono.")
         return telefono
+
+    def clean_email(self):
+        email = self.cleaned_data["email"]
+        if Usuario.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError("Ya existe una cuenta con este correo.")
+        return email
 
     def save(self, commit=True):
         usuario = super().save(commit=False)
@@ -71,12 +77,53 @@ class NegocioForm(forms.ModelForm):
         }
 
 
+class RecuperarPasswordForm(PasswordResetForm):
+    """Mismo PasswordResetForm de Django, solo con el estilo del proyecto."""
+
+    email = forms.EmailField(
+        label="Correo electrónico", max_length=254,
+        widget=forms.EmailInput(attrs={"placeholder": "correo@ejemplo.com", "class": INPUT_CLASSES, "autofocus": True}),
+    )
+
+
+class NuevaPasswordForm(SetPasswordForm):
+    """Mismo SetPasswordForm de Django, solo con el estilo del proyecto."""
+
+    new_password1 = forms.CharField(
+        label="Contraseña nueva",
+        widget=forms.PasswordInput(attrs={"placeholder": "Mínimo 6 caracteres", "class": INPUT_CLASSES, "autofocus": True}),
+    )
+    new_password2 = forms.CharField(
+        label="Confirma la contraseña nueva",
+        widget=forms.PasswordInput(attrs={"placeholder": "Repite la contraseña", "class": INPUT_CLASSES}),
+    )
+
+
+class EliminarCuentaForm(forms.Form):
+    """Pide la contraseña de nuevo antes de borrar la cuenta por completo."""
+
+    password = forms.CharField(
+        label="Confirma tu contraseña",
+        widget=forms.PasswordInput(attrs={"placeholder": "Tu contraseña actual", "class": INPUT_CLASSES, "autofocus": True}),
+    )
+
+    def __init__(self, *args, usuario=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.usuario = usuario
+
+    def clean_password(self):
+        password = self.cleaned_data["password"]
+        if not self.usuario.check_password(password):
+            raise forms.ValidationError("La contraseña no es correcta.")
+        return password
+
+
 class LoginForm(AuthenticationForm):
     """Login, con el mismo estilo que el resto del registro."""
 
     username = forms.CharField(
-        label="Teléfono / usuario",
-        widget=forms.TextInput(attrs={"placeholder": "55 1234 5678", "class": INPUT_CLASSES, "autofocus": True}),
+        label="Correo o teléfono",
+        widget=forms.TextInput(attrs={"placeholder": "correo@ejemplo.com o 55 1234 5678", "class": INPUT_CLASSES, "autofocus": True}),
     )
     password = forms.CharField(
         label="Contraseña",

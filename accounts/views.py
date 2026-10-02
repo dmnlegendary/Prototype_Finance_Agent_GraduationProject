@@ -1,12 +1,15 @@
 # Vistas de accounts: login/logout + registro en 3 pasos (Cuenta -> Negocio -> Productos)
+from django.contrib import messages
+from django.contrib.auth import logout as auth_logout
 from django.contrib.auth import login as auth_login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, LogoutView
 from django.shortcuts import redirect, render
 
 from inventario.models import Categoria, Producto, ProductoCatalogo
+from ventas.models import ItemVenta
 
-from .forms import LoginForm, NegocioForm, RegistroForm
+from .forms import EliminarCuentaForm, LoginForm, NegocioForm, RegistroForm
 
 
 def registro(request):
@@ -71,6 +74,32 @@ def productos_precargados(request):
         "categorias": Categoria.objects.all(),
     }
     return render(request, "accounts/productos_precargados.html", context)
+
+
+@login_required
+def eliminar_cuenta(request):
+    """Borra la cuenta por completo (negocio, productos, ventas, gastos…
+    todo cae en cascada porque esos modelos apuntan a Negocio, que apunta
+    al Usuario). Se pide la contraseña de nuevo para evitar un borrado
+    accidental o por una sesión que alguien más dejó abierta."""
+    if request.method == "POST":
+        form = EliminarCuentaForm(request.POST, usuario=request.user)
+        if form.is_valid():
+            usuario = request.user
+            negocio = getattr(usuario, "negocio", None)
+            auth_logout(request)
+            if negocio is not None:
+                # ItemVenta.producto es PROTECT (para no perder tickets viejos
+                # si solo se da de baja un producto); hay que quitar esas filas
+                # antes de que la cascada de abajo intente borrar los productos.
+                ItemVenta.objects.filter(venta__negocio=negocio).delete()
+            usuario.delete()
+            messages.info(request, "Tu cuenta y todos tus datos se eliminaron permanentemente.")
+            return redirect("accounts:login")
+    else:
+        form = EliminarCuentaForm(usuario=request.user)
+
+    return render(request, "accounts/eliminar_cuenta.html", {"form": form})
 
 
 class TiendaLoginView(LoginView):

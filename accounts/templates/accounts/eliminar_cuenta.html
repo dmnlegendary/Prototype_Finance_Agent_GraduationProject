@@ -1,0 +1,41 @@
+{% extends "base_auth.html" %}
+{% load static %}
+
+{% block body_attrs %} class="d-flex align-items-center justify-content-center min-vh-100 p-3"{% endblock %}
+
+{% block content %}
+<div class="w-100" style="max-width: 420px;">
+    <div class="text-center mb-4">
+        <img src="{% static 'img/logo_mariamiga.png' %}" alt="marIA" class="app-logo mb-2">
+        <h1 class="h4 fw-bold mb-0">marIA</h1>
+    </div>
+
+    <div class="card card-auth p-4">
+        <div class="text-center mb-3">
+            <i class="bi bi-exclamation-triangle-fill" style="font-size:36px;color:var(--color-danger);"></i>
+        </div>
+        <h2 class="h6 fw-bold mb-1 text-center">Eliminar tu cuenta</h2>
+        <p class="small text-muted mb-3 text-center">
+            Esto borra tu cuenta, tu negocio, tu inventario, tus ventas y tus gastos de forma
+            <strong>permanente</strong>. No se puede deshacer.
+        </p>
+
+        {% if form.errors %}
+        <div class="alert alert-danger py-2 small">{{ form.password.errors|join:", " }}</div>
+        {% endif %}
+
+        <form method="post" novalidate onsubmit="return confirm('¿Seguro? Esta acción no se puede deshacer.');">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label small fw-semibold">{{ form.password.label }}</label>
+                {{ form.password }}
+            </div>
+            <button type="submit" class="btn btn-danger w-100 fw-bold py-2">Eliminar mi cuenta para siempre</button>
+        </form>
+
+        <p class="text-center small text-muted mt-3 mb-0">
+            <a href="{% url 'ventas:punto_de_venta' %}">Cancelar y regresar</a>
+        </p>
+    </div>
+</div>
+{% endblock %}

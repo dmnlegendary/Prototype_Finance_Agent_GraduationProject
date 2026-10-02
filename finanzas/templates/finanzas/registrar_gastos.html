@@ -21,6 +21,15 @@
         <button type="button" id="btnTipoVariable" onclick="elegirTipoGasto('VARIABLE')"><i class="bi bi-arrow-repeat"></i> Gasto variable</button>
       </div>
       <div class="fin-form-group">
+        <label>Categoría</label>
+        <div class="cat-pills">
+          {% for radio in form.categoria %}
+          <label class="cat-pill">{{ radio.tag }} {{ radio.choice_label }}</label>
+          {% endfor %}
+          <button type="button" class="cat-pill" onclick="openModal('categoria-gasto-nueva')"><i class="bi bi-plus-lg"></i> Nueva</button>
+        </div>
+      </div>
+      <div class="fin-form-group">
         <label>Concepto <span class="campo-requerido">*</span></label>
         {{ form.concepto }}
       </div>
@@ -56,6 +65,26 @@
       </div>
     </div>
     <p class="fin-subtitle" style="margin-top:10px;">Con base en los gastos que ya registraste este mes.</p>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal-categoria-gasto-nueva">
+  <div class="form-card" style="max-width:360px;">
+    <div class="panel-header">
+      <h3><i class="bi bi-tag-fill"></i> Nueva categoría de gasto</h3>
+      <button type="button" class="panel-close" onclick="closeModal('categoria-gasto-nueva')"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <form method="post" action="{% url 'finanzas:categoria_gasto_alta' %}" class="panel-body" style="gap:14px;" data-validar>
+      {% csrf_token %}
+      <div class="form-group">
+        <label>Nombre de la categoría <span class="campo-requerido">*</span></label>
+        <input type="text" name="nombre" placeholder="Ej. Renta, Luz, Internet…" required>
+      </div>
+      <div class="panel-footer" style="padding:0;border-top:none;">
+        <button type="submit" class="btn-success">Guardar categoría</button>
+        <button type="button" class="btn-ghost" onclick="closeModal('categoria-gasto-nueva')">Cancelar</button>
+      </div>
+    </form>
   </div>
 </div>
 {% endblock %}

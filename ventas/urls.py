@@ -11,6 +11,7 @@ urlpatterns = [
     path("carrito/agregar-no-encontrado/", views.agregar_no_encontrado, name="agregar_no_encontrado"),
     path("carrito/item/<int:item_pk>/mas/", views.item_incrementar, name="item_incrementar"),
     path("carrito/item/<int:item_pk>/menos/", views.item_decrementar, name="item_decrementar"),
+    path("carrito/item/<int:item_pk>/eliminar/", views.item_eliminar, name="item_eliminar"),
     path("cobrar/", views.cobrar, name="cobrar"),
     path("cancelar/", views.cancelar_venta, name="cancelar_venta"),
     path("historial/", views.historial, name="historial"),

@@ -12,6 +12,10 @@ from finanzas.models import GastoOperativo
 from inventario.models import Producto
 from ventas.models import ItemVenta, Venta
 
+from .models import HistorialConversacion
+
+FUNCIONES_QUE_CAMBIAN_LA_VISTA = {"agregar_al_carrito", "registrar_gasto"}
+
 
 FUNCIONES = [
     {
@@ -88,10 +92,25 @@ def buscar_producto(negocio, nombre):
 
 
 def agregar_al_carrito(negocio, nombre_producto, cantidad=1):
-    producto = Producto.objects.filter(negocio=negocio, activo=True, nombre__icontains=nombre_producto).first()
-    if producto is None:
+    coincidencias = list(
+        Producto.objects.filter(negocio=negocio, activo=True, nombre__icontains=nombre_producto)[:5],
+    )
+
+    if not coincidencias:
         return {"ok": False, "mensaje": f'No encontré ningún producto parecido a "{nombre_producto}".'}
 
+    if len(coincidencias) > 1:
+        nombres = ", ".join(p.nombre for p in coincidencias)
+        return {
+            "ok": False,
+            "ambiguo": True,
+            "mensaje": (
+                f'Encontré varios productos parecidos a "{nombre_producto}": {nombres}. '
+                "¿Cuál de esos quieres agregar?"
+            ),
+        }
+
+    producto = coincidencias[0]
     venta = _venta_en_curso(negocio)
     if venta is None:
         return {"ok": False, "mensaje": "No hay una venta en curso todavía."}
@@ -131,6 +150,13 @@ def datos_resumen_diario(negocio):
         "ganancia": float(ganancia),
         "total_gastos": float(total_gastos),
     }
+
+
+def historial_reciente(negocio, limite=10):
+    """Los últimos mensajes de la conversación, del más viejo al más nuevo,
+    para que el AVI pueda resolver referencias como '¿cuánto cuesta?'."""
+    mensajes = HistorialConversacion.objects.filter(negocio=negocio).order_by("-creado_en")[:limite]
+    return list(reversed(mensajes))
 
 
 def construir_mensaje_resumen(datos):

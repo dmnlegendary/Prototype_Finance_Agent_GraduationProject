@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 from core.models import ModeloBase
@@ -78,6 +79,11 @@ class Producto(ModeloBase):
     )
 
     activo = models.BooleanField(default=True)
+    # True solo para los productos creados desde "producto no encontrado" en
+    # ventas, mientras el tendero no les complete los datos (categoría, stock
+    # mínimo, etc.) y los dé de alta formalmente. No se debe confundir con un
+    # producto dado de baja (activo=False, pendiente_validacion=False).
+    pendiente_validacion = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["nombre"]
@@ -94,3 +100,24 @@ class Producto(ModeloBase):
     @property
     def stock_critico(self):
         return self.cantidad_actual <= self.cantidad_minima
+
+    @property
+    def tiene_ventas(self):
+        return self.items_venta.exists()
+
+
+class HistorialModificacionProducto(ModeloBase):
+    """El motivo que el tendero da cada vez que edita un producto."""
+
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name="historial_cambios")
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+",
+    )
+    motivo = models.CharField(max_length=255)
+
+    class Meta:
+        verbose_name = "Historial de modificación de producto"
+        ordering = ["-creado_en"]
+
+    def __str__(self):
+        return f"{self.producto.nombre}: {self.motivo[:40]}"

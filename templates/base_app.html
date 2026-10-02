@@ -6,7 +6,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="app-shell">
+<div class="app-shell" data-modulo="{{ request.resolver_match.app_name }}">
   {% block avi_panel %}{% endblock %}
   <div class="app-right-col">
     {% include "partials/navbar.html" %}

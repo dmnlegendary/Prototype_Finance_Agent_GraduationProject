@@ -97,17 +97,22 @@
           <tbody>
             {% for producto in productos %}
             <tr>
-              <td>{{ producto.icono }} {{ producto.nombre }}</td>
+              <td>
+                {{ producto.icono }} {{ producto.nombre }}
+                {% if producto.pendiente_validacion %}<span class="badge-cat" style="background:var(--color-yellow-bg);color:#a16207;">Pendiente de validar</span>{% endif %}
+              </td>
               <td>{% if producto.categoria %}<span class="badge-cat cat-{{ producto.categoria.nombre|lower }}">{{ producto.categoria.nombre }}</span>{% endif %}</td>
               <td class="{% if producto.stock_critico %}stock-low{% else %}stock-ok{% endif %}">{{ producto.cantidad_actual }} pzas</td>
               <td>{{ producto.cantidad_minima }}</td>
               <td class="right">${{ producto.costo }} / ${{ producto.precio_venta }}</td>
               <td style="display:flex; gap:6px;">
-                <button type="button" class="btn-edit-row" onclick="openModal('editar-{{ producto.pk }}')">Editar</button>
-                <form method="post" action="{% url 'inventario:producto_eliminar' producto.pk %}" onsubmit="return confirm('¿Dar de baja {{ producto.nombre|escapejs }}?');">
+                <button type="button" class="btn-edit-row" onclick="openModal('editar-{{ producto.pk }}')">{% if producto.pendiente_validacion %}Completar{% else %}Editar{% endif %}</button>
+                {% if not producto.pendiente_validacion %}
+                <form method="post" action="{% url 'inventario:producto_eliminar' producto.pk %}" onsubmit="return confirm('{% if producto.tiene_ventas %}Este producto ya tiene ventas registradas. Se dará de baja pero no se perderá su historial. ¿Continuar?{% else %}¿Dar de baja {{ producto.nombre|escapejs }}?{% endif %}');">
                   {% csrf_token %}
                   <button type="submit" class="btn-edit-row btn-danger-row">Baja</button>
                 </form>
+                {% endif %}
               </td>
             </tr>
             {% empty %}
@@ -241,6 +246,9 @@
     </div>
     <form method="post" action="{% url 'inventario:producto_editar' producto.pk %}" class="panel-body" style="gap:14px;">
       {% csrf_token %}
+      {% if producto.form_editar.non_field_errors %}
+      <div style="background:var(--color-danger-bg);color:var(--color-danger-text);border-radius:8px;padding:8px 12px;font-size:13px;">{{ producto.form_editar.non_field_errors }}</div>
+      {% endif %}
       <div class="form-group">
         <label>Nombre del producto <span class="campo-requerido">*</span></label>
         {{ producto.form_editar.nombre }}
@@ -286,6 +294,10 @@
       <div class="form-group">
         {{ producto.form_editar.proveedor.label_tag }}
         {{ producto.form_editar.proveedor }}
+      </div>
+      <div class="form-group">
+        <label>Motivo del cambio <span class="campo-requerido">*</span></label>
+        <input type="text" name="motivo" placeholder="Ej. Ajuste de precio por el proveedor, conteo de inventario…" required maxlength="255">
       </div>
       <div class="panel-footer" style="padding:0; border-top:none;">
         <button type="submit" class="btn-success">Guardar cambios</button>

@@ -1,10 +1,10 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import F
+from django.db.models import F, Q
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import ProductoForm, ProveedorForm
-from .models import Categoria, Producto, Proveedor
+from .models import Categoria, HistorialModificacionProducto, Producto, Proveedor
 
 
 def _negocio_o_redirect(request):
@@ -13,7 +13,11 @@ def _negocio_o_redirect(request):
 
 
 def _contexto_panel(request, negocio, form_alta=None, form_proveedor=None):
-    productos = Producto.objects.filter(negocio=negocio, activo=True).select_related("categoria")
+    # incluye tanto los productos activos como los "no encontrados" que
+    # todavía no se validan (ver Producto.pendiente_validacion)
+    productos = Producto.objects.filter(
+        negocio=negocio,
+    ).filter(Q(activo=True) | Q(pendiente_validacion=True)).select_related("categoria")
 
     q = request.GET.get("q", "").strip()
     if q:
@@ -24,6 +28,8 @@ def _contexto_panel(request, negocio, form_alta=None, form_proveedor=None):
         productos = productos.filter(categoria_id=categoria_id)
 
     productos = list(productos)
+    # los más críticos (más por debajo de su mínimo) primero
+    productos.sort(key=lambda p: (not p.stock_critico, p.cantidad_actual - p.cantidad_minima))
     for p in productos:
         p.form_editar = ProductoForm(instance=p, negocio=negocio, auto_id=f"id_producto_{p.pk}_%s")
 
@@ -91,10 +97,27 @@ def producto_editar(request, pk):
 
     if request.method == "POST":
         form = ProductoForm(request.POST, instance=producto, negocio=negocio, auto_id=f"id_producto_{producto.pk}_%s")
-        if form.is_valid():
-            form.save()
-            messages.success(request, f'"{producto.nombre}" se actualizó correctamente.')
+        motivo = request.POST.get("motivo", "").strip()
+
+        if form.is_valid() and motivo:
+            era_pendiente = producto.pendiente_validacion
+            producto = form.save(commit=False)
+            if era_pendiente:
+                producto.activo = True
+                producto.pendiente_validacion = False
+            producto.save()
+            form.save_m2m()
+            HistorialModificacionProducto.objects.create(
+                producto=producto, usuario=request.user, motivo=motivo,
+            )
+            if era_pendiente:
+                messages.success(request, f'"{producto.nombre}" se validó y ya aparece en tu catálogo.')
+            else:
+                messages.success(request, f'"{producto.nombre}" se actualizó correctamente.')
             return redirect("inventario:panel")
+
+        if not motivo:
+            form.add_error(None, "Indica el motivo del cambio.")
 
         context = _contexto_panel(request, negocio)
         for p in context["productos"]:
@@ -198,12 +221,19 @@ def alertas(request):
         return redirect("accounts:datos_negocio")
 
     productos = Producto.objects.filter(negocio=negocio, activo=True).select_related("categoria", "proveedor")
-    criticos = [p for p in productos if p.stock_critico]
+    # más crítico primero: el que está más por debajo de su mínimo
+    criticos = sorted(
+        (p for p in productos if p.stock_critico),
+        key=lambda p: p.cantidad_actual - p.cantidad_minima,
+    )
     # todavía no está crítico, pero ya va por debajo del doble de su mínimo
-    advertencia = [
-        p for p in productos
-        if not p.stock_critico and p.cantidad_minima and p.cantidad_actual <= p.cantidad_minima * 2
-    ]
+    advertencia = sorted(
+        (
+            p for p in productos
+            if not p.stock_critico and p.cantidad_minima and p.cantidad_actual <= p.cantidad_minima * 2
+        ),
+        key=lambda p: p.cantidad_actual - p.cantidad_minima,
+    )
     return render(request, "inventario/alertas.html", {
         "criticos": criticos,
         "advertencia": advertencia,

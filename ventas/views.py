@@ -123,7 +123,7 @@ def agregar_no_encontrado(request):
 
     producto = Producto.objects.create(
         negocio=negocio, nombre=nombre, costo=0, precio_venta=precio,
-        cantidad_actual=0, cantidad_minima=0, activo=False,
+        cantidad_actual=0, cantidad_minima=0, activo=False, pendiente_validacion=True,
     )
     venta = _venta_en_curso(negocio)
     ItemVenta.objects.create(venta=venta, producto=producto, cantidad=1, precio_unitario=precio)
@@ -161,6 +161,20 @@ def item_decrementar(request, item_pk):
     if negocio is not None and request.method == "POST":
         _cambiar_cantidad(negocio, item_pk, Decimal("-1"))
     return redirect(f"{reverse('ventas:punto_de_venta')}?seleccionado={item_pk}")
+
+
+@login_required
+def item_eliminar(request, item_pk):
+    """Quita el producto del carrito de una vez, sin importar la cantidad."""
+    negocio = _negocio_o_none(request)
+    if negocio is not None and request.method == "POST":
+        item = get_object_or_404(
+            ItemVenta, pk=item_pk, venta__negocio=negocio, venta__estado=Venta.Estado.EN_CURSO,
+        )
+        venta = item.venta
+        item.delete()
+        venta.recalcular_total()
+    return redirect("ventas:punto_de_venta")
 
 
 @login_required

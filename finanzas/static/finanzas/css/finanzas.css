@@ -239,7 +239,7 @@
 }
 
 .fin-period-toggle { display: flex; gap: 6px; }
-.fin-period-toggle button {
+.fin-period-toggle a, .fin-period-toggle button {
   padding: 6px 14px;
   border-radius: var(--radius-full);
   border: 1px solid var(--border);
@@ -248,8 +248,9 @@
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  text-decoration: none;
 }
-.fin-period-toggle button.active { background: var(--color-primary); border-color: transparent; color: var(--bg-white); }
+.fin-period-toggle a.active, .fin-period-toggle button.active { background: var(--color-primary); border-color: transparent; color: var(--bg-white); }
 
 .fin-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .fin-table th {

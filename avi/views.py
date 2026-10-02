@@ -27,25 +27,28 @@ def chat(request):
     if not mensaje:
         return JsonResponse({"respuesta": "Escribe algo para que te pueda ayudar."})
 
+    # ojo: el historial se guarda HASTA ABAJO, después de llamar al LLM, para
+    # que preguntar_chatgpt/preguntar_gemini no se encuentren este mismo
+    # mensaje duplicado al armar el contexto de la conversación.
+    try:
+        if modelo == "gemini":
+            respuesta, funciones = preguntar_gemini(mensaje, negocio)
+        else:
+            respuesta, funciones = preguntar_chatgpt(mensaje, negocio)
+    except ImportError:
+        respuesta, funciones = "Falta instalar la librería del modelo (pip install -r requirements.txt).", []
+    except Exception:
+        respuesta, funciones = "No pude conectarme con el modelo de lenguaje en este momento.", []
+
     HistorialConversacion.objects.create(
         negocio=negocio, usuario=request.user, rol=HistorialConversacion.Rol.USUARIO, mensaje=mensaje,
     )
-
-    try:
-        if modelo == "gemini":
-            respuesta = preguntar_gemini(mensaje, negocio)
-        else:
-            respuesta = preguntar_chatgpt(mensaje, negocio)
-    except ImportError:
-        respuesta = "Falta instalar la librería del modelo (pip install -r requirements.txt)."
-    except Exception:
-        respuesta = "No pude conectarme con el modelo de lenguaje en este momento."
-
     HistorialConversacion.objects.create(
         negocio=negocio, usuario=request.user, rol=HistorialConversacion.Rol.ASISTENTE, mensaje=respuesta,
     )
 
-    return JsonResponse({"respuesta": respuesta})
+    refrescar = any(f in services.FUNCIONES_QUE_CAMBIAN_LA_VISTA for f in funciones)
+    return JsonResponse({"respuesta": respuesta, "refrescar": refrescar})
 
 
 @login_required
@@ -73,9 +76,9 @@ def resumen_diario(request):
 
     try:
         if modelo == "gemini":
-            respuesta = preguntar_gemini(mensaje, negocio)
+            respuesta, _funciones = preguntar_gemini(mensaje, negocio)
         else:
-            respuesta = preguntar_chatgpt(mensaje, negocio)
+            respuesta, _funciones = preguntar_chatgpt(mensaje, negocio)
     except ImportError:
         respuesta = "Falta instalar la librería del modelo (pip install -r requirements.txt)."
     except Exception:

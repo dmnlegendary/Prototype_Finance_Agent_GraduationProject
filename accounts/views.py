@@ -27,7 +27,12 @@ def registro(request):
 
 @login_required
 def datos_negocio(request):
-    """Paso 2: Negocio. Crea/edita el perfil de la tienda del usuario en sesión."""
+    """Crea o actualiza el negocio asociado uno-a-uno al usuario en sesion.
+
+    El `instance` del formulario es el negocio existente, si lo hay; por eso
+    `save()` inserta en el primer registro y actualiza en visitas posteriores.
+    La vista asigna el propietario desde la sesion, nunca desde el formulario.
+    """
     negocio = getattr(request.user, "negocio", None)
 
     if request.method == "POST":
@@ -44,7 +49,11 @@ def datos_negocio(request):
 
 @login_required
 def productos_precargados(request):
-    """Paso 3: elegir productos del catálogo para crearlos en el negocio."""
+    """Copia al inventario de la tienda los productos de catalogo elegidos.
+
+    El catalogo es global y solo se lee aqui; `bulk_create` genera productos
+    nuevos vinculados al negocio actual en una sola operacion masiva.
+    """
     negocio = getattr(request.user, "negocio", None)
     if negocio is None:
         return redirect("accounts:datos_negocio")
@@ -52,6 +61,7 @@ def productos_precargados(request):
     if request.method == "POST":
         seleccionados = request.POST.getlist("productos_catalogo")
         catalogo_items = ProductoCatalogo.objects.filter(id__in=seleccionados)
+        # Cada seleccion se vuelve una fila propia; no se modifica el catalogo compartido.
         Producto.objects.bulk_create([
             Producto(
                 negocio=negocio,

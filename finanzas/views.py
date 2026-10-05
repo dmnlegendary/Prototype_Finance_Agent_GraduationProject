@@ -18,6 +18,7 @@ def inicio(request):
 
 @login_required
 def registrar_gastos(request):
+    """Crea gastos ligados a la tienda actual y calcula sus totales del mes."""
     negocio = getattr(request.user, "negocio", None)
     if negocio is None:
         return redirect("accounts:datos_negocio")
@@ -49,6 +50,7 @@ def registrar_gastos(request):
 
 @login_required
 def historial_gastos(request):
+    """Consulta el historial de gastos del negocio autenticado."""
     negocio = getattr(request.user, "negocio", None)
     if negocio is None:
         return redirect("accounts:datos_negocio")
@@ -74,6 +76,7 @@ def pronostico_ventas(request):
 
 @login_required
 def pronostico_ventas_api(request):
+    """Lee el historial de ventas del negocio; el pronostico no escribe datos."""
     negocio = getattr(request.user, "negocio", None)
     if negocio is None:
         return JsonResponse({"ok": False, "message": "Completa los datos de tu negocio primero."}, status=400)

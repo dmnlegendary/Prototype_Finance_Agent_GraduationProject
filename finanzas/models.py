@@ -4,7 +4,11 @@ from core.models import ModeloBase
 
 
 class GastoOperativo(ModeloBase):
-    """Gasto fijo o variable del negocio (renta, luz, inventario, merma, etc.)."""
+    """Gasto persistido y aislado por negocio, clasificado como fijo o variable.
+
+    La fecha se asigna al crear el registro. Las vistas consultan los gastos
+    usando la tienda de la sesion y no comparten filas entre negocios.
+    """
 
     class Tipo(models.TextChoices):
         FIJO = "FIJO", "Fijo"
@@ -25,5 +29,4 @@ class GastoOperativo(ModeloBase):
         return f"{self.concepto} (${self.monto})"
 
 
-# Pendiente para más adelante: punto de equilibrio, precio sugerido y
-# el pronóstico de ventas (todavía no se decide con qué modelo).
+# Pendiente para más adelante: punto de equilibrio y precio sugerido.

@@ -6,7 +6,13 @@ from inventario.models import Producto
 
 
 class Venta(ModeloBase):
-    """Un ticket de venta."""
+    """Cabecera persistida de un carrito o ticket de venta.
+
+    Cada venta pertenece a un negocio y su folio es unico dentro de ese
+    negocio. `estado` distingue carritos abiertos, ventas cobradas y canceladas;
+    `total` se recalcula desde sus `ItemVenta`. El borrado de una venta elimina
+    sus renglones relacionados, pero no el producto ni el cajero.
+    """
 
     class Estado(models.TextChoices):
         EN_CURSO = "EN_CURSO", "En curso"
@@ -31,12 +37,23 @@ class Venta(ModeloBase):
         return f"Venta #{self.folio:04d} ({self.negocio.nombre_tienda})"
 
     def recalcular_total(self):
+        """Suma los subtotales de sus renglones y persiste solo `total`.
+
+        `items.all()` consulta los registros relacionados; `update_fields`
+        limita el UPDATE a esta columna y evita reescribir otros campos.
+        """
         self.total = sum((item.subtotal for item in self.items.all()), start=0)
         self.save(update_fields=["total"])
 
 
 class ItemVenta(ModeloBase):
-    """Cada renglón del carrito."""
+    """Renglon de una venta con cantidad y precio aplicado en ese momento.
+
+    `venta` agrupa los renglones del ticket. `producto` usa PROTECT para
+    impedir borrar un producto que tenga historial. `precio_unitario` se copia
+    al agregarlo al carrito, por lo que cambios futuros al catalogo no alteran
+    el importe de ventas anteriores.
+    """
 
     venta = models.ForeignKey(Venta, on_delete=models.CASCADE, related_name="items")
     producto = models.ForeignKey(Producto, on_delete=models.PROTECT, related_name="items_venta")

@@ -13,6 +13,12 @@ def _negocio_o_redirect(request):
 
 
 def _contexto_panel(request, negocio, form_alta=None, form_proveedor=None):
+    """Prepara consultas y formularios del inventario de un solo negocio.
+
+    Las filas operativas se filtran por `negocio`; `select_related` carga la
+    categoria en la misma consulta y `prefetch_related` carga las categorias
+    muchos-a-muchos de los proveedores con una consulta adicional.
+    """
     productos = Producto.objects.filter(negocio=negocio, activo=True).select_related("categoria")
 
     q = request.GET.get("q", "").strip()
@@ -118,6 +124,7 @@ def categoria_alta(request):
         origen = request.POST.get("origen", "alta")
 
         if nombre:
+            # Categoria es compartida; get_or_create reutiliza la fila global si ya existe.
             _, creada = Categoria.objects.get_or_create(nombre=nombre, defaults={"icono": icono})
             if creada:
                 messages.success(request, f'Categoría "{nombre}" agregada.')
@@ -139,7 +146,7 @@ def producto_eliminar(request, pk):
     negocio = _negocio_o_redirect(request)
     producto = get_object_or_404(Producto, pk=pk, negocio=negocio)
     if request.method == "POST":
-        # no se borra de verdad, para no perder el historial de ventas que ya lo usan
+        # Baja logica: conserva la fila y sus referencias desde ventas historicas.
         producto.activo = False
         producto.save(update_fields=["activo"])
         messages.success(request, f'"{producto.nombre}" se dio de baja.')
@@ -158,6 +165,7 @@ def proveedores(request):
             proveedor = form.save(commit=False)
             proveedor.negocio = negocio
             proveedor.save()
+            # Las relaciones many-to-many necesitan que el proveedor ya tenga PK.
             form.save_m2m()
             messages.success(request, f'Proveedor "{proveedor.nombre}" agregado.')
             return redirect("inventario:panel")

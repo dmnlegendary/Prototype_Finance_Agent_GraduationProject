@@ -11,6 +11,12 @@ from .models import HistorialConversacion
 @login_required
 @require_POST
 def chat(request):
+    """Guarda por separado el mensaje recibido y la respuesta del AVI.
+
+    Cada fila queda asociada al negocio y al usuario de la sesion. Si el
+    proveedor de lenguaje falla, tambien se persiste el mensaje de respuesta
+    de respaldo que se envia al navegador.
+    """
     negocio = getattr(request.user, "negocio", None)
     if negocio is None:
         return JsonResponse({"respuesta": "Primero completa los datos de tu negocio."})

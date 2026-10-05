@@ -11,7 +11,7 @@ resolver dudas del negocio.
 
 - **Ventas y carrito**: punto de venta, alta al carrito, cobro.
 - **Inventario y alertas**: catálogo de productos, proveedores, aviso de stock bajo.
-- **Agente financiero**: gastos operativos y (a futuro) pronóstico de ventas.
+- **Agente financiero**: gastos operativos y pronóstico semanal de unidades vendidas.
 - **Orquestador AVI**: conecta con el LLM (ChatGPT o Gemini) para el chat del asistente.
 - **Seguridad y autenticación**: registro, login y datos del negocio.
 
@@ -21,8 +21,9 @@ resolver dudas del negocio.
   mantener en Python simple, sin abusar de las utilidades más avanzadas de Django.
 - **Frontend**: HTML, CSS y JavaScript, con Bootstrap 5 para no maquetar todo a mano.
 - **Base de datos**: SQL (SQLite en desarrollo).
-- **Machine Learning**: todavía por definir el modelo de pronóstico (ARIMA, series de
-  tiempo o regresión), se va a probar más de uno.
+- **Pronóstico**: compara regresión lineal, ARIMA y Holt-Winters con ventas cobradas
+  agrupadas por semana; consulta `ARQUITECTURA.md` para el método, la selección y sus
+  limitaciones.
 - **Reportes**: Power BI, conectado a la base de datos para los reportes avanzados.
 
 ## Cómo correrlo

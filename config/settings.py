@@ -70,6 +70,9 @@ WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
 
+# Django usa el ORM para traducir consultas de los modelos a SQL. En desarrollo,
+# SQLite guarda todas las tablas en este archivo; los cambios de esquema se
+# aplican con las migraciones (`manage.py migrate`).
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",

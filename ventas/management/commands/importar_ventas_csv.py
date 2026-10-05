@@ -5,6 +5,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.db.models import Count, Q
@@ -25,6 +26,20 @@ class Command(BaseCommand):
             "--reparar-fechas", action="store_true",
             help="Restaura las fechas del CSV en un lote ya importado, verificando antes sus conteos.",
         )
+
+    @staticmethod
+    def _validate_decimal_value(field, value, line_number, label):
+        quantum = Decimal("1").scaleb(-field.decimal_places)
+        try:
+            rounded_value = value.quantize(quantum, context=field.context)
+            field.clean(rounded_value, None)
+        except (InvalidOperation, ValidationError) as error:
+            if isinstance(error, ValidationError):
+                detail = "; ".join(error.messages)
+            else:
+                detail = "el valor excede la precision admitida por el campo"
+            raise CommandError(f"Fila {line_number} inválida ({label}): {detail}") from error
+        return value
 
     def handle(self, *args, **options):
         csv_path = Path(options["archivo"]).expanduser()
@@ -91,6 +106,9 @@ class Command(BaseCommand):
         tickets = OrderedDict()
         product_prices = OrderedDict()
         row_count = 0
+        quantity_field = ItemVenta._meta.get_field("cantidad")
+        price_field = ItemVenta._meta.get_field("precio_unitario")
+        total_field = Venta._meta.get_field("total")
 
         try:
             with csv_path.open("r", encoding="utf-8-sig", newline="") as csv_file:
@@ -110,14 +128,26 @@ class Command(BaseCommand):
                         product_name = row["producto"].strip()
                         quantity = Decimal(row["cantidad"].strip())
                         price = Decimal(row["precio"].strip())
+                        quantity = self._validate_decimal_value(
+                            quantity_field, quantity, line_number, "cantidad",
+                        )
+                        price = self._validate_decimal_value(
+                            price_field, price, line_number, "precio",
+                        )
                         if not ticket_id or not product_name or quantity <= 0 or price < 0:
                             raise ValueError("ticket/producto vacío o cantidad/precio fuera de rango")
                     except (AttributeError, InvalidOperation, ValueError) as error:
                         raise CommandError(f"Fila {line_number} inválida: {error}") from error
 
                     ticket_key = (ticket_id, sold_at.date())
-                    ticket = tickets.setdefault(ticket_key, {"fecha": sold_at, "items": []})
+                    ticket = tickets.setdefault(ticket_key, {
+                        "fecha": sold_at,
+                        "items": [],
+                        "total": Decimal("0"),
+                    })
                     ticket["fecha"] = min(ticket["fecha"], sold_at)
+                    ticket["total"] += quantity * price
+                    self._validate_decimal_value(total_field, ticket["total"], line_number, "total del ticket")
                     ticket["items"].append({
                         "producto": product_name,
                         "cantidad": quantity,
@@ -132,6 +162,13 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def _import(self, negocio, user, tickets, product_prices):
+        """Inserta el lote completo dentro de una transaccion de base de datos.
+
+        La creacion masiva reduce consultas para catalogo, tickets y renglones.
+        Si una escritura falla, `transaction.atomic` revierte el lote entero.
+        `bulk_create` omite `save()` y sus senales; por eso las fechas
+        historicas se restauran explicitamente con `bulk_update` despues.
+        """
         products = {
             product.nombre: product
             for product in Producto.objects.filter(negocio=negocio, nombre__in=product_prices)
@@ -164,7 +201,7 @@ class Command(BaseCommand):
                 cajero=user,
                 folio=first_folio + offset,
                 estado=Venta.Estado.COBRADA,
-                total=sum((item["cantidad"] * item["precio"] for item in ticket["items"]), Decimal("0")),
+                total=ticket["total"],
                 creado_en=ticket["fecha"],
             )
             sales.append(sale)
@@ -197,6 +234,11 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def _repair_historical_timestamps(self, negocio, tickets, row_count):
+        """Actualiza fechas solo si el lote persistido coincide con el CSV.
+
+        Primero compara cantidad de tickets y renglones; cualquier diferencia
+        genera `CommandError` y revierte la transaccion antes de alterar fechas.
+        """
         sales = list(
             Venta.objects.filter(negocio=negocio, estado=Venta.Estado.COBRADA)
             .only("id", "folio", "creado_en")

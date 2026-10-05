@@ -72,10 +72,12 @@ def tools_gemini():
 
 
 def _venta_en_curso(negocio):
+    """Consulta el carrito existente; esta funcion no crea una venta."""
     return Venta.objects.filter(negocio=negocio, estado=Venta.Estado.EN_CURSO).first()
 
 
 def buscar_producto(negocio, nombre):
+    """Lee hasta cinco productos activos, limitados al negocio indicado."""
     productos = Producto.objects.filter(negocio=negocio, activo=True, nombre__icontains=nombre)[:5]
     return {
         "resultados": [
@@ -86,6 +88,7 @@ def buscar_producto(negocio, nombre):
 
 
 def agregar_al_carrito(negocio, nombre_producto, cantidad=1):
+    """Lee inventario/carrito y persiste el renglon y total resultantes."""
     producto = Producto.objects.filter(negocio=negocio, activo=True, nombre__icontains=nombre_producto).first()
     if producto is None:
         return {"ok": False, "mensaje": f'No encontré ningún producto parecido a "{nombre_producto}".'}
@@ -107,6 +110,7 @@ def agregar_al_carrito(negocio, nombre_producto, cantidad=1):
 
 
 def consultar_ventas_hoy(negocio):
+    """Agrega en memoria totales de ventas cobradas hoy para esta tienda."""
     hoy = timezone.localdate()
     ventas = Venta.objects.filter(negocio=negocio, estado=Venta.Estado.COBRADA, creado_en__date=hoy)
     total = sum((v.total for v in ventas), start=0)
@@ -114,6 +118,7 @@ def consultar_ventas_hoy(negocio):
 
 
 def consultar_alertas_stock(negocio):
+    """Lee el inventario activo del negocio y filtra productos criticos."""
     productos = Producto.objects.filter(negocio=negocio, activo=True)
     criticos = [p for p in productos if p.stock_critico]
     return {
@@ -125,6 +130,7 @@ def consultar_alertas_stock(negocio):
 
 
 def registrar_gasto(negocio, concepto, monto, tipo):
+    """Inserta un gasto operativo asociado al negocio recibido."""
     gasto = GastoOperativo.objects.create(negocio=negocio, concepto=concepto, monto=monto, tipo=tipo)
     return {"ok": True, "mensaje": f'Registré el gasto "{gasto.concepto}" por ${gasto.monto}.'}
 
@@ -139,6 +145,7 @@ DESPACHADOR = {
 
 
 def ejecutar_funcion(nombre, argumentos, negocio):
+    """Despacha una herramienta del AVI con el negocio como limite de datos."""
     funcion = DESPACHADOR.get(nombre)
     if funcion is None:
         return {"error": f'No existe la función "{nombre}".'}

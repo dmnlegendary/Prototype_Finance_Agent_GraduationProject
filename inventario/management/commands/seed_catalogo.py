@@ -39,6 +39,11 @@ class Command(BaseCommand):
     help = "Carga un catálogo de ejemplo con 20 productos de abarrotes, para poder probar el onboarding y el inventario."
 
     def handle(self, *args, **options):
+        """Inserta solo las categorias y productos de catalogo que falten.
+
+        `get_or_create` usa el nombre como clave: ejecutar de nuevo el comando
+        reutiliza filas existentes y no reemplaza sus valores actuales.
+        """
         categorias_creadas = {}
         for nombre, icono in CATEGORIAS:
             categoria, creada = Categoria.objects.get_or_create(nombre=nombre, defaults={"icono": icono})

@@ -5,7 +5,12 @@ from core.models import ModeloBase
 
 
 class HistorialConversacion(ModeloBase):
-    """Un mensaje (del usuario o del asistente) del chat con el AVI. Aún sin usar."""
+    """Un mensaje del chat persistido en el contexto de un negocio.
+
+    Se guarda un registro por mensaje, identificado por rol y ordenado por
+    fecha de creacion. El borrado del negocio elimina su conversacion; si se
+    borra una cuenta, el mensaje se conserva y `usuario` queda nulo.
+    """
 
     class Rol(models.TextChoices):
         USUARIO = "USUARIO", "Usuario"

@@ -9,7 +9,7 @@
 <p class="fin-subtitle">Compara modelos locales con tu historial de ventas y elige el que tenga menor error en validación temporal.</p>
 
 <div class="fin-callout">
-  <i class="bi bi-robot"></i> <strong>¿Cómo funciona?</strong> Se prueban una línea base, regresión lineal, ARIMA y Holt-Winters con las ventas cobradas del negocio. Se elige el modelo con menor MAE en una validación temporal.
+  <i class="bi bi-robot"></i> <strong>¿Cómo funciona?</strong> Con al menos 8 semanas completas, se comparan regresión lineal, ARIMA y Holt-Winters usando ventas cobradas del negocio, y se elige el de menor MAE en una validación temporal. Si no es posible compararlos, se usa como línea base la última semana.
 </div>
 
 <div class="fin-card">

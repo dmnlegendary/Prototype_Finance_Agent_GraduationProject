@@ -22,12 +22,13 @@ def _negocio_o_none(request):
 
 
 def _siguiente_folio(negocio):
+    """Busca el mayor folio del negocio y propone el siguiente consecutivo."""
     ultima = Venta.objects.filter(negocio=negocio).order_by("-folio").first()
     return (ultima.folio + 1) if ultima else 1
 
 
 def _venta_en_curso(negocio):
-    """Devuelve el carrito abierto del negocio, o crea uno nuevo."""
+    """Reutiliza el carrito abierto de la tienda o persiste uno nuevo."""
     venta = Venta.objects.filter(negocio=negocio, estado=Venta.Estado.EN_CURSO).first()
     if venta is None:
         venta = Venta.objects.create(negocio=negocio, folio=_siguiente_folio(negocio))
@@ -81,6 +82,7 @@ def buscar_productos_json(request):
 
 @login_required
 def agregar_item(request, producto_pk):
+    """Asocia un producto activo al carrito y persiste el total actualizado."""
     negocio = _negocio_o_none(request)
     if negocio is None or request.method != "POST":
         return redirect("ventas:punto_de_venta")
@@ -90,6 +92,7 @@ def agregar_item(request, producto_pk):
 
     item, creado = ItemVenta.objects.get_or_create(
         venta=venta, producto=producto,
+        # El ticket conserva el precio aplicado al agregar el producto.
         defaults={"cantidad": 1, "precio_unitario": producto.precio_venta},
     )
     if not creado:
@@ -133,6 +136,7 @@ def agregar_no_encontrado(request):
 
 
 def _cambiar_cantidad(negocio, item_pk, delta):
+    """Modifica o elimina un renglon y vuelve a calcular el total del carrito."""
     item = get_object_or_404(
         ItemVenta, pk=item_pk, venta__negocio=negocio, venta__estado=Venta.Estado.EN_CURSO,
     )
@@ -164,6 +168,11 @@ def item_decrementar(request, item_pk):
 
 @login_required
 def cobrar(request):
+    """Cierra el carrito: descuenta stock y guarda el estado/total del ticket.
+
+    Las escrituras del inventario y de la venta comparten una transaccion: si
+    cualquier guardado falla, Django revierte todos los cambios del bloque.
+    """
     negocio = _negocio_o_none(request)
     if negocio is None or request.method != "POST":
         return redirect("ventas:punto_de_venta")
@@ -191,6 +200,7 @@ def cobrar(request):
 
 @login_required
 def cancelar_venta(request):
+    """Persiste el estado CANCELADA sin borrar la venta ni sus renglones."""
     negocio = _negocio_o_none(request)
     if negocio is None or request.method != "POST":
         return redirect("ventas:punto_de_venta")
@@ -205,6 +215,7 @@ def cancelar_venta(request):
 
 @login_required
 def historial(request):
+    """Lee solo ventas del negocio actual y excluye el carrito en curso."""
     negocio = _negocio_o_none(request)
     if negocio is None:
         return redirect("accounts:datos_negocio")
@@ -215,6 +226,7 @@ def historial(request):
 
 @login_required
 def ticket(request, pk):
+    """Carga el ticket y sus renglones verificando que pertenezcan al negocio."""
     negocio = _negocio_o_none(request)
     venta = get_object_or_404(Venta, pk=pk, negocio=negocio)
     items = venta.items.select_related("producto")

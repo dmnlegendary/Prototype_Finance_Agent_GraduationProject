@@ -38,12 +38,24 @@ class RegistroForm(forms.ModelForm):
         return password
 
     def clean_telefono(self):
+        """Consulta si el telefono ya pertenece a otra cuenta.
+
+        Esta comprobacion produce un error amigable en el formulario; la
+        restriccion `unique=True` del modelo sigue siendo la proteccion final
+        en la base ante dos registros concurrentes.
+        """
         telefono = self.cleaned_data["telefono"]
         if Usuario.objects.filter(telefono=telefono).exists():
             raise forms.ValidationError("Ya existe una cuenta con este teléfono.")
         return telefono
 
     def save(self, commit=True):
+        """Construye el usuario y, si se solicita, lo inserta en la base.
+
+        La contraseña se guarda mediante `set_password`, nunca como texto
+        plano. `commit=False` permite a la vista completar otros campos antes
+        de guardar; con `commit=True` este metodo ejecuta `usuario.save()`.
+        """
         usuario = super().save(commit=False)
         usuario.nombre_completo = self.cleaned_data["nombre_completo"]
         usuario.telefono = self.cleaned_data["telefono"]

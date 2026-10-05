@@ -4,6 +4,8 @@ from .models import Producto, Proveedor
 
 
 class ProductoForm(forms.ModelForm):
+    """Valida campos de Producto antes de crear o actualizar su fila."""
+
     class Meta:
         model = Producto
         fields = [
@@ -21,6 +23,7 @@ class ProductoForm(forms.ModelForm):
         }
 
     def __init__(self, *args, negocio=None, **kwargs):
+        """Limita las opciones de proveedor a la tienda que edita el producto."""
         super().__init__(*args, **kwargs)
         if negocio is not None:
             self.fields["proveedor"].queryset = Proveedor.objects.filter(negocio=negocio)
@@ -29,6 +32,8 @@ class ProductoForm(forms.ModelForm):
 
 
 class ProveedorForm(forms.ModelForm):
+    """Valida datos del proveedor; sus categorias se guardan como relacion M2M."""
+
     class Meta:
         model = Proveedor
         fields = ["nombre", "telefono", "correo", "categorias"]

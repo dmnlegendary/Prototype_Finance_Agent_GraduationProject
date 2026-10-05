@@ -4,6 +4,8 @@ from core.models import ModeloBase
 
 
 class Categoria(ModeloBase):
+    """Categoria compartida por productos y proveedores del sistema."""
+
     nombre = models.CharField(max_length=60, unique=True)
     icono = models.CharField(max_length=8, blank=True, default="📦")
 
@@ -17,6 +19,13 @@ class Categoria(ModeloBase):
 
 
 class Proveedor(ModeloBase):
+    """Proveedor perteneciente a una tienda y relacionado con categorias.
+
+    `categorias` es una relacion muchos-a-muchos que Django guarda en una
+    tabla intermedia. Borrar el negocio elimina sus proveedores; quitar una
+    categoria de la relacion no elimina la categoria compartida.
+    """
+
     negocio = models.ForeignKey(
         "accounts.Negocio", on_delete=models.CASCADE, related_name="proveedores",
     )
@@ -33,7 +42,11 @@ class Proveedor(ModeloBase):
 
 
 class ProductoCatalogo(ModeloBase):
-    """Catálogo genérico de productos que se muestra al crear una tienda nueva."""
+    """Referencia global usada para precargar inventarios durante el registro.
+
+    No pertenece a un negocio. Al copiarlo a una tienda se crea un `Producto`
+    propio y se conserva este registro como `catalogo_origen`.
+    """
 
     nombre = models.CharField(max_length=150)
     categoria = models.ForeignKey(
@@ -52,7 +65,14 @@ class ProductoCatalogo(ModeloBase):
 
 
 class Producto(ModeloBase):
-    """Producto real del inventario de una tienda."""
+    """Producto persistido en el inventario de un negocio concreto.
+
+    `negocio` determina a que tienda pertenece; categoria, proveedor y
+    catalogo_origen son referencias opcionales o compartidas. Las ventas
+    conservan una referencia al producto y su precio historico en `ItemVenta`,
+    por eso las vistas dan de baja productos desactivandolos en vez de
+    eliminarlos fisicamente.
+    """
 
     negocio = models.ForeignKey(
         "accounts.Negocio", on_delete=models.CASCADE, related_name="productos",

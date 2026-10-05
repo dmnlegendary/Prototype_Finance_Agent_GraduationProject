@@ -6,14 +6,14 @@
   <div class="fin-title"><i class="bi bi-graph-up-arrow"></i> Pronóstico de Ventas</div>
   <span class="badge-ia-local"><i class="bi bi-cpu-fill"></i> IA local · sin conexión externa</span>
 </div>
-<p class="fin-subtitle">Compara modelos locales con tu historial de ventas y elige el que tenga menor error en validación temporal.</p>
+<p class="fin-subtitle">Pronostica por separado las ventas semanales de tus 10 productos más vendidos, con base en el historial de ventas cobradas.</p>
 
 <div class="fin-callout">
-  <i class="bi bi-robot"></i> <strong>¿Cómo funciona?</strong> Con al menos 8 semanas completas, se comparan regresión lineal, ARIMA y Holt-Winters usando ventas cobradas del negocio, y se elige el de menor MAE en una validación temporal. Si no es posible compararlos, se usa como línea base la última semana.
+  <i class="bi bi-robot"></i> <strong>¿Cómo funciona?</strong> Se seleccionan los 10 productos con mayor cantidad vendida en ventas cobradas. Para cada producto se comparan regresión lineal, ARIMA (con orden elegido por AIC) y Holt-Winters en una validación temporal; si no es posible compararlos, se usa como línea base la última semana.
 </div>
 
 <div class="fin-card">
-  <h3>Generar nuevo pronóstico semanal</h3>
+  <h3>Pronóstico de productos para la semana siguiente</h3>
   <button type="button" class="fin-btn-primary" style="margin-bottom:14px;" id="btnGenerarPronostico" onclick="generarPronosticoDemo()">
     <i class="bi bi-magic"></i> Generar pronóstico
   </button>
@@ -22,30 +22,7 @@
     {% include "partials/ai_loader.html" with texto="Procesando historial…" %}
   </div>
 
-  <div id="pronosticoResultado" style="display:none;">
-    <div class="fin-result-group">
-      <h4><i class="bi bi-check-circle-fill"></i> Resultado</h4>
-      <div class="fin-result-item"><span>Modelo seleccionado</span><span class="fin-badge-green" id="modeloElegido"></span></div>
-      <div class="fin-result-item"><span>Pronóstico de unidades</span><span class="fin-badge-green" id="unidadesPronosticadas"></span></div>
-      <div class="fin-result-item"><span>Semanas analizadas</span><span class="fin-badge-green" id="semanasAnalizadas"></span></div>
-    </div>
-    <div style="margin-top:18px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:6px;">
-        <span><i class="bi bi-bar-chart-fill"></i> Nivel de confianza del modelo</span>
-        <span style="color:var(--color-primary);" id="confianzaModelo"></span>
-      </div>
-      <div class="fin-progress-track"><div class="fin-progress-fill" id="barraConfianza"></div></div>
-      <p class="fin-subtitle" style="margin-top:6px;" id="mensajeModelo"></p>
-
-      <div class="fin-insight-purple" style="margin-top:10px;">
-        <i class="bi bi-robot"></i> <strong>AVI interpreta:</strong> <span id="interpretacionModelo"></span>
-      </div>
-      <div class="fin-insight-green" style="margin-top:8px;">
-        <i class="bi bi-box-seam-fill"></i> MAE de validación: <span id="maeModelo"></span> unidades
-      </div>
-      <div id="modelosComparados" style="margin-top:12px;"></div>
-    </div>
-  </div>
+  <div id="pronosticoResultado" style="display:none;"></div>
 </div>
 {% endblock %}
 
@@ -60,23 +37,62 @@
       const response = await fetch("{% url 'finanzas:pronostico_ventas_api' %}");
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.message || 'No se pudo generar el pronóstico.');
-      document.getElementById('modeloElegido').textContent = data.model;
-      document.getElementById('unidadesPronosticadas').textContent = `${data.forecast_units} uds`;
-      document.getElementById('semanasAnalizadas').textContent = data.weeks;
-      document.getElementById('confianzaModelo').textContent = `${data.confidence}%`;
-      document.getElementById('barraConfianza').style.width = `${data.confidence}%`;
-      document.getElementById('mensajeModelo').textContent = data.message;
-      document.getElementById('interpretacionModelo').textContent = `se esperan ${data.forecast_units} unidades para la semana del ${data.next_week}.`;
-      document.getElementById('maeModelo').textContent = data.mae;
-      document.getElementById('modelosComparados').innerHTML = data.candidates.length
-        ? `<strong>Modelos comparados</strong><ul>${data.candidates.map(item => `<li>${item.model}: MAE ${item.mae}</li>`).join('')}</ul>`
-        : '';
+      const resultado = document.getElementById('pronosticoResultado');
+      resultado.replaceChildren();
+      const fecha = document.createElement('p');
+      fecha.className = 'fin-subtitle';
+      fecha.textContent = `Pronósticos para la semana del ${data.next_week}`;
+      resultado.appendChild(fecha);
+
+      data.products.forEach(product => {
+        const card = document.createElement('div');
+        card.className = 'fin-card';
+        card.style.marginTop = '12px';
+
+        const title = document.createElement('h3');
+        title.textContent = `${product.icon || '📦'} ${product.name}`;
+        card.appendChild(title);
+
+        const details = [
+          ['Pronóstico', `${product.forecast_units} unidades`],
+          ['Modelo seleccionado', product.model],
+          ['Semanas analizadas', product.weeks],
+          ['Confianza estimada', `${product.confidence}%`],
+          ['MAE de validación', `${product.mae} unidades`],
+        ];
+        details.forEach(([label, value]) => {
+          const row = document.createElement('div');
+          row.className = 'fin-result-item';
+          const labelElement = document.createElement('span');
+          labelElement.textContent = label;
+          const valueElement = document.createElement('span');
+          valueElement.className = 'fin-badge-green';
+          valueElement.textContent = value;
+          row.append(labelElement, valueElement);
+          card.appendChild(row);
+        });
+
+        const message = document.createElement('p');
+        message.className = 'fin-subtitle';
+        message.style.marginTop = '8px';
+        message.textContent = product.message;
+        card.appendChild(message);
+
+        if (product.candidates.length) {
+          const comparison = document.createElement('p');
+          comparison.className = 'fin-subtitle';
+          comparison.textContent = `Modelos comparados: ${product.candidates.map(item => `${item.model} (MAE ${item.mae})`).join(' · ')}`;
+          card.appendChild(comparison);
+        }
+        resultado.appendChild(card);
+      });
       document.getElementById('pronosticoCargando').style.display = 'none';
       document.getElementById('pronosticoResultado').style.display = 'block';
     } catch (error) {
       document.getElementById('pronosticoCargando').style.display = 'none';
-      document.getElementById('mensajeModelo').textContent = error.message;
-      document.getElementById('pronosticoResultado').style.display = 'block';
+      const resultado = document.getElementById('pronosticoResultado');
+      resultado.textContent = error.message;
+      resultado.style.display = 'block';
     } finally {
       document.getElementById('btnGenerarPronostico').style.display = 'inline-flex';
     }

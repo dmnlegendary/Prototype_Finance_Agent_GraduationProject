@@ -1,9 +1,9 @@
-"""Pronostico semanal de unidades vendidas para un negocio.
+"""Pronostico semanal de unidades vendidas para los productos mas populares.
 
-El flujo toma las ventas cobradas, crea una serie cronologica de unidades por
-semana completa, compara varios pronosticadores con validacion temporal y
-devuelve una estimacion para la semana siguiente. No pronostica ingresos ni
-separa los resultados por producto.
+El flujo identifica los productos con mayor volumen de ventas cobradas,
+construye una serie semanal por producto, compara varios pronosticadores con
+validacion temporal y devuelve estimaciones individuales. No pronostica
+ingresos.
 """
 
 from __future__ import annotations
@@ -18,11 +18,24 @@ from django.db.models import Max, Min, Sum
 from django.db.models.functions import TruncWeek
 from django.utils import timezone
 from sklearn.linear_model import LinearRegression
-from ventas.models import Venta
+from ventas.models import ItemVenta, Venta
 
 
 MINIMUM_WEEKS = 8
 """Numero minimo de observaciones semanales para comparar modelos."""
+
+POPULAR_PRODUCTS_LIMIT = 10
+"""Numero maximo de productos que se incluyen en el pronostico."""
+
+_ARIMA_ORDERS = (
+    ((0, 1, 0), None),
+    ((0, 1, 0), "t"),
+    ((1, 1, 0), None),
+    ((0, 1, 1), None),
+    ((1, 1, 1), None),
+    ((1, 0, 0), None),
+    ((0, 0, 1), None),
+)
 
 
 @dataclass
@@ -55,20 +68,42 @@ def _linear_regression(values: np.ndarray) -> float:
 
 
 def _arima(values: np.ndarray) -> float:
-    """Ajusta ARIMA(1,1,0) y devuelve el pronostico de un periodo.
+    """Elige un orden ARIMA pequeno por AIC y pronostica un periodo.
 
-    `enforce_stationarity=False` permite ajustar el modelo sin exigir esa
-    restriccion de estacionariedad. Las advertencias de statsmodels se
-    silencian durante el ajuste; los errores no se ocultan aqui. El llamador
-    puede descartar el candidato si el ajuste lanza ValueError o
-    `numpy.linalg.LinAlgError`.
+    Compara combinaciones simples de ARIMA estacionario y diferenciado, tanto
+    sin tendencia como con deriva. Solo considera ajustes convergentes con AIC
+    y pronostico finitos. Para una serie constante devuelve su ultimo valor
+    directamente; si ningun ajuste sirve, el llamador puede descartar el
+    candidato cuando recibe ValueError.
     """
+    if not values.size:
+        raise ValueError("ARIMA requiere al menos una observacion.")
+    if np.all(values == values[0]):
+        return max(0.0, float(values[-1]))
+
     from statsmodels.tsa.arima.model import ARIMA
 
+    best_aic = float("inf")
+    best_forecast = None
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        model = ARIMA(values, order=(1, 1, 0), enforce_stationarity=False)
-        return max(0.0, float(model.fit().forecast(steps=1)[0]))
+        for order, trend in _ARIMA_ORDERS:
+            try:
+                result = ARIMA(values, order=order, trend=trend).fit()
+                aic = float(result.aic)
+                if not result.mle_retvals.get("converged", True) or not np.isfinite(aic):
+                    continue
+
+                forecast = float(result.forecast(steps=1)[0])
+                if np.isfinite(forecast) and aic < best_aic:
+                    best_aic = aic
+                    best_forecast = forecast
+            except (ValueError, np.linalg.LinAlgError):
+                continue
+
+    if best_forecast is None:
+        raise ValueError("No se pudo ajustar un orden ARIMA convergente.")
+    return max(0.0, best_forecast)
 
 
 def _holt_winters(values: np.ndarray) -> float:
@@ -152,23 +187,33 @@ def _score_candidate(values: np.ndarray, name: str, predictor: Callable[[np.ndar
     return CandidateResult(name, forecast, _mae(actual, np.array(predictions)))
 
 
-def _weekly_series(negocio) -> tuple[list[date], np.ndarray]:
-    """Construye las fechas y unidades semanales completas de un negocio.
+def _top_products(negocio) -> list[dict]:
+    """Devuelve los productos del negocio con mayor volumen historico vendido."""
+    return list(
+        ItemVenta.objects.filter(
+            venta__negocio=negocio,
+            venta__estado=Venta.Estado.COBRADA,
+        )
+        .values("producto_id", "producto__nombre", "producto__icono")
+        .annotate(unidades_vendidas=Sum("cantidad"))
+        .order_by("-unidades_vendidas", "producto__nombre")[:POPULAR_PRODUCTS_LIMIT]
+    )
 
-    Solo incluye ventas con estado `COBRADA` del negocio recibido. Agrupa por
-    semana de creacion de la venta y suma las cantidades de sus articulos; por
-    tanto, la serie representa unidades, no montos monetarios.
 
-    Entre la primera y la ultima semana encontrada, completa con cero las
-    semanas sin ventas para que los modelos reciban una secuencia continua.
-    Despues descarta la semana inicial si la primera venta ocurrio despues de
-    su primer dia, y la semana final si la ultima venta ocurrio antes de su
-    ultimo dia. Devuelve las fechas de inicio de las semanas conservadas y un
-    arreglo NumPy de cantidades alineado con esas fechas.
+def _weekly_series(negocio, producto_id: int) -> tuple[list[date], np.ndarray]:
+    """Construye las unidades semanales completas de un producto del negocio.
 
-    Si no existen ventas cobradas o no hay filas agrupadas, devuelve una lista
-    y un arreglo vacios. La llamada a `timezone.localtime` usa la zona horaria
-    activa de Django para revisar las fechas limite de las semanas.
+    El rango de semanas se determina usando todas las ventas cobradas del
+    negocio para que cada producto comparta el mismo periodo de referencia.
+    Los articulos se filtran por `producto_id` y sus cantidades se agrupan por
+    semana; las semanas sin ventas del producto se completan con cero.
+
+    Se descartan las semanas inicial y final si son parciales respecto al
+    historial del negocio. Devuelve fechas alineadas con un arreglo NumPy de
+    unidades; si no hay semanas completas, ambos resultados estan vacios.
+
+    La llamada a `timezone.localtime` usa la zona horaria activa de Django para
+    revisar las fechas limite de las semanas.
     """
     sales = Venta.objects.filter(
         negocio=negocio,
@@ -179,17 +224,16 @@ def _weekly_series(negocio) -> tuple[list[date], np.ndarray]:
         return [], np.array([], dtype=float)
 
     rows = list(
-        sales
+        sales.filter(items__producto_id=producto_id)
         .annotate(semana=TruncWeek("creado_en"))
         .values("semana")
         .annotate(unidades=Sum("items__cantidad"))
         .order_by("semana")
     )
-    if not rows:
-        return [], np.array([], dtype=float)
-
-    first_week = rows[0]["semana"].date()
-    last_week = rows[-1]["semana"].date()
+    first_sale_date = timezone.localtime(bounds["first"]).date()
+    last_sale_date = timezone.localtime(bounds["last"]).date()
+    first_week = first_sale_date - timedelta(days=first_sale_date.weekday())
+    last_week = last_sale_date - timedelta(days=last_sale_date.weekday())
     by_week = {row["semana"].date(): float(row["unidades"] or 0) for row in rows}
     weeks = []
     values = []
@@ -200,8 +244,6 @@ def _weekly_series(negocio) -> tuple[list[date], np.ndarray]:
         values.append(by_week.get(current, 0.0))
         current += timedelta(days=7)
 
-    first_sale_date = timezone.localtime(bounds["first"]).date()
-    last_sale_date = timezone.localtime(bounds["last"]).date()
     # No entrenar con semanas parciales en los extremos del historial.
     if weeks and first_sale_date > weeks[0]:
         weeks = weeks[1:]
@@ -213,66 +255,77 @@ def _weekly_series(negocio) -> tuple[list[date], np.ndarray]:
     return weeks, np.array(values, dtype=float)
 
 
-def forecast_sales(negocio) -> dict:
-    """Genera un pronostico semanal de unidades y los datos para presentarlo.
-
-    Primero obtiene la serie de semanas completas. Sin observaciones devuelve
-    `ok=False` y un mensaje, sin intentar ajustar modelos. Con datos, evalua
-    regresion lineal, ARIMA y Holt-Winters mediante `_score_candidate`; los
-    candidatos que no alcanzan el minimo o cuyo ajuste falla se omiten.
-
-    Entre los candidatos validos selecciona el menor MAE. Si no queda ninguno,
-    usa la ultima semana como linea base, asigna MAE 0 y confianza 35; ese MAE
-    no proviene de una validacion. En esa rama, el mensaje indica que se
-    requieren al menos `MINIMUM_WEEKS`, aunque tambien puede ocurrir que los
-    modelos no se hayan podido ajustar.
-
-    La confianza de la rama con modelo es un indicador heuristico: parte de
-    `100 - MAE / max(promedio_semanal, 1) * 100` y se limita al intervalo
-    35-95. No es una probabilidad estadistica. `next_week` es la fecha de
-    inicio de la semana posterior a la ultima semana completa.
-
-    Returns:
-        Diccionario serializable como JSON. Si `ok` es verdadero, incluye el
-        modelo elegido, unidades pronosticadas, MAE, confianza, fecha de la
-        siguiente semana, cantidad de semanas, mensaje y candidatos ordenados
-        por MAE. La lista `candidates` queda vacia cuando se usa la linea base.
-    """
-    weeks, values = _weekly_series(negocio)
-    if not values.size:
-        return {
-            "ok": False,
-            "message": "No hay semanas completas de ventas cobradas para entrenar un pronóstico.",
-        }
-
+def _forecast_product(product: dict, values: np.ndarray) -> dict:
+    """Compara modelos para un producto y devuelve su pronostico individual."""
     candidates = [
         _score_candidate(values, "Regresión lineal", _linear_regression),
-        _score_candidate(values, "ARIMA(1,1,0)", _arima),
+        _score_candidate(values, "ARIMA (orden por AIC)", _arima),
         _score_candidate(values, "Holt-Winters", _holt_winters),
     ]
     candidates = [candidate for candidate in candidates if candidate is not None]
     if not candidates:
-        # Respaldo cuando hay pocas semanas o ningun modelo pudo validarse.
         selected = CandidateResult("Línea base (última semana)", _naive(values), 0.0)
         confidence = 35
         message = f"Se requieren al menos {MINIMUM_WEEKS} semanas para comparar modelos."
     else:
-        # El menor MAE en la validacion temporal decide que modelo se reporta.
         selected = min(candidates, key=lambda candidate: candidate.mae)
         confidence = max(35, min(95, round(100 - selected.mae / max(values.mean(), 1) * 100)))
         message = "Modelo elegido por menor error absoluto medio en validación temporal."
 
     return {
-        "ok": True,
+        "product_id": product["producto_id"],
+        "name": product["producto__nombre"],
+        "icon": product["producto__icono"],
         "model": selected.name,
         "forecast_units": round(selected.forecast, 2),
         "mae": round(selected.mae, 2),
         "confidence": confidence,
-        "next_week": (weeks[-1] + timedelta(days=7)).isoformat(),
         "weeks": len(values),
         "message": message,
         "candidates": [
             {"model": candidate.name, "mae": round(candidate.mae, 2)}
             for candidate in sorted(candidates, key=lambda candidate: candidate.mae)
         ],
+    }
+
+
+def forecast_sales(negocio) -> dict:
+    """Genera pronosticos semanales individuales para los 10 mas vendidos.
+
+    La popularidad se mide por unidades en ventas cobradas. Para cada producto
+    se evalua por separado regresion lineal, ARIMA (orden elegido por AIC) y
+    Holt-Winters, y se elige el de menor MAE en validacion temporal. Si no hay
+    suficientes semanas o los modelos no se ajustan, se usa la ultima semana
+    como linea base. La confianza reportada es un indicador heuristico, no una
+    probabilidad estadistica.
+
+    Returns:
+        Diccionario serializable como JSON con la fecha comun de pronostico y
+        hasta diez productos con sus estimaciones y comparaciones de modelos.
+    """
+    products = _top_products(negocio)
+    if not products:
+        return {
+            "ok": False,
+            "message": "No hay productos con ventas cobradas para pronosticar.",
+        }
+
+    forecasts = []
+    last_complete_week = None
+    for product in products:
+        weeks, values = _weekly_series(negocio, product["producto_id"])
+        if values.size:
+            last_complete_week = weeks[-1]
+            forecasts.append(_forecast_product(product, values))
+
+    if not forecasts or last_complete_week is None:
+        return {
+            "ok": False,
+            "message": "No hay semanas completas de ventas cobradas para pronosticar.",
+        }
+
+    return {
+        "ok": True,
+        "next_week": (last_complete_week + timedelta(days=7)).isoformat(),
+        "products": forecasts,
     }

@@ -1,0 +1,8 @@
+nombre,categoria,costo,precio_venta,cantidad_actual,cantidad_minima,stock_ideal
+Coca-Cola 600ml,Bebidas,13.50,18.00,48,12,60
+Agua Ciel 1.5L,Bebidas,9.00,15.00,30,10,40
+Pan Bimbo Blanco,Abarrotes,24.00,32.00,6,5,20
+Arroz 1kg,Abarrotes,21.00,28.00,14,8,30
+Leche Lala 1L,Lácteos,20.00,26.50,9,10,36
+Sabritas Original 45g,Botanas,13.00,18.00,25,10,50
+Jabón Zote,Limpieza,10.00,14.00,4,6,24

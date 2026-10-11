@@ -6,12 +6,27 @@
 {% endblock %}
 
 {% block content %}
-<div class="app-shell" data-modulo="{{ request.resolver_match.app_name }}">
+<div class="app-shell" data-modulo="{{ request.resolver_match.app_name }}" data-alertas-rojo="{{ alertas_conteo.rojo|default:0 }}" data-url-alertas="{% url 'inventario:alertas' %}">
   {% block avi_panel %}{% endblock %}
   <div class="app-right-col">
     {% include "partials/navbar.html" %}
     <div class="app-main">
       {% block app_content %}{% endblock %}
+    </div>
+  </div>
+</div>
+
+<!-- Modal de la IA: resumen de ayer al entrar, y explicación del dashboard / reportes -->
+<div class="modal-backdrop" id="modal-resumen-avi">
+  <div class="form-card" style="max-width:480px;">
+    <div class="panel-header">
+      <h3 id="resumenAviTitulo"><i class="bi bi-stars"></i> marIA</h3>
+      <button type="button" class="panel-close" onclick="closeModal('resumen-avi')"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="panel-body" id="resumenAviCuerpo"></div>
+    <div class="panel-footer">
+      <button type="button" class="btn-success" onclick="closeModal('resumen-avi')">Entendido</button>
+      <button type="button" class="btn-ghost" onclick="closeModal('resumen-avi'); if (document.getElementById('aviPanel')) { openAvi(); document.getElementById('aviTexto').focus(); }">Preguntar más</button>
     </div>
   </div>
 </div>

@@ -1,7 +1,9 @@
-Django>=5.0,<6.0
+Django>=5.1,<6.0
 openai
 google-generativeai
 python-dotenv
+# Driver de PostgreSQL (solo se usa si en el .env se define DB_NAME)
+psycopg[binary]>=3.1
 
 # Se agregan hasta la fase 2, cuando se elija el modelo de pronóstico de ventas:
 # scikit-learn

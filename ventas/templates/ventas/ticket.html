@@ -21,6 +21,7 @@
         <div class="ticket-receipt">
           <div class="receipt-title">
             {{ venta.negocio.nombre_tienda }}<br/>
+            {% if venta.negocio.alcaldia %}<span style="font-weight:400;font-size:12px;color:var(--text-muted)">{{ venta.negocio.get_alcaldia_display }}, CDMX</span><br/>{% endif %}
             <span style="font-weight:400;font-size:12px;color:var(--text-muted)">{{ venta.creado_en|date:"d/m/Y" }} · {{ venta.creado_en|date:"H:i" }} · Folio #{{ venta.folio|stringformat:"04d" }}</span>
           </div>
           {% for item in items %}

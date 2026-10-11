@@ -40,6 +40,15 @@ class GastoOperativo(ModeloBase):
     class Meta:
         verbose_name = "Gasto operativo"
         ordering = ["-fecha"]
+        indexes = [
+            models.Index(fields=["negocio", "fecha"], name="gasto_negocio_fecha_idx"),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(monto__gt=0), name="gasto_monto_positivo",
+                violation_error_message="El monto del gasto debe ser mayor a cero.",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.concepto} (${self.monto})"

@@ -1,10 +1,17 @@
+from urllib.parse import urlencode
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db.models import F, Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
+from .alertas import conteo_alertas, productos_con_alerta
 from .forms import ProductoForm, ProveedorForm
 from .models import Categoria, HistorialModificacionProducto, Producto, Proveedor
+
+PRODUCTOS_POR_PAGINA = 25
 
 
 def _negocio_o_redirect(request):
@@ -12,12 +19,19 @@ def _negocio_o_redirect(request):
     return getattr(request.user, "negocio", None)
 
 
-def _contexto_panel(request, negocio, form_alta=None, form_proveedor=None):
+def _contexto_panel(request, negocio, form_alta=None, form_proveedor=None, solo_pk=None):
     # incluye tanto los productos activos como los "no encontrados" que
     # todavía no se validan (ver Producto.pendiente_validacion)
     productos = Producto.objects.filter(
         negocio=negocio,
     ).filter(Q(activo=True) | Q(pendiente_validacion=True)).select_related("categoria")
+
+    # "abrir" viene del buscador de "Modificar productos": muestra solo ese producto
+    abrir = request.GET.get("abrir", "").strip()
+    if solo_pk is None and abrir.isdigit():
+        solo_pk = int(abrir)
+    if solo_pk is not None:
+        productos = productos.filter(pk=solo_pk)
 
     q = request.GET.get("q", "").strip()
     if q:
@@ -27,31 +41,37 @@ def _contexto_panel(request, negocio, form_alta=None, form_proveedor=None):
     if categoria_id:
         productos = productos.filter(categoria_id=categoria_id)
 
-    productos = list(productos)
-    # los más críticos (más por debajo de su mínimo) primero
-    productos.sort(key=lambda p: (not p.stock_critico, p.cantidad_actual - p.cantidad_minima))
-    for p in productos:
+    # los más críticos (más por debajo de su mínimo) primero, ordenados desde la base de datos
+    productos = productos.annotate(holgura=F("cantidad_actual") - F("cantidad_minima")).order_by("holgura", "nombre")
+
+    # se muestran por páginas: con miles de productos no se puede dibujar todo junto
+    pagina = Paginator(productos, PRODUCTOS_POR_PAGINA).get_page(request.GET.get("page"))
+    lista_productos = list(pagina.object_list)
+    for p in lista_productos:
         p.form_editar = ProductoForm(instance=p, negocio=negocio, auto_id=f"id_producto_{p.pk}_%s")
 
-    # productos con cantidad_actual <= cantidad_minima (se comparan dos campos, por eso F())
-    alertas_count = Producto.objects.filter(
-        negocio=negocio, activo=True, cantidad_actual__lte=F("cantidad_minima"),
-    ).count()
+    # para que los links de "anterior / siguiente" conserven la búsqueda y el filtro
+    filtros = {nombre: valor for nombre, valor in (("q", q), ("categoria", categoria_id)) if valor}
 
     proveedores_lista = list(Proveedor.objects.filter(negocio=negocio).prefetch_related("categorias"))
     for prov in proveedores_lista:
         prov.form_editar = ProveedorForm(instance=prov, auto_id=f"id_proveedor_{prov.pk}_%s")
 
-    return {
-        "productos": productos,
+    contexto = {
+        "productos": lista_productos,
+        "pagina": pagina,
+        "querystring": urlencode(filtros),
         "categorias": Categoria.objects.all(),
         "q": q,
         "categoria_id": categoria_id,
-        "alertas_count": alertas_count,
+        "conteo": conteo_alertas(negocio),
         "form_alta": form_alta or ProductoForm(negocio=negocio, auto_id="id_alta_%s"),
         "proveedores_lista": proveedores_lista,
         "form_proveedor": form_proveedor or ProveedorForm(auto_id="id_proveedor_nuevo_%s"),
     }
+    if solo_pk is not None and lista_productos:
+        contexto["abrir_modal_editar_pk"] = solo_pk
+    return contexto
 
 
 @login_required
@@ -119,7 +139,8 @@ def producto_editar(request, pk):
         if not motivo:
             form.add_error(None, "Indica el motivo del cambio.")
 
-        context = _contexto_panel(request, negocio)
+        # se muestra solo este producto (no se sabe en qué página estaba) con su modal abierto
+        context = _contexto_panel(request, negocio, solo_pk=producto.pk)
         for p in context["productos"]:
             if p.pk == producto.pk:
                 p.form_editar = form
@@ -147,10 +168,10 @@ def categoria_alta(request):
             else:
                 messages.info(request, f'Ya existía una categoría "{nombre}".')
 
-        context = _contexto_panel(request, negocio)
-        if origen.startswith("editar-"):
-            context["abrir_modal_editar_pk"] = origen.split("-", 1)[1]
+        if origen.startswith("editar-") and origen.split("-", 1)[1].isdigit():
+            context = _contexto_panel(request, negocio, solo_pk=int(origen.split("-", 1)[1]))
         else:
+            context = _contexto_panel(request, negocio)
             context["abrir_modal_alta"] = True
         return render(request, "inventario/panel.html", context)
 
@@ -220,21 +241,35 @@ def alertas(request):
     if negocio is None:
         return redirect("accounts:datos_negocio")
 
-    productos = Producto.objects.filter(negocio=negocio, activo=True).select_related("categoria", "proveedor")
-    # más crítico primero: el que está más por debajo de su mínimo
-    criticos = sorted(
-        (p for p in productos if p.stock_critico),
-        key=lambda p: p.cantidad_actual - p.cantidad_minima,
-    )
-    # todavía no está crítico, pero ya va por debajo del doble de su mínimo
-    advertencia = sorted(
-        (
-            p for p in productos
-            if not p.stock_critico and p.cantidad_minima and p.cantidad_actual <= p.cantidad_minima * 2
-        ),
-        key=lambda p: p.cantidad_actual - p.cantidad_minima,
-    )
+    # ya vienen ordenadas: primero las rojas, luego naranjas y amarillas
+    lista = productos_con_alerta(negocio)
+    conteo = {"rojo": 0, "naranja": 0, "amarillo": 0}
+    for producto in lista:
+        conteo[producto.nivel_stock] += 1
+    conteo["total"] = len(lista)
+
     return render(request, "inventario/alertas.html", {
-        "criticos": criticos,
-        "advertencia": advertencia,
+        "alertas": lista,
+        "conteo": conteo,
     })
+
+
+@login_required
+def buscar_json(request):
+    """Búsqueda instantánea para el cuadro de 'Modificar productos'."""
+    negocio = _negocio_o_redirect(request)
+    q = request.GET.get("q", "").strip()
+    if negocio is None or not q:
+        return JsonResponse({"resultados": []})
+
+    productos = Producto.objects.filter(
+        negocio=negocio, nombre__icontains=q,
+    ).filter(Q(activo=True) | Q(pendiente_validacion=True))[:10]
+    resultados = [
+        {
+            "id": p.pk, "nombre": p.nombre, "icono": p.icono,
+            "precio_venta": str(p.precio_venta), "stock": str(p.cantidad_actual),
+        }
+        for p in productos
+    ]
+    return JsonResponse({"resultados": resultados})

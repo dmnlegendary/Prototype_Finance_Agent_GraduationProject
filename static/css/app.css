@@ -783,3 +783,87 @@ nav {
 }
 .tutorial-acciones button:first-child { background: none; color: var(--text-muted); }
 .tutorial-acciones button:last-child { background: var(--color-primary); color: var(--bg-white); }
+
+/* ---- Semáforo del reabastecimiento (rojo / naranja / amarillo) ---- */
+.nivel-rojo     { --nivel: var(--color-danger); --nivel-bg: var(--color-danger-bg); --nivel-texto: var(--color-danger-text); --nivel-borde: #fca5a5; }
+.nivel-naranja  { --nivel: var(--color-orange); --nivel-bg: var(--color-orange-bg); --nivel-texto: #9a3412; --nivel-borde: #fdba74; }
+.nivel-amarillo { --nivel: #ca8a04; --nivel-bg: var(--color-yellow-bg); --nivel-texto: #854d0e; --nivel-borde: var(--color-yellow-border); }
+
+.punto-nivel {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: var(--radius-full);
+  background: var(--nivel, var(--color-success));
+  margin-right: 6px;
+}
+
+/* campana de alertas del navbar */
+.btn-campana {
+  position: relative;
+  width: 34px; height: 34px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; color: var(--text-muted);
+  text-decoration: none;
+  flex-shrink: 0;
+  transition: background .15s;
+}
+.btn-campana:hover { background: var(--bg-muted); }
+.btn-campana.nivel-rojo, .btn-campana.nivel-naranja, .btn-campana.nivel-amarillo {
+  color: var(--nivel);
+  border-color: var(--nivel);
+  background: var(--nivel-bg);
+}
+.btn-campana.nivel-rojo { animation: campana-latido 1.6s ease-in-out infinite; }
+.campana-badge {
+  position: absolute;
+  top: -6px; right: -6px;
+  min-width: 18px;
+  padding: 0 5px;
+  background: var(--nivel, var(--color-danger));
+  color: var(--bg-white);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  border-radius: var(--radius-full);
+}
+@keyframes campana-latido {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
+.toast a { color: var(--color-primary); font-weight: 700; margin-left: 4px; }
+.toast.alerta { border-left-color: var(--color-danger); }
+.notif-flotante.nivel-rojo, .notif-flotante.nivel-naranja, .notif-flotante.nivel-amarillo {
+  background: var(--nivel);
+}
+.notif-flotante.nivel-amarillo { color: #422006; }
+
+/* paginación de las tablas (historial de ventas, catálogo…) */
+.paginacion {
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+  padding: 10px; font-size: 12px; color: var(--text-muted);
+  border-top: 1px solid var(--border);
+}
+.paginacion a { color: var(--color-primary); font-weight: 700; text-decoration: none; }
+
+/* ---- modal de resumen de la IA ---- */
+.resumen-numeros {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.resumen-numeros > div {
+  background: var(--bg-light);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 8px 4px;
+  text-align: center;
+}
+.resumen-numeros span { display: block; font-size: 11px; color: var(--text-muted); }
+.resumen-numeros strong { font-size: 13px; color: var(--text-primary); white-space: nowrap; }
+.resumen-numeros .ganancia strong { color: var(--color-success); }
+.resumen-numeros .gastos strong { color: var(--color-danger); }
+.resumen-texto { margin: 0; font-size: 14px; line-height: 1.6; color: var(--text-secondary); white-space: pre-line; }

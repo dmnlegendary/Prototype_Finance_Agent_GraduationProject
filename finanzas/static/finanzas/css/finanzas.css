@@ -80,7 +80,7 @@
   cursor: pointer;
   transition: transform .15s, box-shadow .15s, border-color .15s;
 }
-.fin-stat-card:hover {
+a.fin-stat-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
   border-color: var(--color-primary-border);
@@ -221,6 +221,34 @@
 
 .fin-progress-track { height: 10px; background: var(--bg-muted); border-radius: var(--radius-full); overflow: hidden; }
 .fin-progress-fill { height: 100%; background: var(--color-primary); border-radius: var(--radius-full); }
+
+.fin-filtro-margen { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fin-filtro-margen label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+.fin-filtro-margen input {
+  width: 90px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+}
+.fin-fila-precio { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.fin-input-precio {
+  width: 80px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+}
+.fin-paginacion {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.fin-paginacion a { color: var(--color-primary); font-weight: 600; text-decoration: none; }
 
 .fin-insight-purple {
   background: var(--color-primary-bg);

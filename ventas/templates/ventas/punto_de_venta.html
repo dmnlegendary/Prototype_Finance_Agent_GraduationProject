@@ -43,7 +43,7 @@
 {% if messages %}
 <div class="notif-flotante-wrap">
   {% for message in messages %}
-  <div class="notif-flotante"><i class="bi bi-check-circle-fill"></i> {{ message }}</div>
+  <div class="notif-flotante {{ message.extra_tags }}"><i class="bi {% if message.level_tag == 'warning' %}bi-exclamation-triangle-fill{% else %}bi-check-circle-fill{% endif %}"></i> {{ message }}</div>
   {% endfor %}
 </div>
 {% endif %}
@@ -183,6 +183,7 @@
       <div class="ticket-receipt">
         <div class="receipt-title">
           {{ ticket_venta.negocio.nombre_tienda }}<br/>
+          {% if ticket_venta.negocio.alcaldia %}<span style="font-weight:400;font-size:12px;color:var(--text-muted)">{{ ticket_venta.negocio.get_alcaldia_display }}, CDMX</span><br/>{% endif %}
           <span style="font-weight:400;font-size:12px;color:var(--text-muted)">{{ ticket_venta.creado_en|date:"d/m/Y" }} · {{ ticket_venta.creado_en|date:"H:i" }} · Folio #{{ ticket_venta.folio|stringformat:"04d" }}</span>
         </div>
         {% for item in ticket_items %}

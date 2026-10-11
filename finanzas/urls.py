@@ -11,6 +11,7 @@ urlpatterns = [
     path("gastos/historial/", views.historial_gastos, name="historial_gastos"),
     path("equilibrio/", views.punto_equilibrio, name="punto_equilibrio"),
     path("precios/", views.sugerir_precios, name="sugerir_precios"),
+    path("precios/<int:pk>/aceptar/", views.aceptar_precio_sugerido, name="aceptar_precio_sugerido"),
     path("pronostico/", views.pronostico_ventas, name="pronostico_ventas"),
     path("reportes/", views.reportes_financieros, name="reportes_financieros"),
 ]

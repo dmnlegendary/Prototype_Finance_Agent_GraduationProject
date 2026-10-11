@@ -6,7 +6,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db import transaction
+from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -14,6 +14,7 @@ from django.views.decorators.http import require_POST
 
 from inventario.models import Producto
 
+from .cobro import cobrar_venta, texto_aviso_stock
 from .models import ItemVenta, Venta
 
 
@@ -188,16 +189,11 @@ def cobrar(request):
         messages.warning(request, "El carrito está vacío, no hay nada que cobrar.")
         return redirect("ventas:punto_de_venta")
 
-    with transaction.atomic():
-        # descuenta el inventario producto por producto, sin dejarlo en negativo
-        for item in venta.items.select_related("producto"):
-            producto = item.producto
-            producto.cantidad_actual = max(producto.cantidad_actual - item.cantidad, Decimal("0"))
-            producto.save(update_fields=["cantidad_actual"])
-
-        venta.estado = Venta.Estado.COBRADA
-        venta.save(update_fields=["estado"])
-        venta.recalcular_total()
+    # avisa si esta venta dejó algún producto en amarillo, naranja o rojo
+    for producto in cobrar_venta(venta):
+        messages.add_message(
+            request, messages.WARNING, texto_aviso_stock(producto), extra_tags=f"nivel-{producto.nivel_stock}",
+        )
 
     # el ticket se muestra como notificación + modal en la propia pantalla,
     # no en una página aparte
@@ -225,7 +221,9 @@ def historial(request):
         return redirect("accounts:datos_negocio")
 
     ventas = Venta.objects.filter(negocio=negocio).exclude(estado=Venta.Estado.EN_CURSO).order_by("-creado_en")
-    return render(request, "ventas/historial.html", {"ventas": ventas})
+    # por páginas, porque un negocio con años de historia tiene miles de ventas
+    pagina = Paginator(ventas, 25).get_page(request.GET.get("page"))
+    return render(request, "ventas/historial.html", {"ventas": pagina, "pagina": pagina})
 
 
 @login_required

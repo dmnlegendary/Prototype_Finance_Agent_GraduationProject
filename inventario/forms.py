@@ -8,7 +8,7 @@ class ProductoForm(forms.ModelForm):
         model = Producto
         fields = [
             "nombre", "descripcion", "costo", "precio_venta",
-            "cantidad_actual", "cantidad_minima", "categoria", "proveedor",
+            "cantidad_actual", "cantidad_minima", "stock_ideal", "categoria", "proveedor",
         ]
         widgets = {
             "nombre": forms.TextInput(attrs={"placeholder": "Ej: Coca Cola 2lt"}),
@@ -17,6 +17,7 @@ class ProductoForm(forms.ModelForm):
             "precio_venta": forms.NumberInput(attrs={"step": "0.01", "placeholder": "0.00"}),
             "cantidad_actual": forms.NumberInput(attrs={"step": "1", "placeholder": "0"}),
             "cantidad_minima": forms.NumberInput(attrs={"step": "1", "placeholder": "0"}),
+            "stock_ideal": forms.NumberInput(attrs={"step": "1", "placeholder": "0"}),
             "categoria": forms.RadioSelect(),
         }
 
@@ -26,6 +27,19 @@ class ProductoForm(forms.ModelForm):
             self.fields["proveedor"].queryset = Proveedor.objects.filter(negocio=negocio)
         self.fields["proveedor"].required = False
         self.fields["categoria"].required = False
+        self.fields["stock_ideal"].required = False
+
+    def clean_stock_ideal(self):
+        # si lo dejan vacío se toma como 0 (el sistema usa 4 veces el mínimo)
+        return self.cleaned_data.get("stock_ideal") or 0
+
+    def clean(self):
+        datos = super().clean()
+        minima = datos.get("cantidad_minima")
+        ideal = datos.get("stock_ideal")
+        if minima is not None and ideal and ideal < minima:
+            self.add_error("stock_ideal", "El stock ideal no puede ser menor que la cantidad mínima.")
+        return datos
 
 
 class ProveedorForm(forms.ModelForm):

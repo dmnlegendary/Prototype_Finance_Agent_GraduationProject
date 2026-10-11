@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, LogoutView
 from django.shortcuts import redirect, render
 
+from core import cache_negocio
 from inventario.models import Categoria, Producto, ProductoCatalogo
 from ventas.models import ItemVenta
 
@@ -21,7 +22,8 @@ def registro(request):
         form = RegistroForm(request.POST)
         if form.is_valid():
             usuario = form.save()
-            auth_login(request, usuario)
+            # hay más de un backend de autenticación, así que hay que decir con cuál se inicia sesión
+            auth_login(request, usuario, backend="django.contrib.auth.backends.ModelBackend")
             return redirect("accounts:datos_negocio")
     else:
         form = RegistroForm()
@@ -67,6 +69,8 @@ def productos_precargados(request):
             )
             for item in catalogo_items
         ])
+        # bulk_create no avisa a las señales, así que se limpia el cache a mano
+        cache_negocio.invalidar(negocio.pk)
         return redirect("ventas:punto_de_venta")
 
     context = {

@@ -302,3 +302,49 @@
   .catalog-table td:nth-child(5) { display: none; }
   .form-row { grid-template-columns: 1fr; }
 }
+
+/* ---- Semáforo en la tabla del catálogo ---- */
+.catalog-table td.stock-celda { font-weight: 700; color: var(--nivel, var(--color-success)); white-space: nowrap; }
+.fila-nivel-rojo td:first-child { box-shadow: inset 4px 0 0 var(--color-danger); }
+.fila-nivel-naranja td:first-child { box-shadow: inset 4px 0 0 var(--color-orange); }
+.fila-nivel-amarillo td:first-child { box-shadow: inset 4px 0 0 #ca8a04; }
+
+.leyenda-semaforo {
+  display: flex; flex-wrap: wrap; gap: 14px;
+  font-size: 12px; color: var(--text-muted);
+  padding: 0 16px 8px;
+}
+
+/* ---- Pantalla de alertas ---- */
+.alert-filtros { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip-nivel {
+  border: 1.5px solid var(--nivel, var(--border));
+  background: var(--bg-white);
+  color: var(--nivel-texto, var(--text-secondary));
+  border-radius: var(--radius-full);
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.chip-nivel.activo { background: var(--nivel, var(--color-primary)); color: var(--bg-white); }
+.chip-nivel.todos { --nivel: var(--color-primary); --nivel-texto: var(--color-primary); }
+
+.alert-item.nivel-rojo, .alert-item.nivel-naranja, .alert-item.nivel-amarillo {
+  background: var(--nivel-bg);
+  border-color: var(--nivel-borde);
+}
+.alert-item.nivel-rojo .alert-title, .alert-item.nivel-naranja .alert-title, .alert-item.nivel-amarillo .alert-title {
+  color: var(--nivel-texto);
+}
+.alert-priority.nivel-rojo, .alert-priority.nivel-naranja, .alert-priority.nivel-amarillo {
+  background: var(--nivel);
+  color: var(--bg-white);
+}
+.barra-stock {
+  height: 6px; border-radius: var(--radius-full);
+  background: rgba(0,0,0,.08);
+  margin-top: 6px; overflow: hidden;
+}
+.barra-stock > span { display: block; height: 100%; background: var(--nivel); }
+.sin-resultados { display: none; text-align: center; color: var(--text-faint); font-size: 13px; padding: 20px; }

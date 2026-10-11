@@ -27,6 +27,11 @@ class Venta(ModeloBase):
         ordering = ["-creado_en"]
         constraints = [
             models.UniqueConstraint(fields=["negocio", "folio"], name="folio_unico_por_negocio"),
+            models.CheckConstraint(condition=models.Q(total__gte=0), name="venta_total_no_negativo"),
+        ]
+        # los reportes siempre piden "las ventas COBRADAS de un negocio en un rango de fechas"
+        indexes = [
+            models.Index(fields=["negocio", "estado", "creado_en"], name="venta_negocio_estado_fecha_idx"),
         ]
 
     def __str__(self):
@@ -49,6 +54,10 @@ class ItemVenta(ModeloBase):
 
     class Meta:
         ordering = ["id"]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(cantidad__gt=0), name="item_cantidad_positiva"),
+            models.CheckConstraint(condition=models.Q(precio_unitario__gte=0), name="item_precio_no_negativo"),
+        ]
 
     def __str__(self):
         return f"{self.cantidad} x {self.producto.nombre}"

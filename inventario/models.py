@@ -73,6 +73,13 @@ class Producto(ModeloBase):
 
     cantidad_actual = models.DecimalField("Cantidad actual", max_digits=10, decimal_places=2, default=0)
     cantidad_minima = models.DecimalField("Cantidad mínima", max_digits=10, decimal_places=2, default=0)
+    # Lo que tienes cuando resurtes completo. Con este número se pintan los
+    # colores del semáforo: amarillo a la mitad, naranja a un cuarto y rojo al
+    # llegar al mínimo. Si se deja en 0 se usa 4 veces el mínimo.
+    stock_ideal = models.DecimalField(
+        "Stock ideal", max_digits=10, decimal_places=2, default=0,
+        help_text="Piezas que tienes cuando resurtes completo. Déjalo en 0 si no lo sabes.",
+    )
 
     catalogo_origen = models.ForeignKey(
         ProductoCatalogo, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
@@ -87,6 +94,28 @@ class Producto(ModeloBase):
 
     class Meta:
         ordering = ["nombre"]
+        # Índices para que el catálogo y las alertas no se pongan lentos
+        # cuando hay miles de productos (se buscan casi siempre por negocio).
+        indexes = [
+            models.Index(fields=["negocio", "activo"], name="producto_negocio_activo_idx"),
+            models.Index(fields=["negocio", "nombre"], name="producto_negocio_nombre_idx"),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(costo__gte=0) & models.Q(precio_venta__gte=0),
+                name="producto_precios_no_negativos",
+                violation_error_message="El costo y el precio de venta no pueden ser negativos.",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(cantidad_actual__gte=0)
+                    & models.Q(cantidad_minima__gte=0)
+                    & models.Q(stock_ideal__gte=0)
+                ),
+                name="producto_cantidades_no_negativas",
+                violation_error_message="Las cantidades no pueden ser negativas.",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.nombre} ({self.negocio.nombre_tienda})"
@@ -98,8 +127,37 @@ class Producto(ModeloBase):
         return round((self.precio_venta - self.costo) / self.precio_venta * 100, 1)
 
     @property
+    def stock_ideal_efectivo(self):
+        """El stock ideal que se usa para los colores: el que capturó el
+        tendero, o 4 veces el mínimo si no lo capturó (o si quedó menor al mínimo)."""
+        if self.stock_ideal > self.cantidad_minima:
+            return self.stock_ideal
+        return self.cantidad_minima * 4
+
+    @property
+    def nivel_stock(self):
+        """Semáforo del reabastecimiento: "rojo", "naranja", "amarillo" u "ok"."""
+        # un producto "no encontrado" que aún no se valida no lleva control de stock
+        if self.pendiente_validacion:
+            return "ok"
+
+        actual = self.cantidad_actual
+        if actual <= self.cantidad_minima:
+            return "rojo"
+
+        ideal = self.stock_ideal_efectivo
+        # el naranja nunca baja del mínimo, y el amarillo nunca del naranja
+        limite_naranja = max(ideal / 4, self.cantidad_minima)
+        limite_amarillo = max(ideal / 2, limite_naranja)
+        if actual <= limite_naranja:
+            return "naranja"
+        if actual <= limite_amarillo:
+            return "amarillo"
+        return "ok"
+
+    @property
     def stock_critico(self):
-        return self.cantidad_actual <= self.cantidad_minima
+        return self.nivel_stock == "rojo"
 
     @property
     def tiene_ventas(self):

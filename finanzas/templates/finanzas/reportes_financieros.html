@@ -1,5 +1,5 @@
 {% extends "finanzas/_base_finanzas.html" %}
-
+{% load humanize %}
 
 {% block fin_content %}
 <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
@@ -7,29 +7,60 @@
     <div class="fin-title"><i class="bi bi-bar-chart-fill"></i> Reportes Financieros</div>
     <p class="fin-subtitle">Resumen de ingresos, egresos y utilidades.</p>
   </div>
-  <div class="fin-period-toggle">
-    <a href="?periodo=3" class="{% if periodo_meses == 3 %}active{% endif %}" data-sin-loader>3 meses</a>
-    <a href="?periodo=6" class="{% if periodo_meses == 6 %}active{% endif %}" data-sin-loader>6 meses</a>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <button type="button" class="btn-avi-explica" style="margin-bottom:0;" onclick="explicarConAvi('reportes')">
+      <i class="bi bi-robot"></i> Explícame mis reportes
+    </button>
+    <div class="fin-period-toggle">
+      <a href="?periodo=3" class="{% if periodo_meses == 3 %}active{% endif %}" data-sin-loader>3 meses</a>
+      <a href="?periodo=6" class="{% if periodo_meses == 6 %}active{% endif %}" data-sin-loader>6 meses</a>
+    </div>
   </div>
 </div>
 
 <div class="fin-stat-grid">
   <div class="fin-stat-card">
     <div class="fin-stat-label">Ingresos totales</div>
-    <div class="fin-stat-value" style="color:var(--color-primary);">${{ ingresos_totales|floatformat:2 }}</div>
+    <div class="fin-stat-value" style="color:var(--color-primary);">${{ total.ingresos|floatformat:2|intcomma }}</div>
   </div>
   <div class="fin-stat-card">
-    <div class="fin-stat-label">Egresos totales</div>
-    <div class="fin-stat-value" style="color:var(--color-danger);">${{ egresos_totales|floatformat:2 }}</div>
+    <div class="fin-stat-label">Flujo de efectivo</div>
+    <div class="fin-stat-value" style="color:var(--color-azul);">${{ total.flujo_efectivo|floatformat:2|intcomma }}</div>
+  </div>
+  <div class="fin-stat-card">
+    <div class="fin-stat-label">Margen operativo</div>
+    <div class="fin-stat-value" style="color:var(--color-orange);">{% if total.margen_operativo is not None %}{{ total.margen_operativo }}%{% else %}—{% endif %}</div>
   </div>
   <div class="fin-stat-card">
     <div class="fin-stat-label">Utilidad neta</div>
-    <div class="fin-stat-value" style="color:var(--color-success);">${{ utilidad_neta|floatformat:2 }}</div>
+    <div class="fin-stat-value" style="color:{% if total.utilidad_neta < 0 %}var(--color-danger){% else %}var(--color-success){% endif %};">${{ total.utilidad_neta|floatformat:2|intcomma }}</div>
   </div>
-  <div class="fin-stat-card">
-    <div class="fin-stat-label">Margen promedio</div>
-    <div class="fin-stat-value" style="color:var(--color-orange);">{{ margen_promedio }}%</div>
-  </div>
+</div>
+
+<div class="fin-card">
+  <h3>¿Cómo sale tu utilidad neta?</h3>
+  <table class="fin-table">
+    <tbody>
+      <tr><td>Lo que vendiste (ingresos)</td><td style="text-align:right;">${{ total.ingresos|floatformat:2|intcomma }}</td></tr>
+      <tr><td>− Lo que te costó la mercancía que vendiste (costo de ventas)</td><td style="text-align:right;">${{ total.costo_ventas|floatformat:2|intcomma }}</td></tr>
+      <tr><td>− Tus gastos del negocio (renta, luz, etc.)</td><td style="text-align:right;">${{ total.gastos|floatformat:2|intcomma }}</td></tr>
+      <tr>
+        <td>
+          {% if es_resico %}− Impuesto ISR RESICO ({{ total.tasa_isr }}% de tus ingresos){% else %}− Impuesto ISR (tu negocio no está en RESICO, no se calcula){% endif %}
+        </td>
+        <td style="text-align:right;">${{ total.isr|floatformat:2|intcomma }}</td>
+      </tr>
+      <tr>
+        <td><strong>= Lo que realmente te queda (utilidad neta)</strong></td>
+        <td style="text-align:right;"><strong>${{ total.utilidad_neta|floatformat:2|intcomma }}</strong></td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="fin-subtitle" style="margin-top:10px;">
+    Flujo de efectivo = ingresos − gastos registrados.
+    Margen operativo = lo que te queda antes de impuestos entre lo que vendiste.
+    La tasa de ISR RESICO depende de tus ingresos de los últimos 12 meses.
+  </p>
 </div>
 
 <div class="fin-grid-2">

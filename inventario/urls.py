@@ -13,4 +13,5 @@ urlpatterns = [
     path("proveedores/", views.proveedores, name="proveedores"),
     path("proveedores/<int:pk>/editar/", views.proveedor_editar, name="proveedor_editar"),
     path("alertas/", views.alertas, name="alertas"),
+    path("buscar/", views.buscar_json, name="buscar_json"),
 ]

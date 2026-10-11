@@ -1,5 +1,5 @@
 # Configuración de Django del proyecto (marIA).
-# Por ahora todo corre en local con SQLite.
+# Corre en local con SQLite o con PostgreSQL (ver DATABASES más abajo).
 
 import os
 from pathlib import Path
@@ -87,10 +87,36 @@ WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
 
-DATABASES = {
+# Base de datos. Si en el .env se define DB_NAME se usa PostgreSQL (lo
+# recomendado, sobre todo con miles de productos y ventas). Si no, se usa
+# SQLite para poder probar el proyecto sin instalar nada. Ver database/README.md
+if os.environ.get("DB_NAME"):
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ["DB_NAME"],
+            "USER": os.environ.get("DB_USER", "postgres"),
+            "PASSWORD": os.environ.get("DB_PASSWORD", ""),
+            "HOST": os.environ.get("DB_HOST", "localhost"),
+            "PORT": os.environ.get("DB_PORT", "5432"),
+            "CONN_MAX_AGE": 60,
+        }
+    }
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
+
+# Cache en memoria para los datos que más se piden (ver core/cache_negocio.py).
+# Ojo: vive dentro de cada proceso de Python; si algún día se corren varios
+# procesos hay que cambiarlo por Redis.
+CACHES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "marIA",
     }
 }
 
@@ -126,6 +152,7 @@ LOGOUT_REDIRECT_URL = "accounts:login"
 
 
 # API keys del AVI (nunca hardcodeadas). Se definen como variables de entorno:
+#   Lo más fácil: python manage.py configurar_ia (las guarda en el archivo .env)
 #   Windows:  set OPENAI_API_KEY=sk-...
 #   Linux/Mac: export OPENAI_API_KEY=sk-...
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")

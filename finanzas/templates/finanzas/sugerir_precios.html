@@ -1,26 +1,77 @@
 {% extends "finanzas/_base_finanzas.html" %}
 
-
 {% block fin_content %}
 <div class="fin-title"><i class="bi bi-tag-fill"></i> Sugerir Precios</div>
-<p class="fin-subtitle">Precio sugerido por producto, a partir de tu costo y un margen de ganancia.</p>
+<p class="fin-subtitle">Precio sugerido por producto, a partir de lo que te cuesta y la ganancia que quieres tener.</p>
 
 <div class="fin-callout">
-  <i class="bi bi-lightbulb-fill"></i> La fórmula todavía no está definida. Por ahora se muestran precios de ejemplo,
-  fijos en la plantilla, para revisar cómo se va a ver la pantalla.
+  <i class="bi bi-lightbulb-fill"></i> <strong>¿Cómo se calcula?</strong> Precio sugerido = costo del producto ÷ (1 − margen que quieres).
+  Por ejemplo, si te cuesta $15 y quieres ganar 40% del precio, lo vendes en $25.
+  {% if gastos_sobre_ventas is not None %}
+  <br>De cada $100 que vendiste en los últimos 3 meses, <strong>${{ gastos_sobre_ventas }}</strong> se fueron en gastos operativos:
+  elige un margen mayor a ese porcentaje para que te quede ganancia.
+  {% endif %}
 </div>
 
 <div class="fin-card">
+  <form method="get" class="fin-filtro-margen">
+    <label for="margen">Margen que quiero ganar (%)</label>
+    <input type="number" id="margen" name="margen" value="{{ margen|floatformat:'-1' }}" min="1" max="90" step="0.5">
+    <button type="submit" class="fin-btn-primary">Calcular</button>
+  </form>
+</div>
+
+<div class="fin-card">
+  {% if pagina.object_list %}
   <table class="fin-table">
     <thead>
-      <tr><th>Producto</th><th>Costo</th><th>Precio actual</th><th>Precio sugerido</th><th>Margen</th></tr>
+      <tr>
+        <th>Producto</th>
+        <th>Costo</th>
+        <th>Precio actual</th>
+        <th>Margen actual</th>
+        <th>Precio sugerido</th>
+        <th>Tu decisión</th>
+      </tr>
     </thead>
     <tbody>
-      <tr><td>Pan Bimbo blanco</td><td>$28.00</td><td>$32.00</td><td><span class="fin-badge-green">$35.50</span></td><td>21%</td></tr>
-      <tr><td>Coca-Cola 600ml</td><td>$18.00</td><td>$25.00</td><td><span class="fin-badge-green">$26.00</span></td><td>30%</td></tr>
-      <tr><td>Sabritas Original</td><td>$14.50</td><td>$18.00</td><td><span class="fin-badge-green">$19.50</span></td><td>26%</td></tr>
-      <tr><td>Leche Lala 1L</td><td>$22.00</td><td>$28.00</td><td><span class="fin-badge-green">$28.50</span></td><td>23%</td></tr>
+      {% for fila in pagina.object_list %}
+      <tr>
+        <td>{{ fila.producto.icono }} {{ fila.producto.nombre }}</td>
+        <td>${{ fila.producto.costo }}</td>
+        <td>${{ fila.producto.precio_venta }}</td>
+        <td>{{ fila.producto.margen_porcentaje }}%</td>
+        <td><span class="fin-badge-green">${{ fila.sugerido }}</span></td>
+        <td>
+          <form method="post" action="{% url 'finanzas:aceptar_precio_sugerido' fila.producto.pk %}" class="fin-fila-precio">
+            {% csrf_token %}
+            <input type="hidden" name="margen" value="{{ margen }}">
+            <input type="hidden" name="page" value="{{ pagina.number }}">
+            <input type="text" name="precio" value="{{ fila.sugerido }}" inputmode="decimal" class="fin-input-precio" title="Puedes ajustar el precio antes de aceptarlo">
+            <button type="submit" class="btn-edit-row">Aceptar</button>
+            <button type="button" class="btn-edit-row btn-danger-row" onclick="this.closest('tr').remove()">Rechazar</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
     </tbody>
   </table>
+
+  {% if pagina.paginator.num_pages > 1 %}
+  <div class="fin-paginacion">
+    {% if pagina.has_previous %}<a href="?margen={{ margen }}&page={{ pagina.previous_page_number }}" data-sin-loader>&larr; Anterior</a>{% endif %}
+    <span>Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+    {% if pagina.has_next %}<a href="?margen={{ margen }}&page={{ pagina.next_page_number }}" data-sin-loader>Siguiente &rarr;</a>{% endif %}
+  </div>
+  {% endif %}
+  <p class="fin-subtitle" style="margin-top:10px;">
+    Puedes cambiar el precio antes de aceptarlo. "Rechazar" deja tu precio actual sin cambios.
+    Se muestran primero los productos que más deberían subir.
+  </p>
+  {% else %}
+  <p class="fin-subtitle" style="margin:0;">
+    No hay productos con costo registrado todavía. Dale costo a tus productos desde el módulo de inventario para ver sus precios sugeridos.
+  </p>
+  {% endif %}
 </div>
 {% endblock %}

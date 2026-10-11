@@ -49,10 +49,12 @@
 {% endif %}
 
 <div class="state active">
-  {% if alertas_count %}
+  {% if conteo.total %}
   <a class="alert-banner" href="{% url 'inventario:alertas' %}">
     <i class="bi bi-bell-fill"></i> ¡Alertas de reabastecimiento!
-    <span class="alert-badge">{{ alertas_count }}</span>
+    {% if conteo.rojo %}<span class="alert-badge" style="background:var(--color-danger);">{{ conteo.rojo }} rojas</span>{% endif %}
+    {% if conteo.naranja %}<span class="alert-badge" style="background:var(--color-orange);">{{ conteo.naranja }} naranjas</span>{% endif %}
+    {% if conteo.amarillo %}<span class="alert-badge" style="background:#ca8a04;">{{ conteo.amarillo }} amarillas</span>{% endif %}
     <span class="arrow">Ver todas →</span>
   </a>
   {% else %}
@@ -67,10 +69,10 @@
     <button type="button" class="btn-action btn-proveedores" onclick="openModal('proveedores')"><i class="bi bi-truck"></i> Proveedores</button>
   </div>
 
-  <form method="get" class="search-filter-row">
+  <form method="get" class="search-filter-row" id="formBuscarInventario">
     <div class="search-inv">
       <i class="bi bi-search"></i>
-      <input type="text" name="q" value="{{ q }}" placeholder="Buscar por nombre…"/>
+      <input type="text" name="q" id="buscarInventario" value="{{ q }}" placeholder="Buscar por nombre…" autocomplete="off" oninput="buscarEnInventario()"{% if q %} autofocus{% endif %}/>
     </div>
     <select class="filter-select" name="categoria" onchange="this.form.submit()">
       <option value="">Filtrar por categoría</option>
@@ -79,6 +81,12 @@
       {% endfor %}
     </select>
   </form>
+
+  <div class="leyenda-semaforo">
+    <span><span class="punto-nivel nivel-amarillo"></span>Va a la mitad</span>
+    <span><span class="punto-nivel nivel-naranja"></span>Queda un cuarto</span>
+    <span><span class="punto-nivel nivel-rojo"></span>Llegó al mínimo: resurtir</span>
+  </div>
 
   <div class="catalog-wrap" id="producto-lista">
     <div class="catalog-card">
@@ -96,14 +104,15 @@
           </thead>
           <tbody>
             {% for producto in productos %}
-            <tr>
+            {% with nivel=producto.nivel_stock %}
+            <tr class="{% if nivel != 'ok' %}fila-nivel-{{ nivel }}{% endif %}">
               <td>
                 {{ producto.icono }} {{ producto.nombre }}
                 {% if producto.pendiente_validacion %}<span class="badge-cat" style="background:var(--color-yellow-bg);color:#a16207;">Pendiente de validar</span>{% endif %}
               </td>
               <td>{% if producto.categoria %}<span class="badge-cat cat-{{ producto.categoria.nombre|lower }}">{{ producto.categoria.nombre }}</span>{% endif %}</td>
-              <td class="{% if producto.stock_critico %}stock-low{% else %}stock-ok{% endif %}">{{ producto.cantidad_actual }} pzas</td>
-              <td>{{ producto.cantidad_minima }}</td>
+              <td class="stock-celda {% if nivel != 'ok' %}nivel-{{ nivel }}{% endif %}">{% if nivel != 'ok' %}<span class="punto-nivel"></span>{% endif %}{{ producto.cantidad_actual|floatformat:"-2" }} pzas</td>
+              <td>{{ producto.cantidad_minima|floatformat:"-2" }}</td>
               <td class="right">${{ producto.costo }} / ${{ producto.precio_venta }}</td>
               <td style="display:flex; gap:6px;">
                 <button type="button" class="btn-edit-row" onclick="openModal('editar-{{ producto.pk }}')">{% if producto.pendiente_validacion %}Completar{% else %}Editar{% endif %}</button>
@@ -115,6 +124,7 @@
                 {% endif %}
               </td>
             </tr>
+            {% endwith %}
             {% empty %}
             <tr>
               <td colspan="6" style="text-align:center;color:var(--text-faint);padding:24px;">
@@ -129,6 +139,17 @@
           </tbody>
         </table>
       </div>
+      {% if pagina.paginator.num_pages > 1 %}
+      <div class="paginacion">
+        {% if pagina.has_previous %}
+        <a href="?page={{ pagina.previous_page_number }}{% if querystring %}&{{ querystring }}{% endif %}" data-sin-loader>← Anterior</a>
+        {% endif %}
+        <span>Página {{ pagina.number }} de {{ pagina.paginator.num_pages }} · {{ pagina.paginator.count }} productos</span>
+        {% if pagina.has_next %}
+        <a href="?page={{ pagina.next_page_number }}{% if querystring %}&{{ querystring }}{% endif %}" data-sin-loader>Siguiente →</a>
+        {% endif %}
+      </div>
+      {% endif %}
     </div>
   </div>
 </div>
@@ -187,6 +208,13 @@
       </div>
 
       <div class="form-group">
+        {{ form_alta.stock_ideal.label_tag }}
+        {{ form_alta.stock_ideal }}
+        <span style="font-size:11px;color:var(--text-faint);">{{ form_alta.stock_ideal.help_text }} Con este número se pintan los colores: amarillo a la mitad, naranja a un cuarto y rojo al llegar al mínimo.</span>
+        {% if form_alta.stock_ideal.errors %}<span style="color:var(--color-danger);font-size:12px;">{{ form_alta.stock_ideal.errors|join:", " }}</span>{% endif %}
+      </div>
+
+      <div class="form-group">
         <label>Categoría</label>
         <div class="cat-pills">
           {% for radio in form_alta.categoria %}
@@ -217,20 +245,9 @@
       <button type="button" class="panel-close" onclick="closeModal('modificar-picker')"><i class="bi bi-x-lg"></i></button>
     </div>
     <div class="panel-body">
-      <input type="text" id="buscarModificar" placeholder="Buscar producto…" class="filtro-picker" oninput="filtrarPicker(this.value)">
+      <input type="text" id="buscarModificar" placeholder="Escribe el nombre del producto…" class="filtro-picker" autocomplete="off" oninput="buscarParaModificar(this.value)" data-url="{% url 'inventario:buscar_json' %}" data-url-panel="{% url 'inventario:panel' %}">
       <div id="listaModificar" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto;">
-        {% for producto in productos %}
-        <div class="provider-card picker-item" data-nombre="{{ producto.nombre|lower }}" onclick="closeModal('modificar-picker'); openModal('editar-{{ producto.pk }}')">
-          <div class="prov-avatar">{{ producto.icono }}</div>
-          <div class="prov-info">
-            <div class="prov-name">{{ producto.nombre }}</div>
-            <div class="prov-contact">${{ producto.precio_venta }} · {{ producto.cantidad_actual }} pzas</div>
-          </div>
-          <i class="bi bi-chevron-right" style="color:var(--text-faint);"></i>
-        </div>
-        {% empty %}
-        <p style="font-size:13px;color:var(--text-faint);text-align:center;">Aún no tienes productos dados de alta.</p>
-        {% endfor %}
+        <p style="font-size:13px;color:var(--text-faint);text-align:center;">Escribe para buscar entre tus productos.</p>
       </div>
     </div>
   </div>
@@ -281,6 +298,11 @@
           {{ producto.form_editar.cantidad_minima.label_tag }}
           {{ producto.form_editar.cantidad_minima }}
         </div>
+      </div>
+      <div class="form-group">
+        {{ producto.form_editar.stock_ideal.label_tag }}
+        {{ producto.form_editar.stock_ideal }}
+        {% if producto.form_editar.stock_ideal.errors %}<span style="color:var(--color-danger);font-size:12px;">{{ producto.form_editar.stock_ideal.errors|join:", " }}</span>{% endif %}
       </div>
       <div class="form-group">
         <label>Categoría</label>

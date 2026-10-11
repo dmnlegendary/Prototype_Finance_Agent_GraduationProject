@@ -154,43 +154,71 @@ function refrescarVistaActual() {
     .catch(function () {});
 }
 
-function mostrarResumenAvi(modelo) {
-  const chat = document.getElementById('aviChat');
-  const panel = document.getElementById('aviPanel');
-  if (!chat || !panel) return;
+function dineroMx(valor) {
+  return Number(valor || 0).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+}
 
-  openAvi();
+function modeloElegido() {
+  const select = document.getElementById('aviModelo');
+  return select ? select.value : 'chatgpt';
+}
 
-  const burbuja = document.createElement('div');
-  burbuja.className = 'bubble bot';
-  burbuja.innerHTML = aiLoaderHTML('Revisando cómo te fue ayer…');
-  chat.appendChild(burbuja);
-  chat.scrollTop = chat.scrollHeight;
+// Abre el modal de la IA, pide el texto al servidor y lo muestra.
+// conNumeros = true agrega las tres cifras de ayer (ventas, ganancia y gastos).
+function mostrarModalAvi(titulo, url, textoCargando, textoError, conNumeros) {
+  const cuerpo = document.getElementById('resumenAviCuerpo');
+  if (!cuerpo) return;
 
-  fetch('/avi/resumen/?modelo=' + (modelo || 'chatgpt'))
+  document.getElementById('resumenAviTitulo').innerHTML = '<i class="bi bi-stars"></i> ' + titulo;
+  cuerpo.innerHTML = aiLoaderHTML(textoCargando);
+  openModal('resumen-avi');
+
+  fetch(url)
     .then(function (r) { return r.json(); })
     .then(function (datos) {
-      const urlPronostico = panel.dataset.urlPronostico || '#';
-      burbuja.innerHTML = '';
+      cuerpo.innerHTML = '';
 
+      if (conNumeros && datos.total_ventas !== undefined) {
+        const numeros = document.createElement('div');
+        numeros.className = 'resumen-numeros';
+        numeros.innerHTML = ''
+          + '<div><span>Vendiste</span><strong>' + dineroMx(datos.total_ventas) + '</strong></div>'
+          + '<div class="ganancia"><span>Ganaste</span><strong>' + dineroMx(datos.ganancia) + '</strong></div>'
+          + '<div class="gastos"><span>Gastaste</span><strong>' + dineroMx(datos.total_gastos) + '</strong></div>';
+        cuerpo.appendChild(numeros);
+      }
+
+      // textContent (no innerHTML) para que nada de lo que conteste la IA se ejecute como código
       const texto = document.createElement('p');
-      texto.style.margin = '0 0 8px';
-      texto.textContent = datos.respuesta;
-      burbuja.appendChild(texto);
-
-      const acciones = document.createElement('div');
-      acciones.className = 'bubble-acciones';
-      acciones.innerHTML =
-        '<button type="button" onclick="document.getElementById(\'aviTexto\').focus()">Preguntar más</button>'
-        + '<a href="' + urlPronostico + '">Ir a pronóstico de ventas</a>';
-      burbuja.appendChild(acciones);
+      texto.className = 'resumen-texto';
+      texto.textContent = String(datos.respuesta || '').replace(/\*\*/g, '');
+      cuerpo.appendChild(texto);
     })
     .catch(function () {
-      burbuja.textContent = 'No pude generar tu resumen de ayer. Intenta de nuevo.';
-    })
-    .finally(function () {
-      chat.scrollTop = chat.scrollHeight;
+      cuerpo.textContent = textoError;
     });
+}
+
+// Resumen de "cómo te fue ayer" al iniciar sesión
+function mostrarResumenAvi(modelo) {
+  mostrarModalAvi(
+    'Así te fue ayer',
+    '/avi/resumen/?modelo=' + (modelo || modeloElegido()),
+    'Revisando cómo te fue ayer…',
+    'No pude generar tu resumen de ayer. Intenta de nuevo.',
+    true
+  );
+}
+
+// Explicación del dashboard ('dashboard') o de los reportes financieros ('reportes')
+function explicarConAvi(tipo) {
+  mostrarModalAvi(
+    tipo === 'reportes' ? 'Tus reportes, explicados' : 'Tu negocio, explicado',
+    '/avi/explicar/' + tipo + '/?modelo=' + modeloElegido(),
+    'Revisando tus números…',
+    'No pude explicarte tus números. Intenta de nuevo.',
+    false
+  );
 }
 
 function activarMicrofono() {
@@ -249,7 +277,8 @@ const TUTORIALES = {
   inventario: [
     { selector: '.btn-alta', texto: 'Da de alta tus productos aquí, uno por uno o poco a poco.' },
     { selector: '.search-inv', texto: 'Busca cualquier producto de tu catálogo por nombre.' },
-    { selector: '.alert-banner', texto: 'Aquí te avisamos cuando un producto se está agotando.' },
+    { selector: '.alert-banner', texto: 'Aquí te avisamos cuando un producto se está agotando: amarillo a la mitad, naranja a un cuarto y rojo cuando ya hay que resurtir.' },
+    { selector: '.btn-campana', texto: 'La campana te avisa desde cualquier pantalla y cambia de color según qué tan urgente sea.' },
   ],
   finanzas: [
     { selector: '.btn-avi-explica', texto: 'Pídele a marIA que te explique tus números en palabras simples.' },
@@ -333,6 +362,22 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 });
 
+// Aviso de reabastecimiento: una sola vez por sesión del navegador (y otra vez si suben las rojas)
+document.addEventListener('DOMContentLoaded', function () {
+  const shell = document.querySelector('.app-shell');
+  if (!shell) return;
+  const rojas = parseInt(shell.dataset.alertasRojo || '0', 10);
+  if (!rojas) return;
+
+  let avisadas = '0';
+  try { avisadas = sessionStorage.getItem('alertas_rojas_avisadas') || '0'; } catch (e) {}
+  if (rojas <= parseInt(avisadas, 10)) return;
+
+  try { sessionStorage.setItem('alertas_rojas_avisadas', String(rojas)); } catch (e) {}
+  const texto = rojas === 1 ? '1 producto llegó a su mínimo' : rojas + ' productos llegaron a su mínimo';
+  showToast('🔴 ' + texto + '. <a href="' + shell.dataset.urlAlertas + '">Ver qué resurtir</a>', 'alerta');
+});
+
 function showToast(mensaje, tipo) {
   let stack = document.querySelector('.toast-stack');
   if (!stack) {
@@ -344,5 +389,5 @@ function showToast(mensaje, tipo) {
   toast.className = 'toast ' + (tipo || 'info');
   toast.innerHTML = '<i class="bi bi-exclamation-circle-fill"></i><span>' + mensaje + '</span>';
   stack.appendChild(toast);
-  setTimeout(function () { toast.remove(); }, 4000);
+  setTimeout(function () { toast.remove(); }, tipo === 'alerta' ? 9000 : 4000);
 }

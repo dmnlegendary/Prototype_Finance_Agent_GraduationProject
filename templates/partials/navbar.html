@@ -18,6 +18,12 @@
   </div>
 
   <div class="user-menu">
+    {% if negocio %}
+    <a href="{% url 'inventario:alertas' %}" class="btn-campana{% if alertas_nivel %} nivel-{{ alertas_nivel }}{% endif %}" title="Alertas de reabastecimiento" data-sin-loader>
+      <i class="bi {% if alertas_conteo.total %}bi-bell-fill{% else %}bi-bell{% endif %}"></i>
+      {% if alertas_conteo.total %}<span class="campana-badge">{{ alertas_conteo.total }}</span>{% endif %}
+    </a>
+    {% endif %}
     <button type="button" class="btn-ayuda" onclick="mostrarTutorial()" title="Ver ayuda de esta pantalla"><i class="bi bi-question-circle"></i></button>
     <div class="avatar" onclick="toggleUserMenu(event)"><i class="bi bi-person-fill"></i></div>
     <div class="user-dropdown" id="userDropdown">

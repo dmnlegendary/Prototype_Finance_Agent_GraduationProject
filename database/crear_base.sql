@@ -5,7 +5,7 @@
 -- Antes cambia 'cambia_esta_clave' por la clave que quieras y usa la misma
 -- en el archivo .env (variable DB_PASSWORD).
 
-CREATE USER mariamiga WITH PASSWORD 'cambia_esta_clave';
+CREATE USER mariamiga WITH PASSWORD 'Arif+1812';
 
 -- CREATEDB le permite a Django crear una base temporal cuando corremos las pruebas
 ALTER USER mariamiga CREATEDB;

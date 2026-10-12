@@ -35,6 +35,7 @@ from ventas.models import ItemVenta, Venta
 
 TAMANO_PAQUETE = 1000
 CENTAVOS = Decimal("0.01")
+MAXIMO_DECIMAL = Decimal("99999999.99")
 
 # nombres que puede tener cada columna en el CSV
 ALIAS = {
@@ -191,7 +192,6 @@ class Command(BaseCommand):
             if not nombre or precio is None or precio < 0 or normalizar(nombre) in ya_existen:
                 omitidos += 1
                 continue
-            ya_existen.add(normalizar(nombre))
 
             categoria = None
             nombre_categoria = renglon.get("categoria", "")
@@ -202,13 +202,20 @@ class Command(BaseCommand):
                     categorias[normalizar(nombre_categoria)] = categoria
 
             minimo = max(numero(renglon.get("cantidad_minima"), Decimal("0")), Decimal("0"))
+            costo = max(numero(renglon.get("costo"), Decimal("0")), Decimal("0"))
+            cantidad_actual = max(numero(renglon.get("cantidad_actual"), Decimal("0")), Decimal("0"))
+            stock_ideal = max(numero(renglon.get("stock_ideal"), Decimal("0")), minimo)
+            if any(valor > MAXIMO_DECIMAL for valor in (precio, costo, cantidad_actual, minimo, stock_ideal)):
+                omitidos += 1
+                continue
+            ya_existen.add(normalizar(nombre))
             productos.append(Producto(
                 negocio=negocio, nombre=nombre[:150], categoria=categoria,
-                costo=max(numero(renglon.get("costo"), Decimal("0")), Decimal("0")),
+                costo=costo,
                 precio_venta=precio.quantize(CENTAVOS, rounding=ROUND_HALF_UP),
-                cantidad_actual=max(numero(renglon.get("cantidad_actual"), Decimal("0")), Decimal("0")),
+                cantidad_actual=cantidad_actual,
                 cantidad_minima=minimo,
-                stock_ideal=max(numero(renglon.get("stock_ideal"), Decimal("0")), minimo),
+                stock_ideal=stock_ideal,
             ))
 
         Producto.objects.bulk_create(productos, batch_size=TAMANO_PAQUETE)
@@ -231,7 +238,8 @@ class Command(BaseCommand):
             precio = numero(renglon["precio_unitario"])
             if (
                 not nombre or clave in existentes or fecha is None
-                or cantidad is None or cantidad <= 0 or precio is None or precio < 0
+                or cantidad is None or cantidad <= 0 or cantidad > MAXIMO_DECIMAL
+                or precio is None or precio < 0 or precio > MAXIMO_DECIMAL
             ):
                 continue
             if clave not in inferidos or fecha >= inferidos[clave][0]:
@@ -274,8 +282,13 @@ class Command(BaseCommand):
         for renglon in renglones:
             producto = productos.get(normalizar(renglon["producto"]))
             cantidad = numero(renglon["cantidad"])
+            if cantidad is not None:
+                cantidad = cantidad.quantize(CENTAVOS, rounding=ROUND_HALF_UP)
             fecha = fecha_y_hora(renglon["fecha"])
-            if producto is None or cantidad is None or cantidad <= 0:
+            if (
+                producto is None or cantidad is None or cantidad <= 0
+                or cantidad > MAXIMO_DECIMAL
+            ):
                 sin_producto += 1
                 continue
             if fecha is None:
@@ -283,6 +296,9 @@ class Command(BaseCommand):
                 continue
 
             precio = numero(renglon.get("precio_unitario"), producto[1])
+            if precio is None or precio > MAXIMO_DECIMAL:
+                sin_producto += 1
+                continue
             if precio < 0:
                 precio = producto[1]
             clave = renglon.get("folio") or f"sin-folio-{len(tickets)}"
@@ -292,10 +308,14 @@ class Command(BaseCommand):
 
         # los folios del sistema siguen la numeración que ya tenga la tienda
         ventas = []
+        tickets_fuera_rango = 0
         ultimo_folio = Venta.objects.filter(negocio=negocio).order_by("-folio").values_list("folio", flat=True).first() or 0
         for ticket in tickets.values():
+            total = sum((c * p for _, c, p in ticket["items"]), Decimal("0")).quantize(CENTAVOS, rounding=ROUND_HALF_UP)
+            if total > MAXIMO_DECIMAL:
+                tickets_fuera_rango += 1
+                continue
             ultimo_folio += 1
-            total = sum((c * p for _, c, p, _ in ticket["items"]), Decimal("0")).quantize(CENTAVOS, rounding=ROUND_HALF_UP)
             ticket["venta"] = Venta(negocio=negocio, folio=ultimo_folio, estado=Venta.Estado.COBRADA, total=total)
             ventas.append(ticket["venta"])
         Venta.objects.bulk_create(ventas, batch_size=TAMANO_PAQUETE)
@@ -305,6 +325,8 @@ class Command(BaseCommand):
         folio_a_pk = dict(Venta.objects.filter(negocio=negocio).values_list("folio", "pk"))
         items = []
         for ticket in tickets.values():
+            if "venta" not in ticket:
+                continue
             venta = ticket["venta"]
             venta.pk = folio_a_pk[venta.folio]
             venta.creado_en = ticket["fecha"]
@@ -319,5 +341,6 @@ class Command(BaseCommand):
 
         self.stdout.write(
             f"Ventas importadas: {len(ventas)} tickets con {len(items)} renglones "
-            f"(renglones omitidos: producto desconocido o cantidad mala {sin_producto}, fecha mala {sin_fecha})"
+            f"(renglones omitidos: producto/cantidad/precio inválido {sin_producto}, fecha mala {sin_fecha}; "
+            f"tickets fuera del límite Decimal(10,2): {tickets_fuera_rango})"
         )

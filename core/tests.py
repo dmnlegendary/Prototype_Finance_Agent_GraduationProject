@@ -185,6 +185,21 @@ class ImportarCsvTests(TestCase):
         with self.assertRaises(CommandError):
             self.importar(productos_desde_ventas=True)
 
+    def test_omite_renglon_con_precio_fuera_del_limite_decimal(self):
+        ventas = self.archivo(
+            "precio_fuera_rango.csv",
+            "fecha,folio,producto,cantidad,precio_unitario\n"
+            "2026-10-01 09:15:00,A1,Coca 600,1,20\n"
+            "2026-10-01 09:15:00,A1,Coca 600,1,10000000000\n"
+            "2026-10-01 09:15:00,A1,Coca 600,0.0001,20\n",
+        )
+
+        self.importar(productos=self.archivo("productos.csv", self.PRODUCTOS), ventas=ventas)
+
+        venta = Venta.objects.get(negocio=self.negocio)
+        self.assertEqual(venta.total, Decimal("20.00"))
+        self.assertEqual(venta.items.count(), 1)
+
     def test_un_csv_sin_las_columnas_necesarias_da_error(self):
         with self.assertRaises(CommandError):
             self.importar(productos=self.archivo("malo.csv", "color,talla\nrojo,M\n"))

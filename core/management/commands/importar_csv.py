@@ -46,7 +46,7 @@ ALIAS = {
     "cantidad_minima": ["cantidad_minima", "minimo", "stock_minimo"],
     "stock_ideal": ["stock_ideal", "ideal", "stock_maximo"],
     "fecha": ["fecha", "date", "fecha_venta"],
-    "folio": ["folio", "ticket", "id_venta"],
+    "folio": ["folio", "ticket", "ticket_id", "id_venta"],
     "producto": ["producto", "nombre", "nombre_producto"],
     "cantidad": ["cantidad", "piezas", "unidades", "qty"],
     "precio_unitario": ["precio_unitario", "precio", "price"],
@@ -93,11 +93,17 @@ class Command(BaseCommand):
         parser.add_argument("--usuario", required=True, help="Correo, teléfono o usuario del dueño de la tienda")
         parser.add_argument("--productos", help="Archivo CSV de productos")
         parser.add_argument("--ventas", help="Archivo CSV de ventas")
+        parser.add_argument(
+            "--productos-desde-ventas", action="store_true",
+            help="Crea productos faltantes desde las ventas, con existencias y costo en cero, pendientes de validar",
+        )
         parser.add_argument("--limpiar", action="store_true", help="Borra antes los productos y ventas de esa tienda")
 
     def handle(self, *args, **opciones):
         if not opciones["productos"] and not opciones["ventas"]:
             raise CommandError("Indica al menos --productos o --ventas.")
+        if opciones["productos_desde_ventas"] and not opciones["ventas"]:
+            raise CommandError("--productos-desde-ventas requiere que indiques --ventas.")
 
         negocio = self.buscar_negocio(opciones["usuario"])
         self.stdout.write(f"Tienda: {negocio.nombre_tienda}")
@@ -114,6 +120,8 @@ class Command(BaseCommand):
             if opciones["productos"]:
                 self.importar_productos(negocio, opciones["productos"])
             if opciones["ventas"]:
+                if opciones["productos_desde_ventas"]:
+                    self.importar_productos_desde_ventas(negocio, opciones["ventas"])
                 self.importar_ventas(negocio, opciones["ventas"])
 
         # bulk_create no avisa a las señales, así que se limpia el cache a mano
@@ -207,6 +215,45 @@ class Command(BaseCommand):
         self.stdout.write(f"Productos importados: {len(productos)} (omitidos por datos malos o repetidos: {omitidos})")
 
     # ---------------------------------------------------------- ventas
+
+    def importar_productos_desde_ventas(self, negocio, ruta):
+        renglones = self.leer_csv(ruta, ["fecha", "producto", "cantidad", "precio_unitario"])
+        existentes = {
+            normalizar(nombre)
+            for nombre in Producto.objects.filter(negocio=negocio).values_list("nombre", flat=True)
+        }
+        inferidos = {}
+        for renglon in renglones:
+            nombre = renglon["producto"].strip()
+            clave = normalizar(nombre)
+            fecha = fecha_y_hora(renglon["fecha"])
+            cantidad = numero(renglon["cantidad"])
+            precio = numero(renglon["precio_unitario"])
+            if (
+                not nombre or clave in existentes or fecha is None
+                or cantidad is None or cantidad <= 0 or precio is None or precio < 0
+            ):
+                continue
+            if clave not in inferidos or fecha >= inferidos[clave][0]:
+                inferidos[clave] = (fecha, nombre, precio)
+
+        productos = [
+            Producto(
+                negocio=negocio,
+                nombre=nombre[:150],
+                costo=Decimal("0"),
+                precio_venta=precio.quantize(CENTAVOS, rounding=ROUND_HALF_UP),
+                cantidad_actual=Decimal("0"),
+                cantidad_minima=Decimal("0"),
+                stock_ideal=Decimal("0"),
+                pendiente_validacion=True,
+            )
+            for _, nombre, precio in inferidos.values()
+        ]
+        Producto.objects.bulk_create(productos, batch_size=TAMANO_PAQUETE)
+        self.stdout.write(
+            f"Productos creados desde ventas: {len(productos)} (pendientes de completar y validar inventario)"
+        )
 
     def importar_ventas(self, negocio, ruta):
         renglones = self.leer_csv(ruta, ["fecha", "producto", "cantidad"])

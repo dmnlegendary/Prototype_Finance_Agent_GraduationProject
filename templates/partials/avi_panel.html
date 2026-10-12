@@ -1,7 +1,11 @@
-{% load static %}
-<div class="avi-panel" id="aviPanel" data-url-pronostico="{% url 'finanzas:pronostico_ventas' %}">
+<!-- Panel del chat con el asistente. Es el mismo en ventas, inventario y finanzas;
+     la conversación de las últimas 24 horas se carga sola desde el servidor (app.js). -->
+<div class="avi-overlay" id="aviOverlay" onclick="closeAvi()"></div>
+<button class="fab-avi" onclick="openAvi()" title="Abrir asistente"><i class="bi bi-robot"></i></button>
+
+<div class="avi-panel" id="aviPanel">
   <div class="avi-title">
-    <span><i class="bi bi-robot"></i> Asistente Virtual Inteligente</span>
+    <span><i class="bi bi-robot"></i> Asistente Virtual</span>
     <div class="avi-title-actions">
       <button class="avi-clear-btn" onclick="limpiarChatAvi()" title="Vaciar chat"><i class="bi bi-trash3"></i></button>
       <button class="avi-minimize-btn" onclick="toggleAviMinimize()" title="Minimizar"><i class="bi bi-dash-lg"></i></button>
@@ -9,14 +13,12 @@
       <button class="avi-toggle-btn" onclick="closeAvi()"><i class="bi bi-x-lg"></i></button>
     </div>
   </div>
-  <div class="avi-chat" id="aviChat">
-    <div class="bubble bot">Hola Don Raúl. Hoy tus ventas van bien. ¿Quieres ver el pronóstico de esta semana o revisar tus gastos?</div>
-    <div class="bubble bot">El pronóstico lo genera un modelo de Machine Learning local (corre en tu propio servidor) entrenado con tu historial de ventas. Yo solo te ayudo a interpretarlo.</div>
-    <div class="bubble bot">Abril fue tu mes más ajustado. El gasto subió pero las ventas no acompañaron. ¿Quieres revisar qué pasó?</div>
+  <div class="avi-chat" id="aviChat" data-saludo="Hola 👋 Soy marIA. Te ayudo con tus ventas, tu inventario y tus gastos. Prueba: &quot;agrega 2 pepsis&quot;, &quot;¿cuánto vendí hoy?&quot; o &quot;¿qué tengo que resurtir?&quot;.">
+    <div class="bubble bot">Hola 👋 Soy marIA. Te ayudo con tus ventas, tu inventario y tus gastos. Prueba: "agrega 2 pepsis", "¿cuánto vendí hoy?" o "¿qué tengo que resurtir?".</div>
   </div>
   <form class="avi-input" id="aviForm" onsubmit="return enviarMensajeAvi(event)">
     {% csrf_token %}
-    <input type="text" id="aviTexto" placeholder="Escribe aquí…" autocomplete="off"/>
+    <input type="text" id="aviTexto" placeholder="Escribe aquí… (ej. 2 coca cola 600)" autocomplete="off"/>
     <button type="button" class="avi-mic-btn" onclick="activarMicrofono()" title="Hablar"><i class="bi bi-mic-fill"></i></button>
     <button type="submit"><i class="bi bi-send-fill"></i></button>
   </form>

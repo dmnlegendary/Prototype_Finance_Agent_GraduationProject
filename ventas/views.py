@@ -1,38 +1,56 @@
-# El carrito es la Venta en estado EN_CURSO del negocio. Las acciones
-# (agregar, +/-, cobrar, cancelar) son formularios POST con redirect,
-# no Fetch/JSON. La única excepción es la búsqueda instantánea, que sí
-# usa fetch/JSON porque necesita responder mientras el usuario escribe.
-from decimal import Decimal, InvalidOperation
+# La pantalla de ventas habla con el servidor por JSON (fetch) para que agregar productos,
+# cambiar cantidades o cobrar no recargue la página. Las reglas (existencias, granel,
+# dos carritos) viven en ventas/carrito.py y ventas/cobro.py.
+import json
+from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
-from django.views.decorators.http import require_POST
+from django.utils import timezone
+from django.views.decorators.http import require_GET, require_POST
 
+from inventario import busqueda
+from inventario.compras import CantidadInvalida, a_decimal, texto_numero
 from inventario.models import Producto
 
-from .cobro import cobrar_venta, texto_aviso_stock
-from .models import ItemVenta, Venta
+from . import carrito
+from .cobro import SinExistencias, cobrar_venta, texto_aviso_stock
+from .models import MAXIMO_DE_CARRITOS, ItemVenta, Venta
 
 
 def _negocio_o_none(request):
     return getattr(request.user, "negocio", None)
 
 
-def _siguiente_folio(negocio):
-    ultima = Venta.objects.filter(negocio=negocio).order_by("-folio").first()
-    return (ultima.folio + 1) if ultima else 1
+def _datos_json(request):
+    try:
+        datos = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return {}
+    return datos if isinstance(datos, dict) else {}
 
 
-def _venta_en_curso(negocio):
-    """Devuelve el carrito abierto del negocio, o crea uno nuevo."""
-    venta = Venta.objects.filter(negocio=negocio, estado=Venta.Estado.EN_CURSO).first()
-    if venta is None:
-        venta = Venta.objects.create(negocio=negocio, folio=_siguiente_folio(negocio))
-    return venta
+def _error(mensaje, estado=400, **extra):
+    return JsonResponse({"ok": False, "mensaje": mensaje, **extra}, status=estado)
+
+
+def _sin_existencias(error):
+    """409: la regla de oro. La pantalla pregunta cuánto agregar al inventario."""
+    producto = error.producto
+    return _error(
+        error.mensaje, 409, error="sin_existencias", disponible=texto_numero(error.disponible),
+        producto={
+            "id": producto.pk, "nombre": producto.nombre, "a_granel": producto.a_granel,
+            "unidad": producto.unidad, "costo": str(producto.costo),
+        },
+    )
+
+
+def _estado(negocio, numero):
+    return {"ok": True, **carrito.estado_del_carrito(negocio, numero)}
 
 
 @login_required
@@ -42,176 +60,191 @@ def punto_de_venta(request):
         messages.warning(request, "Primero completa los datos de tu negocio.")
         return redirect("accounts:datos_negocio")
 
-    venta = _venta_en_curso(negocio)
-    items = venta.items.select_related("producto").all()
-
-    ticket_venta = None
-    ticket_items = None
-    ticket_id = request.GET.get("ticket", "").strip()
-    if ticket_id:
-        ticket_venta = Venta.objects.filter(pk=ticket_id, negocio=negocio, estado=Venta.Estado.COBRADA).first()
-        if ticket_venta:
-            ticket_items = ticket_venta.items.select_related("producto")
-
+    numero = carrito.numero_de_carrito_valido(request.GET.get("carrito"))
+    recientes = list(
+        Producto.objects.filter(negocio=negocio, pendiente_validacion=True)
+        .order_by("-actualizado_en").values("nombre", "precio_venta")[:8]
+    )
     context = {
-        "venta": venta,
-        "items": items,
-        "ticket_venta": ticket_venta,
-        "ticket_items": ticket_items,
+        "estado_inicial": carrito.estado_del_carrito(negocio, numero),
+        "recientes": [{"nombre": r["nombre"], "precio": str(r["precio_venta"])} for r in recientes],
+        "carritos": range(1, MAXIMO_DE_CARRITOS + 1),
         "mostrar_resumen_avi": request.session.pop("mostrar_resumen_avi", False),
     }
     return render(request, "ventas/punto_de_venta.html", context)
 
 
+def _datos_de_resultado(p):
+    """Un producto del catálogo (cache) en el formato que usa la pantalla."""
+    return {
+        "id": p["id"], "nombre": p["nombre"], "icono": p["icono"], "precio_venta": f"{p['precio']:.2f}",
+        "a_granel": p["a_granel"], "unidad": "kg" if p["a_granel"] else "pzas", "stock": f"{p['stock']:g}",
+    }
+
+
+@login_required
+@require_GET
 def buscar_productos_json(request):
-    """Búsqueda instantánea (sin recargar la página) para la barra de ventas."""
+    """Búsqueda instantánea (sin recargar la página) para la barra de ventas.
+    Ignora acentos y tolera palabras en otro orden y errores de dedo."""
     negocio = _negocio_o_none(request)
-    if negocio is None:
-        return JsonResponse({"resultados": []})
-
     q = request.GET.get("q", "").strip()
-    if not q:
+    if negocio is None or not q:
         return JsonResponse({"resultados": []})
 
-    productos = Producto.objects.filter(negocio=negocio, activo=True, nombre__icontains=q)[:8]
-    resultados = [
-        {"id": p.pk, "nombre": p.nombre, "icono": p.icono, "precio_venta": str(p.precio_venta)}
-        for p in productos
-    ]
+    resultados = [_datos_de_resultado(p) for p in busqueda.buscar(negocio, q, limite=8)]
     return JsonResponse({"resultados": resultados, "q": q})
 
 
 @login_required
-def agregar_item(request, producto_pk):
+@require_GET
+def api_codigo(request):
+    """Busca un producto por su código de barras (el lector de códigos 'escribe' el código y da Enter)."""
     negocio = _negocio_o_none(request)
-    if negocio is None or request.method != "POST":
-        return redirect("ventas:punto_de_venta")
+    p = busqueda.por_codigo(negocio, request.GET.get("c", "")) if negocio else None
+    if p is None:
+        return JsonResponse({"encontrado": False})
+    return JsonResponse({"encontrado": True, "producto": _datos_de_resultado(p)})
 
-    producto = get_object_or_404(Producto, pk=producto_pk, negocio=negocio, activo=True)
-    venta = _venta_en_curso(negocio)
 
-    item, creado = ItemVenta.objects.get_or_create(
-        venta=venta, producto=producto,
-        defaults={"cantidad": 1, "precio_unitario": producto.precio_venta},
-    )
-    if not creado:
-        item.cantidad += 1
-        item.save(update_fields=["cantidad"])
+@login_required
+@require_GET
+def api_catalogo(request):
+    """Todo el catálogo activo (liviano) para poder vender sin internet."""
+    negocio = _negocio_o_none(request)
+    if negocio is None:
+        return JsonResponse({"productos": []})
+    productos = [
+        {**_datos_de_resultado(p), "buscable": p["buscable"], "codigo": p["codigo"]}
+        for p in busqueda.catalogo(negocio)
+    ]
+    return JsonResponse({"productos": productos, "generado": timezone.now().isoformat()})
 
-    venta.recalcular_total()
-    messages.success(request, f'"{producto.nombre}" agregado al carrito.')
-    return redirect("ventas:punto_de_venta")
+
+@login_required
+@require_GET
+def api_carrito(request, numero):
+    negocio = _negocio_o_none(request)
+    if negocio is None:
+        return _error("Primero completa los datos de tu negocio.")
+    return JsonResponse(_estado(negocio, numero))
 
 
 @login_required
 @require_POST
-def agregar_no_encontrado(request):
-    """Alta rápida de un producto que no está en el catálogo, con lo mínimo
-    (nombre y precio), para poder cobrarlo de una vez."""
+def api_agregar(request, numero):
     negocio = _negocio_o_none(request)
     if negocio is None:
-        return redirect("ventas:punto_de_venta")
+        return _error("Primero completa los datos de tu negocio.")
 
-    nombre = request.POST.get("nombre", "").strip()
+    datos = _datos_json(request)
+    producto = get_object_or_404(Producto, pk=datos.get("producto_id") or 0, negocio=negocio, activo=True)
+    venta = carrito.venta_en_curso(negocio, numero, request.user)
     try:
-        precio = Decimal(request.POST.get("precio", "0").replace(",", "."))
-    except InvalidOperation:
-        precio = Decimal("0")
+        carrito.agregar_producto(venta, producto, datos.get("cantidad", 1))
+    except SinExistencias as error:
+        return _sin_existencias(error)
+    except CantidadInvalida as error:
+        return _error(str(error))
+    return JsonResponse(_estado(negocio, numero))
 
-    if not nombre or precio <= 0:
-        messages.warning(request, "Escribe un nombre y un precio válido para poder cobrarlo.")
-        return redirect("ventas:punto_de_venta")
 
-    producto = Producto.objects.create(
-        negocio=negocio, nombre=nombre, costo=0, precio_venta=precio,
-        cantidad_actual=0, cantidad_minima=0, activo=False, pendiente_validacion=True,
+def _item_abierto(request, pk):
+    negocio = _negocio_o_none(request)
+    return get_object_or_404(
+        ItemVenta, pk=pk, venta__negocio=negocio, venta__estado=Venta.Estado.EN_CURSO,
     )
-    venta = _venta_en_curso(negocio)
-    ItemVenta.objects.create(venta=venta, producto=producto, cantidad=1, precio_unitario=precio)
-    venta.recalcular_total()
-
-    messages.success(request, f'"{nombre}" agregado al carrito.')
-    return redirect("ventas:punto_de_venta")
-
-
-def _cambiar_cantidad(negocio, item_pk, delta):
-    item = get_object_or_404(
-        ItemVenta, pk=item_pk, venta__negocio=negocio, venta__estado=Venta.Estado.EN_CURSO,
-    )
-    venta = item.venta
-    nueva_cantidad = item.cantidad + delta
-    if nueva_cantidad <= 0:
-        item.delete()
-    else:
-        item.cantidad = nueva_cantidad
-        item.save(update_fields=["cantidad"])
-    venta.recalcular_total()
 
 
 @login_required
-def item_incrementar(request, item_pk):
-    negocio = _negocio_o_none(request)
-    if negocio is not None and request.method == "POST":
-        _cambiar_cantidad(negocio, item_pk, Decimal("1"))
-    return redirect(f"{reverse('ventas:punto_de_venta')}?seleccionado={item_pk}")
+@require_POST
+def api_cantidad(request, pk):
+    """Deja el renglón en la cantidad que se escribió (0 lo quita)."""
+    item = _item_abierto(request, pk)
+    negocio, numero = item.venta.negocio, item.venta.carrito
+    try:
+        carrito.cambiar_cantidad(item, _datos_json(request).get("cantidad"))
+    except SinExistencias as error:
+        return _sin_existencias(error)
+    except CantidadInvalida as error:
+        return _error(str(error))
+    return JsonResponse(_estado(negocio, numero))
 
 
 @login_required
-def item_decrementar(request, item_pk):
-    negocio = _negocio_o_none(request)
-    if negocio is not None and request.method == "POST":
-        _cambiar_cantidad(negocio, item_pk, Decimal("-1"))
-    return redirect(f"{reverse('ventas:punto_de_venta')}?seleccionado={item_pk}")
+@require_POST
+def api_quitar(request, pk):
+    item = _item_abierto(request, pk)
+    negocio, numero = item.venta.negocio, item.venta.carrito
+    carrito.quitar(item)
+    return JsonResponse(_estado(negocio, numero))
 
 
 @login_required
-def item_eliminar(request, item_pk):
-    """Quita el producto del carrito de una vez, sin importar la cantidad."""
+@require_POST
+def api_cobrar(request, numero):
     negocio = _negocio_o_none(request)
-    if negocio is not None and request.method == "POST":
-        item = get_object_or_404(
-            ItemVenta, pk=item_pk, venta__negocio=negocio, venta__estado=Venta.Estado.EN_CURSO,
-        )
-        venta = item.venta
-        item.delete()
-        venta.recalcular_total()
-    return redirect("ventas:punto_de_venta")
+    if negocio is None:
+        return _error("Primero completa los datos de tu negocio.")
 
-
-@login_required
-def cobrar(request):
-    negocio = _negocio_o_none(request)
-    if negocio is None or request.method != "POST":
-        return redirect("ventas:punto_de_venta")
-
-    venta = _venta_en_curso(negocio)
+    venta = carrito.venta_en_curso(negocio, numero, request.user)
     if not venta.items.exists():
-        messages.warning(request, "El carrito está vacío, no hay nada que cobrar.")
-        return redirect("ventas:punto_de_venta")
+        return _error("El carrito está vacío, no hay nada que cobrar.")
 
-    # avisa si esta venta dejó algún producto en amarillo, naranja o rojo
-    for producto in cobrar_venta(venta):
-        messages.add_message(
-            request, messages.WARNING, texto_aviso_stock(producto), extra_tags=f"nivel-{producto.nivel_stock}",
-        )
+    try:
+        productos_que_empeoraron = cobrar_venta(venta)
+    except SinExistencias as error:
+        return _sin_existencias(error)
 
-    # el ticket se muestra como notificación + modal en la propia pantalla,
-    # no en una página aparte
-    return redirect(f"{reverse('ventas:punto_de_venta')}?ticket={venta.pk}")
+    ahora = timezone.localtime()
+    renglones = venta.items.select_related("producto")
+    return JsonResponse({
+        "ok": True,
+        "ticket": {
+            "folio": venta.folio,
+            "fecha": ahora.strftime("%d/%m/%Y"),
+            "hora": ahora.strftime("%H:%M"),
+            "total": str(venta.total),
+            "tienda": negocio.nombre_tienda,
+            "ubicacion": negocio.ubicacion,
+            "renglones": [
+                {"nombre": r.producto.nombre, "cantidad": texto_numero(r.cantidad), "unidad": r.producto.unidad, "subtotal": str(r.subtotal)}
+                for r in renglones
+            ],
+        },
+        "avisos": [{"texto": texto_aviso_stock(p), "nivel": p.nivel_stock} for p in productos_que_empeoraron],
+        **carrito.estado_del_carrito(negocio, numero),
+    })
 
 
 @login_required
-def cancelar_venta(request):
+@require_POST
+def api_cancelar(request, numero):
     negocio = _negocio_o_none(request)
-    if negocio is None or request.method != "POST":
-        return redirect("ventas:punto_de_venta")
+    if negocio is None:
+        return _error("Primero completa los datos de tu negocio.")
+    carrito.cancelar(carrito.venta_en_curso(negocio, numero, request.user))
+    return JsonResponse(_estado(negocio, numero))
 
-    venta = _venta_en_curso(negocio)
-    if venta.items.exists():
-        venta.estado = Venta.Estado.CANCELADA
-        venta.save(update_fields=["estado"])
-        messages.info(request, "Venta cancelada.")
-    return redirect("ventas:punto_de_venta")
+
+@login_required
+@require_POST
+def api_no_encontrado(request, numero):
+    """Alta rápida de un producto que no está en el catálogo, con lo mínimo (nombre y
+    precio), para poder cobrarlo de una vez. Si ya se había vendido antes, se reutiliza."""
+    negocio = _negocio_o_none(request)
+    if negocio is None:
+        return _error("Primero completa los datos de tu negocio.")
+
+    datos = _datos_json(request)
+    nombre = str(datos.get("nombre", "")).strip()
+    precio = a_decimal(datos.get("precio"), Decimal("0"))
+    if not nombre or precio <= 0:
+        return _error("Escribe un nombre y un precio válido para poder cobrarlo.")
+
+    producto = carrito.crear_no_encontrado(negocio, nombre[:150], precio.quantize(Decimal("0.01")))
+    carrito.agregar_producto(carrito.venta_en_curso(negocio, numero, request.user), producto, 1)
+    return JsonResponse(_estado(negocio, numero))
 
 
 @login_required

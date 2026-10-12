@@ -6,6 +6,8 @@ app_name = "avi"
 
 urlpatterns = [
     path("chat/", views.chat, name="chat"),
+    path("historial/", views.historial, name="historial"),
+    path("limpiar/", views.limpiar, name="limpiar"),
     path("resumen/", views.resumen_diario, name="resumen_diario"),
     path("explicar/<str:tipo>/", views.explicar, name="explicar"),
 ]

@@ -36,6 +36,8 @@ class Negocio(ModeloBase):
     usuario = models.OneToOneField(Usuario, on_delete=models.CASCADE, related_name="negocio")
     nombre_tienda = models.CharField("Nombre de tu tienda", max_length=150)
     alcaldia = models.CharField("Alcaldía", max_length=30, choices=Alcaldia.choices, blank=True)
+    # el nombre del lugar cuando la tienda no está en ninguna de las alcaldías de la lista
+    alcaldia_otra = models.CharField("Lugar de tu tienda", max_length=100, blank=True)
     anios_operacion = models.CharField(
         "Años de operación", max_length=20,
         choices=AniosOperacion.choices, default=AniosOperacion.DE_3_A_10,
@@ -45,3 +47,13 @@ class Negocio(ModeloBase):
 
     def __str__(self):
         return self.nombre_tienda
+
+    @property
+    def ubicacion(self):
+        """Dónde está la tienda, para el ticket: "Iztapalapa, CDMX" o el lugar que escribió
+        el dueño (si eligió "Otra", la tienda puede estar fuera de la CDMX)."""
+        if self.alcaldia == self.Alcaldia.OTRA:
+            return self.alcaldia_otra
+        if self.alcaldia:
+            return f"{self.get_alcaldia_display()}, CDMX"
+        return ""

@@ -6,59 +6,34 @@
 {% endblock %}
 
 {% block avi_panel %}
-<div class="avi-overlay" id="aviOverlay" onclick="closeAvi()"></div>
-<button class="fab-avi" onclick="openAvi()" title="Abrir AVI"><i class="bi bi-robot"></i></button>
-
-<div class="avi-panel" id="aviPanel" data-url-pronostico="{% url 'finanzas:pronostico_ventas' %}">
-  <div class="avi-title">
-    <span><i class="bi bi-robot"></i> Asistente Virtual</span>
-    <div class="avi-title-actions">
-      <button class="avi-clear-btn" onclick="limpiarChatAvi()" title="Vaciar chat"><i class="bi bi-trash3"></i></button>
-      <button class="avi-minimize-btn" onclick="toggleAviMinimize()" title="Minimizar"><i class="bi bi-dash-lg"></i></button>
-      <button class="avi-expand-btn" onclick="toggleAviExpand()" title="Pantalla completa"><i class="bi bi-arrows-fullscreen"></i></button>
-      <button class="avi-toggle-btn" onclick="closeAvi()"><i class="bi bi-x-lg"></i></button>
-    </div>
-  </div>
-  <div class="avi-chat" id="aviChat">
-    <div class="bubble bot">Hola 👋 Puedo agregar productos al carrito por texto. Intenta: "agrega 2 pepsis".</div>
-  </div>
-  <form class="avi-input" id="aviForm" onsubmit="return enviarMensajeAvi(event)">
-    {% csrf_token %}
-    <input type="text" id="aviTexto" placeholder="Ej: 2 coca cola 600…" autocomplete="off"/>
-    <button type="button" class="avi-mic-btn" onclick="activarMicrofono()" title="Hablar"><i class="bi bi-mic-fill"></i></button>
-    <button type="submit"><i class="bi bi-send-fill"></i></button>
-  </form>
-  <div class="avi-config">
-    <i class="bi bi-gear-fill"></i> Modelo:
-    <select id="aviModelo">
-      <option value="chatgpt">ChatGPT</option>
-      <option value="gemini">Gemini</option>
-    </select>
-  </div>
-</div>
+{% include "partials/avi_panel.html" %}
 {% endblock %}
 
 {% block app_content %}
 
-{% if messages %}
-<div class="notif-flotante-wrap">
-  {% for message in messages %}
-  <div class="notif-flotante {{ message.extra_tags }}"><i class="bi {% if message.level_tag == 'warning' %}bi-exclamation-triangle-fill{% else %}bi-check-circle-fill{% endif %}"></i> {{ message }}</div>
-  {% endfor %}
-</div>
-{% endif %}
-
-<div class="state active main">
+<div class="state active main" id="posRaiz"
+     data-url-carrito="{% url 'ventas:api_carrito' 0 %}"
+     data-url-agregar="{% url 'ventas:api_agregar' 0 %}"
+     data-url-cobrar="{% url 'ventas:api_cobrar' 0 %}"
+     data-url-cancelar="{% url 'ventas:api_cancelar' 0 %}"
+     data-url-no-encontrado="{% url 'ventas:api_no_encontrado' 0 %}"
+     data-url-cantidad="{% url 'ventas:api_cantidad' 0 %}"
+     data-url-quitar="{% url 'ventas:api_quitar' 0 %}"
+     data-url-buscar="{% url 'ventas:buscar_productos_json' %}"
+     data-url-codigo="{% url 'ventas:api_codigo' %}"
+     data-url-catalogo="{% url 'ventas:api_catalogo' %}"
+     data-url-resurtir="{% url 'inventario:producto_resurtir' 0 %}"
+     data-url-alta="{% url 'inventario:panel' %}">
 
   <div class="search-row">
     <div class="search-wrapper">
       <div class="search-box">
         <i class="bi bi-search"></i>
-        <input type="text" id="buscarProducto" placeholder="Buscar producto…" autocomplete="off"/>
+        <input type="text" id="buscarProducto" placeholder="Busca por nombre o escanea un código de barras…" autocomplete="off"/>
       </div>
       <div class="search-dropdown" id="resultadosBusqueda" style="display:none;"></div>
     </div>
-    <button type="button" class="btn-no-encontrado" onclick="openModal('no-encontrado')">
+    <button type="button" class="btn-no-encontrado" onclick="abrirNoEncontrado()">
       <i class="bi bi-plus-circle"></i> No encontrado
     </button>
     <a href="{% url 'ventas:historial' %}" class="btn-historial" data-sin-loader>
@@ -66,8 +41,16 @@
     </a>
   </div>
 
+  <div class="carrito-tabs" id="carritoTabs">
+    {% for n in carritos %}
+    <button type="button" class="carrito-tab" data-carrito="{{ n }}" onclick="elegirCarrito({{ n }})">
+      <i class="bi bi-cart3"></i> Carrito {{ n }} <span class="carrito-contador" id="contadorCarrito{{ n }}">0</span>
+    </button>
+    {% endfor %}
+  </div>
+
   <div class="sale-meta">
-    <span><strong>Folio:</strong> #{{ venta.folio|stringformat:"04d" }}</span>
+    <span><strong>Folio:</strong> <span id="folioActual">—</span></span>
     <span><strong>Fecha:</strong> <span id="fechaActual"></span></span>
     <span><strong>Hora:</strong> <span id="horaActual"></span></span>
   </div>
@@ -84,77 +67,47 @@
             <th></th>
           </tr>
         </thead>
-        <tbody>
-          {% for item in items %}
-          <tr data-pk="{{ item.pk }}" onclick="seleccionarFilaCarrito(this)">
-            <td>{{ item.producto.icono }} {{ item.producto.nombre }}</td>
-            <td>
-              <div class="qty">
-                <form method="post" action="{% url 'ventas:item_decrementar' item.pk %}" style="display:contents;">
-                  {% csrf_token %}
-                  <button type="submit" class="btn-qty-menos" onclick="event.stopPropagation()">&minus;</button>
-                </form>
-                <span>{{ item.cantidad|floatformat:"-2" }}</span>
-                <form method="post" action="{% url 'ventas:item_incrementar' item.pk %}" style="display:contents;">
-                  {% csrf_token %}
-                  <button type="submit" class="btn-qty-mas" onclick="event.stopPropagation()">+</button>
-                </form>
-              </div>
-            </td>
-            <td class="right">${{ item.precio_unitario }}</td>
-            <td class="right">${{ item.subtotal }}</td>
-            <td>
-              <form method="post" action="{% url 'ventas:item_eliminar' item.pk %}" onsubmit="return confirm('¿Quitar {{ item.producto.nombre|escapejs }} del carrito?');">
-                {% csrf_token %}
-                <button type="submit" class="btn-eliminar-item" onclick="event.stopPropagation()" title="Quitar del carrito"><i class="bi bi-trash3"></i></button>
-              </form>
-            </td>
-          </tr>
-          {% empty %}
-          <tr>
-            <td colspan="5" style="text-align:center;color:var(--text-faint);padding:24px;">
-              <i class="bi bi-cart3"></i> Carrito vacío. Busca un producto para comenzar.
-            </td>
-          </tr>
-          {% endfor %}
+        <tbody id="cuerpoCarrito">
+          <tr><td colspan="5" style="text-align:center;color:var(--text-faint);padding:24px;">Cargando carrito…</td></tr>
         </tbody>
       </table>
     </div>
 
     <div class="bottom-bar">
-      <form method="post" action="{% url 'ventas:cancelar_venta' %}" style="display:contents;" onsubmit="return confirm('¿Cancelar esta venta?');">
-        {% csrf_token %}
-        <button type="submit" class="btn-cancel"{% if not items %} disabled style="opacity:.4;cursor:not-allowed;"{% endif %}>Cancelar venta</button>
-      </form>
+      <button type="button" class="btn-cancel" id="btnCancelar" onclick="cancelarVenta()" disabled style="opacity:.4;cursor:not-allowed;">Cancelar venta</button>
       <div class="bottom-spacer"></div>
-      <div class="total-display">Total: ${{ venta.total }}</div>
-      <form method="post" action="{% url 'ventas:cobrar' %}" style="display:contents;">
-        {% csrf_token %}
-        <button type="submit" class="btn-cobrar"{% if not items %} disabled style="opacity:.4;cursor:not-allowed;"{% endif %}>Cobrar</button>
-      </form>
+      <div class="total-display">Total: $<span id="totalCarrito">0.00</span></div>
+      <button type="button" class="btn-cobrar" id="btnCobrar" onclick="cobrarVenta()" disabled style="opacity:.4;cursor:not-allowed;">Cobrar</button>
     </div>
   </div>
 
 </div>
 
+<!-- el token CSRF para las peticiones del punto de venta -->
+<form id="formCsrfPos" style="display:none;">{% csrf_token %}</form>
+
+{{ estado_inicial|json_script:"estadoInicial" }}
+{{ recientes|json_script:"recientesNoEncontrados" }}
+
+<!-- Modal: producto no encontrado -->
 <div class="modal-backdrop" id="modal-no-encontrado">
   <div class="form-card" style="max-width:400px;">
     <div class="panel-header">
       <h3><i class="bi bi-plus-circle"></i> Producto no encontrado</h3>
       <button type="button" class="panel-close" onclick="closeModal('no-encontrado')"><i class="bi bi-x-lg"></i></button>
     </div>
-    <form method="post" action="{% url 'ventas:agregar_no_encontrado' %}" class="panel-body" style="gap:14px;" data-validar>
-      {% csrf_token %}
-      <p style="font-size:13px;color:var(--text-muted);">
-        Si el producto no está en tu catálogo, cóbralo con lo mínimo: nombre y precio.
+    <form class="panel-body" style="gap:14px;" onsubmit="return guardarNoEncontrado(event)">
+      <p style="font-size:13px;color:var(--text-muted);margin:0;">
+        Si el producto no está en tu catálogo, cóbralo con lo mínimo: nombre y precio. Después le pones su precio de compra en Finanzas &gt; Registrar gastos.
       </p>
+      <div id="recientesNoEncontrado" class="chips-recientes"></div>
       <div class="form-group">
         <label>Nombre del producto <span class="campo-requerido">*</span></label>
-        <input type="text" name="nombre" placeholder="Ej. Bolsa de hielo" required>
+        <input type="text" id="noEncontradoNombre" placeholder="Ej. Bolsa de hielo" required>
       </div>
       <div class="form-group">
         <label>Precio ($) <span class="campo-requerido">*</span></label>
-        <input type="text" name="precio" placeholder="0.00" required>
+        <input type="number" id="noEncontradoPrecio" step="0.01" min="0.01" placeholder="0.00" required>
       </div>
       <div class="panel-footer" style="padding:0;border-top:none;">
         <button type="submit" class="btn-success">Agregar al carrito</button>
@@ -164,15 +117,76 @@
   </div>
 </div>
 
-{% if ticket_venta %}
-<div class="notif-flotante-wrap">
-  <div class="notif-flotante">
-    <i class="bi bi-check-circle-fill"></i>
-    <span>Venta cobrada · Folio #{{ ticket_venta.folio|stringformat:"04d" }} · ${{ ticket_venta.total }}</span>
-    <button type="button" class="notif-flotante-link" onclick="openModal('ticket')">Ver ticket</button>
+<!-- Modal: regla de oro. No hay existencias: se pregunta cuánto agregar al inventario -->
+<div class="modal-backdrop" id="modal-sin-existencias">
+  <div class="form-card" style="max-width:400px;">
+    <div class="panel-header">
+      <h3><i class="bi bi-exclamation-triangle-fill" style="color:var(--color-danger);"></i> No hay existencias</h3>
+      <button type="button" class="panel-close" onclick="cerrarSinExistencias()"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <form class="panel-body" style="gap:14px;" onsubmit="return guardarSinExistencias(event)">
+      <p id="sinExistenciasTexto" style="font-size:14px;margin:0;"></p>
+      <div class="form-group">
+        <label>¿Cuántas <span id="sinExistenciasUnidad">piezas</span> quieres agregar al inventario? <span class="campo-requerido">*</span></label>
+        <input type="number" id="sinExistenciasCantidad" step="any" min="0" required>
+      </div>
+      <div class="form-group">
+        <label>Precio de compra de cada una ($)</label>
+        <input type="number" id="sinExistenciasCosto" step="0.01" min="0">
+      </div>
+      <p style="font-size:11px;color:var(--text-faint);margin:0;">Se registra como compra de mercancía en tus gastos y se sigue con la venta.</p>
+      <div id="sinExistenciasError" style="display:none;color:var(--color-danger);font-size:12px;"></div>
+      <div class="panel-footer" style="padding:0;border-top:none;">
+        <button type="submit" class="btn-success">Agregar y seguir vendiendo</button>
+        <button type="button" class="btn-ghost" onclick="cerrarSinExistencias()">No agregar</button>
+      </div>
+    </form>
   </div>
 </div>
 
+<!-- Modal: producto a granel, ¿cuántos gramos? -->
+<div class="modal-backdrop" id="modal-granel">
+  <div class="form-card" style="max-width:340px;">
+    <div class="panel-header">
+      <h3><i class="bi bi-basket-fill"></i> <span id="granelNombre">Producto a granel</span></h3>
+      <button type="button" class="panel-close" onclick="closeModal('granel')"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <form class="panel-body" style="gap:14px;" onsubmit="return confirmarGranel(event)">
+      <div class="form-group">
+        <label>¿Cuántos gramos? <span class="campo-requerido">*</span></label>
+        <input type="number" id="granelGramos" step="1" min="1" required>
+      </div>
+      <div class="atajos-granel">
+        <button type="button" onclick="ponerGramos(250)">¼ kg</button>
+        <button type="button" onclick="ponerGramos(500)">½ kg</button>
+        <button type="button" onclick="ponerGramos(1000)">1 kg</button>
+      </div>
+      <div class="panel-footer" style="padding:0;border-top:none;">
+        <button type="submit" class="btn-success">Agregar</button>
+        <button type="button" class="btn-ghost" onclick="closeModal('granel')">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: código de barras que no está registrado -->
+<div class="modal-backdrop" id="modal-codigo">
+  <div class="form-card" style="max-width:380px;">
+    <div class="panel-header">
+      <h3><i class="bi bi-upc-scan"></i> Código no registrado</h3>
+      <button type="button" class="panel-close" onclick="closeModal('codigo')"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="panel-body" style="gap:12px;">
+      <p style="font-size:14px;margin:0;">El código <strong id="codigoDesconocido"></strong> no está en tu inventario.</p>
+      <div class="panel-footer" style="padding:0;border-top:none;">
+        <a href="#" id="enlaceAltaCodigo" class="btn-success" style="text-decoration:none;text-align:center;" data-sin-loader>Dar de alta este producto</a>
+        <button type="button" class="btn-ghost" onclick="closeModal('codigo'); abrirNoEncontrado();">Cobrarlo como "no encontrado"</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: ticket digital -->
 <div class="modal-backdrop" id="modal-ticket">
   <div class="form-card" style="max-width:420px;">
     <div class="panel-header">
@@ -180,24 +194,13 @@
       <button type="button" class="panel-close" onclick="closeModal('ticket')"><i class="bi bi-x-lg"></i></button>
     </div>
     <div class="panel-body">
-      <div class="ticket-receipt">
-        <div class="receipt-title">
-          {{ ticket_venta.negocio.nombre_tienda }}<br/>
-          {% if ticket_venta.negocio.alcaldia %}<span style="font-weight:400;font-size:12px;color:var(--text-muted)">{{ ticket_venta.negocio.get_alcaldia_display }}, CDMX</span><br/>{% endif %}
-          <span style="font-weight:400;font-size:12px;color:var(--text-muted)">{{ ticket_venta.creado_en|date:"d/m/Y" }} · {{ ticket_venta.creado_en|date:"H:i" }} · Folio #{{ ticket_venta.folio|stringformat:"04d" }}</span>
-        </div>
-        {% for item in ticket_items %}
-        <div class="receipt-row"><span>{{ item.producto.nombre }} x{{ item.cantidad|floatformat:"-2" }}</span><span>${{ item.subtotal }}</span></div>
-        {% endfor %}
-        <div class="receipt-total"><span>Total</span><span>${{ ticket_venta.total }}</span></div>
-      </div>
+      <div class="ticket-receipt" id="ticketContenido"></div>
     </div>
     <div class="panel-footer">
       <button type="button" class="btn-ghost" style="flex:1;" onclick="closeModal('ticket')">Cerrar</button>
     </div>
   </div>
 </div>
-{% endif %}
 
 {% endblock %}
 

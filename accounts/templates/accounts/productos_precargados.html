@@ -4,7 +4,7 @@
 {% block body_attrs %} class="d-flex align-items-center justify-content-center min-vh-100 p-3"{% endblock %}
 
 {% block content %}
-<div class="w-100" style="max-width: 480px;">
+<div class="w-100" style="max-width: 520px;">
 
     <div class="text-center mb-3">
         <h1 class="h4 fw-bold mb-0">marIA</h1>
@@ -30,42 +30,62 @@
 
     <div class="card card-auth p-4">
         <h2 class="h6 fw-bold mb-1">Selecciona tus productos</h2>
-        <p class="small text-muted mb-3">Elige los que vendes en tu tienda. Puedes agregar más después.</p>
+        <p class="small text-muted mb-3">Elige los que vendes y dinos cuántas piezas tienes y cuánto te costó cada una. Con eso el inventario y tus finanzas arrancan bien. Puedes agregar más después.</p>
+
+        {% if errores %}
+        <div class="alert alert-danger small py-2">
+            <strong>Revisa estos datos:</strong>
+            <ul class="mb-0 ps-3">{% for e in errores %}<li>{{ e }}</li>{% endfor %}</ul>
+        </div>
+        {% endif %}
 
         <form method="post">
             {% csrf_token %}
 
-            <input type="text" placeholder="Buscar producto..." class="form-control mb-3">
+            <input type="text" id="buscar-catalogo" placeholder="Buscar producto..." class="form-control mb-3" autocomplete="off">
 
             <div class="d-flex gap-2 overflow-auto pb-2 mb-3">
-                <button type="button" class="btn btn-sm btn-primary text-nowrap">Todos</button>
+                <button type="button" class="btn btn-sm btn-primary text-nowrap filtro-categoria" data-categoria="">Todos</button>
                 {% for categoria in categorias %}
-                <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap">{{ categoria.icono }} {{ categoria.nombre }}</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap filtro-categoria" data-categoria="{{ categoria.nombre }}">{{ categoria.icono }} {{ categoria.nombre }}</button>
                 {% endfor %}
             </div>
 
             <div class="d-flex align-items-center justify-content-between mb-2">
-                <p class="small text-muted mb-0">Mostrando <strong>{{ productos_catalogo|length }}</strong> productos</p>
+                <p class="small text-muted mb-0">Mostrando <strong id="contador-visibles">{{ productos_catalogo|length }}</strong> productos</p>
                 <span class="badge text-bg-primary" id="contador-seleccionados">0 seleccionados</span>
             </div>
 
-            <div class="row row-cols-2 g-2 mb-3" style="max-height: 18rem; overflow-y: auto;">
+            <div class="mb-3" style="max-height: 22rem; overflow-y: auto;">
                 {% for item in productos_catalogo %}
-                <div class="col">
-                    <label class="product-card border rounded-3 p-2 d-flex align-items-center gap-2 h-100 mb-0">
-                        <input type="checkbox" name="productos_catalogo" value="{{ item.id }}" class="d-none">
+                <div class="item-catalogo mb-2" data-nombre="{{ item.nombre|lower }}" data-categoria="{{ item.categoria.nombre }}">
+                    <label class="product-card border rounded-3 p-2 d-flex align-items-center gap-2 w-100 mb-0">
+                        <input type="checkbox" name="productos_catalogo" value="{{ item.id }}" class="d-none" {% if item.id|stringformat:"s" in elegidos %}checked{% endif %}>
                         <div class="bg-light rounded-2 d-flex align-items-center justify-content-center flex-shrink-0" style="width:40px;height:40px;font-size:1.1rem;">{{ item.icono }}</div>
                         <div class="text-truncate">
                             <p class="small fw-bold mb-0 text-truncate">{{ item.nombre }}</p>
-                            <p class="small text-muted mb-0">{{ item.categoria.nombre|default:"Sin categoría" }}</p>
-                            <p class="small fw-semibold text-primary mb-0">${{ item.precio_sugerido }}</p>
+                            <p class="small text-muted mb-0">{{ item.categoria.nombre|default:"Sin categoría" }} · precio sugerido ${{ item.precio_sugerido }}</p>
                         </div>
                     </label>
+                    <div class="detalle-producto row g-2 mt-1 px-1" style="display:none;">
+                        <div class="col-4">
+                            <label class="form-label small mb-0">Piezas *</label>
+                            <input type="number" name="piezas_{{ item.id }}" min="0" step="1" class="form-control form-control-sm" placeholder="0" disabled>
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small mb-0">Te costó c/u *</label>
+                            <input type="number" name="costo_{{ item.id }}" min="0" step="0.01" class="form-control form-control-sm" placeholder="0.00" disabled>
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small mb-0">Lo vendes en *</label>
+                            <input type="number" name="precio_{{ item.id }}" min="0.01" step="0.01" class="form-control form-control-sm" value="{{ item.precio_sugerido }}" disabled>
+                        </div>
+                    </div>
                 </div>
                 {% empty %}
-                <div class="col-2 text-center small text-muted py-4">
+                <div class="text-center small text-muted py-4">
                     Todavía no hay un catálogo precargado. Puedes continuar y dar de alta tus
-                    productos manualmente desde el módulo de inventario.
+                    productos manualmente, o importar un CSV, desde el módulo de inventario.
                 </div>
                 {% endfor %}
             </div>
@@ -79,17 +99,56 @@
 {% block extra_scripts %}
 <script>
     document.addEventListener("DOMContentLoaded", function () {
-        const checkboxes = document.querySelectorAll('input[name="productos_catalogo"]');
+        const items = document.querySelectorAll(".item-catalogo");
         const contador = document.getElementById("contador-seleccionados");
+        const visibles = document.getElementById("contador-visibles");
+        let categoriaElegida = "";
 
+        function sinAcentos(t) { return t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(); }
+
+        // al marcar un producto se piden sus piezas y precios; si no está marcado, esos campos no se mandan
         function actualizar() {
             let n = 0;
-            checkboxes.forEach(function (cb) {
-                if (cb.checked) n++;
+            items.forEach(function (item) {
+                const marcado = item.querySelector('input[type=checkbox]').checked;
+                const detalle = item.querySelector(".detalle-producto");
+                detalle.style.display = marcado ? "flex" : "none";
+                detalle.querySelectorAll("input").forEach(function (campo) {
+                    campo.disabled = !marcado;
+                    if (marcado && campo.name.indexOf("piezas_") === 0) campo.required = true;
+                    if (marcado && campo.name.indexOf("costo_") === 0) campo.required = true;
+                });
+                if (marcado) n++;
             });
             contador.textContent = n + " seleccionados";
         }
-        checkboxes.forEach(function (cb) { cb.addEventListener("change", actualizar); });
+
+        function filtrar() {
+            const texto = sinAcentos(document.getElementById("buscar-catalogo").value.trim());
+            let n = 0;
+            items.forEach(function (item) {
+                const coincideTexto = !texto || sinAcentos(item.dataset.nombre).includes(texto);
+                const coincideCategoria = !categoriaElegida || item.dataset.categoria === categoriaElegida;
+                const mostrar = coincideTexto && coincideCategoria;
+                item.style.display = mostrar ? "" : "none";
+                if (mostrar) n++;
+            });
+            visibles.textContent = n;
+        }
+
+        items.forEach(function (item) {
+            item.querySelector('input[type=checkbox]').addEventListener("change", actualizar);
+        });
+        document.getElementById("buscar-catalogo").addEventListener("input", filtrar);
+        document.querySelectorAll(".filtro-categoria").forEach(function (boton) {
+            boton.addEventListener("click", function () {
+                categoriaElegida = boton.dataset.categoria;
+                document.querySelectorAll(".filtro-categoria").forEach(function (b) {
+                    b.className = "btn btn-sm text-nowrap filtro-categoria " + (b === boton ? "btn-primary" : "btn-outline-secondary");
+                });
+                filtrar();
+            });
+        });
         actualizar();
     });
 </script>

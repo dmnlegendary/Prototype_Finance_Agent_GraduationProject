@@ -46,6 +46,12 @@
                 {{ form.alcaldia }}
             </div>
 
+            <div class="mb-3" id="grupo-alcaldia-otra" style="display:none;">
+                <label class="form-label small fw-semibold">¿En qué lugar está tu tienda?</label>
+                {{ form.alcaldia_otra }}
+                {% if form.alcaldia_otra.errors %}<div class="text-danger small mt-1">{{ form.alcaldia_otra.errors|join:", " }}</div>{% endif %}
+            </div>
+
             <div class="mb-3">
                 <label class="form-label small fw-semibold">Años de operación</label>
                 {{ form.anios_operacion }}
@@ -71,4 +77,17 @@
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // si eligen "Otra", se pide el nombre del lugar (la tienda puede no estar en la CDMX)
+    document.addEventListener("DOMContentLoaded", function () {
+        const lista = document.getElementById("{{ form.alcaldia.id_for_label }}");
+        const grupo = document.getElementById("grupo-alcaldia-otra");
+        function mostrar() { grupo.style.display = lista.value === "OTRA" ? "block" : "none"; }
+        lista.addEventListener("change", mostrar);
+        mostrar();
+    });
+</script>
 {% endblock %}

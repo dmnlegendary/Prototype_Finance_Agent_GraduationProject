@@ -4,12 +4,15 @@ from decimal import Decimal, InvalidOperation
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Avg
+from django.db.models import Avg, Q, Sum
+from django.http import JsonResponse
+from django.template.loader import render_to_string
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
+from inventario.compras import registrar_compra
 from inventario.models import HistorialModificacionProducto, Producto
 from ventas.models import ItemVenta, Venta
 
@@ -73,6 +76,9 @@ def inicio(request):
         "utilidad_mes_cambio": _cambio_porcentual(mes["utilidad_neta"], mes_ant["utilidad_neta"]),
         "equilibrio": equilibrio_texto,
         "equilibrio_nota": equilibrio_nota,
+        "compras_mes": mes["compras"],
+        # ventas sin precio de compra: mientras existan, la utilidad se ve más alta de lo real
+        "renglones_sin_costo": calculos.renglones_sin_costo(negocio, inicio_mes, manana),
         "num_gastos_mes": GastoOperativo.objects.filter(negocio=negocio, fecha__gte=inicio_mes).count(),
         "num_productos_precios": Producto.objects.filter(negocio=negocio, activo=True, costo__gt=0).count(),
     })
@@ -101,13 +107,58 @@ def registrar_gastos(request):
     total_fijos = calculos.gastos_periodo(negocio, inicio_mes, fin_mes, tipo=GastoOperativo.Tipo.FIJO)
     total_variables = calculos.gastos_periodo(negocio, inicio_mes, fin_mes, tipo=GastoOperativo.Tipo.VARIABLE)
 
+    # productos "no encontrados" que ya se vendieron pero todavía no tienen precio de compra
+    sin_precio_de_compra = Producto.objects.filter(
+        negocio=negocio, pendiente_validacion=True, costo=0,
+    ).annotate(
+        vendidas=Sum("items_venta__cantidad", filter=Q(items_venta__venta__estado=Venta.Estado.COBRADA)),
+    ).filter(vendidas__gt=0).order_by("nombre")
+
     return render(request, "finanzas/registrar_gastos.html", {
         "activo": "gastos",
         "form": form,
         "total_fijos": total_fijos,
         "total_variables": total_variables,
         "total_general": total_fijos + total_variables,
+        "total_compras": calculos.compras_periodo(negocio, inicio_mes, fin_mes),
+        "productos_sin_precio": list(sin_precio_de_compra),
     })
+
+
+@login_required
+@require_POST
+def completar_no_encontrado(request, pk):
+    """El tendero le pone precio de compra a un producto "no encontrado" que ya vendió.
+
+    Así el costo de esas ventas queda completo (la utilidad deja de verse inflada) y lo
+    que se compró para venderlo se registra como compra de mercancía."""
+    negocio = _negocio_o_none(request)
+    if negocio is None:
+        return redirect("accounts:datos_negocio")
+
+    producto = get_object_or_404(Producto, pk=pk, negocio=negocio, pendiente_validacion=True, costo=0)
+    try:
+        costo = Decimal(request.POST.get("precio_compra", "").replace(",", "."))
+        if not costo.is_finite() or costo <= 0 or costo >= Decimal("100000000"):
+            raise InvalidOperation
+        costo = calculos.redondear(costo)
+    except InvalidOperation:
+        messages.warning(request, "Escribe un precio de compra válido (mayor a cero).")
+        return redirect("finanzas:registrar_gastos")
+
+    producto.costo = costo
+    producto.save(update_fields=["costo", "actualizado_en"])
+    # las ventas que se hicieron sin saber el costo se completan con este precio de compra
+    producto.items_venta.filter(costo_unitario=0).update(costo_unitario=costo)
+
+    vendidas = producto.items_venta.filter(venta__estado=Venta.Estado.COBRADA).aggregate(total=Sum("cantidad"))["total"] or 0
+    compra = registrar_compra(negocio, f"Compra de mercancía: {producto.nombre} (producto no encontrado)", vendidas * costo)
+
+    texto = f'Guardé el precio de compra de "{producto.nombre}": ${costo}.'
+    if compra:
+        texto += f" Se registró la compra de mercancía por ${compra.monto}."
+    messages.success(request, texto)
+    return redirect("finanzas:registrar_gastos")
 
 
 @login_required
@@ -289,24 +340,24 @@ def reportes_financieros(request):
     # la misma tasa de ISR para todo el reporte (depende de los ingresos del último año)
     tasa_isr = calculos.tasa_isr_del_negocio(negocio, hoy)
 
-    datos_meses = []
-    for mes in meses:
-        resumen = calculos.resumen_financiero(negocio, mes, calculos.mes_siguiente(mes), tasa_isr)
+    # todos los meses se calculan juntos (4 consultas en total, no 4 por mes)
+    datos_meses = calculos.resumen_por_meses(negocio, meses, tasa_isr)
+    for mes, resumen in zip(meses, datos_meses):
         resumen["etiqueta"] = MESES_ABREVIADOS[mes.month - 1]
-        datos_meses.append(resumen)
 
     total = calculos.resumen_desde_sumas(
         sum((m["ingresos"] for m in datos_meses), Decimal("0")),
         sum((m["costo_ventas"] for m in datos_meses), Decimal("0")),
         sum((m["gastos"] for m in datos_meses), Decimal("0")),
         tasa_isr,
+        compras=sum((m["compras"] for m in datos_meses), Decimal("0")),
     )
 
     # coordenadas de las barras/puntos dentro de un viewBox fijo de 320x160,
     # normalizadas contra el valor más alto del periodo
     n = len(datos_meses)
     paso = 320 / n
-    max_barra = max([m["ingresos"] for m in datos_meses] + [m["gastos"] for m in datos_meses] + [Decimal("1")])
+    max_barra = max([m["ingresos"] for m in datos_meses] + [m["gastos"] + m["compras"] for m in datos_meses] + [Decimal("1")])
     max_utilidad = max([abs(m["utilidad_neta"]) for m in datos_meses] + [Decimal("1")])
     for i, m in enumerate(datos_meses):
         centro = paso * i + paso / 2
@@ -314,21 +365,18 @@ def reportes_financieros(request):
         m["x_egresos"] = round(centro + 2)
         m["x_texto"] = round(centro)
         m["h_ingresos"] = max(round(float(m["ingresos"] / max_barra) * 100), 2)
-        m["h_egresos"] = max(round(float(m["gastos"] / max_barra) * 100), 2)
+        # la barra de egresos incluye lo que se gastó en comprar mercancía (es dinero que salió)
+        m["h_egresos"] = max(round(float((m["gastos"] + m["compras"]) / max_barra) * 100), 2)
         m["y_ingresos"] = 135 - m["h_ingresos"]
         m["y_egresos"] = 135 - m["h_egresos"]
         m["y_punto"] = round(90 - float(m["utilidad_neta"] / max_utilidad) * 50)
 
     puntos_linea = " ".join(f"{m['x_texto']},{m['y_punto']}" for m in datos_meses)
 
-    # productos activos sin ninguna venta cobrada en el periodo (baja rotación)
-    productos_vendidos_ids = ItemVenta.objects.filter(
-        venta__negocio=negocio, venta__estado=Venta.Estado.COBRADA, venta__creado_en__date__gte=meses[0],
-    ).values_list("producto_id", flat=True).distinct()
-    baja_rotacion = Producto.objects.filter(negocio=negocio, activo=True).exclude(pk__in=productos_vendidos_ids)[:5]
-
-    # el gasto más grande del periodo, si es claramente mayor al promedio
-    gastos_del_periodo = GastoOperativo.objects.filter(negocio=negocio, fecha__gte=meses[0])
+    # el gasto operativo más grande del periodo, si es claramente mayor al promedio
+    gastos_del_periodo = GastoOperativo.objects.filter(
+        negocio=negocio, fecha__gte=meses[0],
+    ).exclude(tipo=GastoOperativo.Tipo.MERCANCIA)
     gasto_inusual = None
     promedio_gasto = gastos_del_periodo.aggregate(promedio=Avg("monto"))["promedio"]
     if promedio_gasto:
@@ -343,6 +391,31 @@ def reportes_financieros(request):
         "puntos_linea": puntos_linea,
         "total": total,
         "es_resico": negocio.regimen_resico,
-        "baja_rotacion": baja_rotacion,
         "gasto_inusual": gasto_inusual,
+        "renglones_sin_costo": calculos.renglones_sin_costo(negocio, meses[0], hoy + timedelta(days=1)),
+        "desde_baja_rotacion": meses[0].isoformat(),
     })
+
+
+@login_required
+@require_GET
+def baja_rotacion(request):
+    """Productos que no se han vendido en el periodo, por lotes ("Ver más"). Se pide aparte
+    porque es la parte más pesada del reporte y no todos la necesitan."""
+    negocio = _negocio_o_none(request)
+    if negocio is None:
+        return JsonResponse({"html": "", "hay_mas": False})
+
+    try:
+        desde = timezone.datetime.fromisoformat(request.GET.get("desde", "")).date()
+    except ValueError:
+        desde = calculos.primer_dia_del_mes(timezone.localdate())
+
+    vendidos = ItemVenta.objects.filter(
+        venta__negocio=negocio, venta__estado=Venta.Estado.COBRADA, venta__creado_en__date__gte=desde,
+    ).values("producto_id")
+    sin_ventas = Producto.objects.filter(negocio=negocio, activo=True).exclude(pk__in=vendidos).order_by("-cantidad_actual")
+    pagina_pedida = request.GET.get("page", "1")
+    pagina = Paginator(sin_ventas, 10).get_page(pagina_pedida if pagina_pedida.isdigit() else 1)
+    html = render_to_string("finanzas/_baja_rotacion.html", {"productos": list(pagina.object_list)}, request)
+    return JsonResponse({"html": html, "hay_mas": pagina.has_next(), "siguiente": pagina.number + 1, "total": pagina.paginator.count})

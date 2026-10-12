@@ -1,0 +1,115 @@
+{% extends "base_app.html" %}
+{% load static %}
+
+{% block app_extra_head %}
+<link rel="stylesheet" href="{% static 'inventario/css/inventario.css' %}">
+{% endblock %}
+
+{% block avi_panel %}
+{% include "partials/avi_panel.html" %}
+{% endblock %}
+
+{% block app_content %}
+<div class="layout">
+  <div class="main-content">
+    <div class="state active" style="padding:16px; gap:14px; overflow-y:auto;">
+
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <h2 style="font-size:16px;"><i class="bi bi-clipboard-check-fill"></i> Revisa antes de guardar</h2>
+        <a href="{% url 'inventario:importar_cancelar' %}" class="btn-ghost" style="text-decoration:none;">Cancelar importación</a>
+      </div>
+
+      <p style="font-size:13px; color:var(--text-muted); margin:0;">
+        Archivo: <strong>{{ archivo }}</strong> · {{ filas|length }} productos. Todavía no se guardó nada.
+      </p>
+
+      <form method="post" id="formRevisar">
+        {% csrf_token %}
+
+        {% if grupos.existente or grupos.pendiente %}
+        <div class="card-simple" style="padding:14px;">
+          <h3 class="titulo-grupo"><i class="bi bi-check-circle-fill" style="color:var(--color-success);"></i> Ya están en tu inventario ({{ n_ya_estan }})</h3>
+          <p class="nota-grupo">Se suman las piezas y se actualizan los precios con los del archivo. Quita la palomita de los que no quieras tocar.</p>
+          <table class="tabla-datos">
+            <thead><tr><th></th><th>Producto</th><th class="right">Piezas</th><th class="right">Compra</th><th class="right">Venta</th></tr></thead>
+            <tbody>
+              {% for f in grupos.existente %}
+              <tr>
+                <td><input type="checkbox" checked onchange="this.nextElementSibling.value = this.checked ? 'actualizar' : 'omitir'"><input type="hidden" name="accion_{{ f.fila }}" value="actualizar"></td>
+                <td>{{ f.producto }}{% if f.coincide_nombre != f.producto %} <span class="nota-grupo">(es "{{ f.coincide_nombre }}")</span>{% endif %}</td>
+                <td class="right">{{ f.cantidad }}</td><td class="right">${{ f.precio_compra }}</td><td class="right">${{ f.precio_venta }}</td>
+              </tr>
+              {% endfor %}
+              {% for f in grupos.pendiente %}
+              <tr>
+                <td><input type="checkbox" checked onchange="this.nextElementSibling.value = this.checked ? 'actualizar' : 'omitir'"><input type="hidden" name="accion_{{ f.fila }}" value="actualizar"></td>
+                <td>{{ f.producto }} <span class="badge-cat" style="background:var(--color-yellow-bg);color:#a16207;">Pendiente de validar: se completa con estos datos</span></td>
+                <td class="right">{{ f.cantidad }}</td><td class="right">${{ f.precio_compra }}</td><td class="right">${{ f.precio_venta }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %}
+
+        {% if grupos.parecido %}
+        <div class="card-simple" style="padding:14px;">
+          <h3 class="titulo-grupo"><i class="bi bi-question-circle-fill" style="color:var(--color-orange);"></i> Se parecen a productos que ya tienes ({{ grupos.parecido|length }})</h3>
+          <p class="nota-grupo">No encontramos uno igual. Elige a cuál corresponde, agrégalo como producto nuevo o déjalo fuera.</p>
+          {% for f in grupos.parecido %}
+          <div class="fila-decision">
+            <div><strong>{{ f.producto }}</strong> <span class="nota-grupo">· {{ f.cantidad }} pzas · compra ${{ f.precio_compra }} · venta ${{ f.precio_venta }}</span></div>
+            <div class="opciones-decision">
+              {% for c in f.candidatos %}
+              <label><input type="radio" name="accion_{{ f.fila }}" value="usar:{{ c.id }}"> Es "{{ c.nombre }}"</label>
+              {% endfor %}
+              <label><input type="radio" name="accion_{{ f.fila }}" value="agregar"> Agregarlo como producto nuevo</label>
+              <label><input type="radio" name="accion_{{ f.fila }}" value="omitir" checked> No cargarlo</label>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if grupos.nuevo %}
+        <div class="card-simple" style="padding:14px;">
+          <h3 class="titulo-grupo"><i class="bi bi-plus-circle-fill" style="color:var(--color-primary);"></i> No están en tu inventario ({{ grupos.nuevo|length }})</h3>
+          <p class="nota-grupo">Estos productos no coinciden con nada. Solo se agregan los que marques.</p>
+          <label class="marcar-todos"><input type="checkbox" onchange="marcarNuevos(this.checked)"> Agregar todos los productos nuevos</label>
+          <table class="tabla-datos">
+            <thead><tr><th></th><th>Producto</th><th class="right">Piezas</th><th class="right">Compra</th><th class="right">Venta</th></tr></thead>
+            <tbody>
+              {% for f in grupos.nuevo %}
+              <tr>
+                <td><input type="checkbox" class="check-nuevo" onchange="this.nextElementSibling.value = this.checked ? 'agregar' : 'omitir'"><input type="hidden" name="accion_{{ f.fila }}" value="omitir"></td>
+                <td>{{ f.producto }}{% if f.a_granel %} <span class="badge-cat" style="background:var(--color-info-bg);color:var(--color-info-text);">A granel</span>{% endif %}</td>
+                <td class="right">{{ f.cantidad }}</td><td class="right">${{ f.precio_compra }}</td><td class="right">${{ f.precio_venta }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %}
+
+        <div style="display:flex; gap:10px; margin-top:6px;">
+          <button type="submit" class="btn-success">Confirmar e importar</button>
+          <a href="{% url 'inventario:importar_cancelar' %}" class="btn-ghost" style="text-decoration:none;">Cancelar</a>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block app_extra_scripts %}
+<script src="{% static 'inventario/js/inventario.js' %}"></script>
+<script>
+  function marcarNuevos(marcar) {
+    document.querySelectorAll('.check-nuevo').forEach(function (caja) {
+      caja.checked = marcar;
+      caja.nextElementSibling.value = marcar ? 'agregar' : 'omitir';
+    });
+  }
+</script>
+{% endblock %}

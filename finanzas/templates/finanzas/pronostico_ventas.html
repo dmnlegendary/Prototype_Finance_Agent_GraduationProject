@@ -4,68 +4,57 @@
 {% block fin_content %}
 <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
   <div class="fin-title"><i class="bi bi-graph-up-arrow"></i> Pronóstico de Ventas</div>
-  <span class="badge-ia-local"><i class="bi bi-cpu-fill"></i> IA local · sin conexión externa</span>
+  <span class="badge-ia-local"><i class="bi bi-cpu-fill"></i> Modelos estadísticos locales</span>
 </div>
-<p class="fin-subtitle">Generado por un modelo de Machine Learning que corre en tu propio servidor, entrenado con tu historial de ventas.</p>
+<p class="fin-subtitle">Compara tres métodos con las ventas cobradas. Los datos se consultan mediante Django y funcionan con SQLite o PostgreSQL.</p>
 
 <div class="fin-callout">
-  <i class="bi bi-robot"></i> <strong>¿Cómo funciona?</strong> Un modelo de Machine Learning local (no llama a ningún servicio externo) analiza tu historial de
-  <strong>24 semanas</strong> para estimar cuántas unidades venderás esta semana. El AVI te ayuda a interpretar los resultados.
+  <i class="bi bi-info-circle-fill"></i> Se toman los 10 productos con más unidades vendidas y las últimas 26 semanas disponibles.
+  El error MAE se calcula con una prueba sobre las últimas semanas; Holt-Winters usa un ciclo estacional de 4 semanas.
+  El pronóstico corresponde a la semana posterior al último registro, no necesariamente a la semana actual.
 </div>
 
 <div class="fin-card">
-  <h3>Generar nuevo pronóstico semanal</h3>
-  <button type="button" class="fin-btn-primary" style="margin-bottom:14px;" id="btnGenerarPronostico" onclick="generarPronosticoDemo()">
-    <i class="bi bi-magic"></i> Generar pronóstico
-  </button>
+  <h3>Comparación semanal</h3>
+  <form method="get">
+    <button type="submit" name="generar" value="1" class="fin-btn-primary">
+      <i class="bi bi-play-fill"></i> Calcular pronóstico y probar modelos
+    </button>
+  </form>
 
-  <div id="pronosticoCargando" style="display:none; justify-content:center; padding:20px 0;">
-    {% include "partials/ai_loader.html" with texto="Procesando historial…" %}
+  {% if pronostico.estado == "sin_ventas" %}
+  <p class="fin-pronostico-vacio">Aún no hay ventas cobradas para generar un pronóstico.</p>
+  {% elif pronostico.estado == "ok" %}
+  <p class="fin-pronostico-periodo">
+    Historial hasta {{ pronostico.ultima_semana|date:"d/m/Y" }} · Pronóstico para la semana del {{ pronostico.semana_pronostico|date:"d/m/Y" }}
+  </p>
+  <div class="fin-tabla-scroll">
+    <table class="fin-pronostico-tabla">
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th>Unidades históricas</th>
+          <th>ARIMA<br><small>unid. / MAE</small></th>
+          <th>Regresión lineal<br><small>unid. / MAE</small></th>
+          <th>Holt-Winters<br><small>unid. / MAE</small></th>
+          <th>Menor error</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for producto in pronostico.productos %}
+        <tr>
+          <th scope="row">{{ producto.nombre }}</th>
+          <td>{{ producto.unidades_historicas|floatformat:0 }}</td>
+          <td>{% if producto.modelos.arima.disponible %}{{ producto.modelos.arima.pronostico }} / {{ producto.modelos.arima.mae|default_if_none:"s/d" }}{% else %}s/d{% endif %}</td>
+          <td>{% if producto.modelos.lineal.disponible %}{{ producto.modelos.lineal.pronostico }} / {{ producto.modelos.lineal.mae|default_if_none:"s/d" }}{% else %}s/d{% endif %}</td>
+          <td>{% if producto.modelos.holt_winters.disponible %}{{ producto.modelos.holt_winters.pronostico }} / {{ producto.modelos.holt_winters.mae|default_if_none:"s/d" }}{% else %}s/d{% endif %}</td>
+          <td>{% if producto.mejor_modelo %}{{ producto.mejor_modelo }} · {{ producto.mejor_pronostico }} uds{% else %}Datos insuficientes{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
-
-  <div id="pronosticoResultado" style="display:none;">
-    <div class="fin-result-group">
-      <h4><i class="bi bi-check-circle-fill"></i> Bebidas</h4>
-      <div class="fin-result-item"><span>Coca-Cola 600ml</span><span class="fin-badge-green">48 uds</span></div>
-      <div class="fin-result-item"><span>Agua 1.5L</span><span class="fin-badge-green">26 uds</span></div>
-      <div class="fin-result-item"><span>Jugo Del Valle</span><span class="fin-badge-green">47 uds</span></div>
-      <div class="fin-result-item"><span>Cerveza Modelo</span><span class="fin-badge-green">13 uds</span></div>
-    </div>
-
-    <div style="margin-top:18px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:6px;">
-        <span><i class="bi bi-bar-chart-fill"></i> Nivel de confianza del modelo</span>
-        <span style="color:var(--color-primary);">76%</span>
-      </div>
-      <div class="fin-progress-track"><div class="fin-progress-fill" style="width:76%;"></div></div>
-      <p class="fin-subtitle" style="margin-top:6px;"><i class="bi bi-exclamation-triangle-fill"></i> Confianza media.</p>
-
-      <div class="fin-insight-purple" style="margin-top:10px;">
-        <i class="bi bi-robot"></i> <strong>AVI interpreta:</strong> estimación de 781 unidades en 18 productos esta semana.
-        Asegura stock antes del viernes.
-      </div>
-      <div class="fin-insight-green" style="margin-top:8px;">
-        <i class="bi bi-box-seam-fill"></i> Total estimado: 781 unidades · Confianza: 76%
-      </div>
-    </div>
-  </div>
+  <p class="fin-pronostico-nota">MAE: error absoluto medio en unidades por semana; menor es mejor. “s/d” indica que no se pudo ajustar el modelo con esa serie.</p>
+  {% endif %}
 </div>
-{% endblock %}
-
-{% block app_extra_scripts %}
-<script>
-  // demo visual del estado de carga; en la fase 2 esto se reemplaza por la
-  // llamada real al modelo de pronóstico
-  function generarPronosticoDemo() {
-    document.getElementById('btnGenerarPronostico').style.display = 'none';
-    document.getElementById('pronosticoResultado').style.display = 'none';
-    document.getElementById('pronosticoCargando').style.display = 'flex';
-
-    setTimeout(function () {
-      document.getElementById('pronosticoCargando').style.display = 'none';
-      document.getElementById('pronosticoResultado').style.display = 'block';
-      document.getElementById('btnGenerarPronostico').style.display = 'inline-flex';
-    }, 1800);
-  }
-</script>
 {% endblock %}

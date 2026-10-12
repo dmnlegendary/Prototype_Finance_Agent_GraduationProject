@@ -55,6 +55,8 @@ python manage.py importar_csv --usuario correo@tienda.com --productos productos.
 - `--usuario` es el correo, teléfono o usuario del dueño de la tienda a la que se le cargan los datos (debe haberse registrado antes).
 - Columnas de `productos.csv`: `nombre`, `categoria`, `costo`, `precio_venta`, `cantidad_actual`, `cantidad_minima`, `stock_ideal`. Solo `nombre` y `precio_venta` son obligatorias.
 - Columnas de `ventas.csv`: `fecha`, `folio`, `producto`, `cantidad`, `precio_unitario`. Un renglón por producto vendido; los renglones con el mismo `folio` forman un solo ticket. El nombre del producto debe existir en `productos.csv`.
+- Para un CSV de ventas por artículo que no incluya inventario, como `ventas_articulos_completo.csv`, puedes usar `--productos-desde-ventas`. El importador agrupa `ticket_id`, crea los productos que falten con costo y existencias en cero, y los marca pendientes de validar. Esos ceros no representan existencias reales; para completar el inventario usa un CSV de productos con cantidades y costos.
+- Ejemplo para ese formato: `python manage.py importar_csv --usuario root_arif --ventas ventas_articulos_completo.csv --productos-desde-ventas`.
 - Si tus columnas se llaman distinto, agrega el nombre a las listas de `ALIAS` al inicio de `core/management/commands/importar_csv.py`.
 - `--limpiar` borra antes los productos y ventas de esa tienda (pide confirmación).
 - Hay archivos de ejemplo en `database/ejemplos/`.

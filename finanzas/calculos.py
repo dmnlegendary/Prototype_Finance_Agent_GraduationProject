@@ -5,10 +5,12 @@ números siempre coincidan.
 """
 import calendar
 import math
+import warnings
 from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.db.models import DecimalField, F, Sum
+from django.db.models.functions import TruncWeek
 
 from ventas.models import ItemVenta, Venta
 
@@ -247,4 +249,146 @@ def punto_equilibrio_negocio(negocio, hoy, meses_historial=3):
         "meses_historial": meses_historial,
         "filas": resultado["filas"] if resultado else [],
         "pe_total": resultado["pe_total"] if resultado else None,
+    }
+
+
+# ---------------------------------------------------------- pronóstico
+
+MODELOS_PRONOSTICO = (
+    {"clave": "arima", "nombre": "ARIMA"},
+    {"clave": "lineal", "nombre": "Regresión lineal"},
+    {"clave": "holt_winters", "nombre": "Holt-Winters (ciclo de 4 semanas)"},
+)
+MINIMO_SEMANAS_MODELO = 8
+SEMANAS_PRUEBA = 4
+
+
+def _pronosticar_modelo(clave, valores, pasos):
+    if len(valores) < MINIMO_SEMANAS_MODELO:
+        raise ValueError("Se requieren al menos 8 semanas para ajustar el modelo.")
+
+    if clave == "lineal":
+        cantidad = len(valores)
+        media_x = (cantidad - 1) / 2
+        media_y = sum(valores) / cantidad
+        denominador = sum((indice - media_x) ** 2 for indice in range(cantidad))
+        pendiente = sum(
+            (indice - media_x) * (valor - media_y)
+            for indice, valor in enumerate(valores)
+        ) / denominador
+        intercepto = media_y - pendiente * media_x
+        return [intercepto + pendiente * (cantidad + paso) for paso in range(pasos)]
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        if clave == "arima":
+            from statsmodels.tsa.arima.model import ARIMA
+
+            ajustado = ARIMA(
+                valores, order=(1, 1, 1),
+                enforce_stationarity=False, enforce_invertibility=False,
+            ).fit()
+        elif clave == "holt_winters":
+            from statsmodels.tsa.holtwinters import ExponentialSmoothing
+
+            ajustado = ExponentialSmoothing(
+                valores, trend="add", damped_trend=True, seasonal="add",
+                seasonal_periods=4, initialization_method="estimated",
+            ).fit(optimized=True)
+        else:
+            raise ValueError(f"Modelo desconocido: {clave}")
+        return [float(valor) for valor in ajustado.forecast(pasos)]
+
+
+def _evaluar_modelo(clave, valores):
+    semanas_prueba = min(SEMANAS_PRUEBA, len(valores) - MINIMO_SEMANAS_MODELO)
+    if semanas_prueba <= 0:
+        return None
+
+    entrenamiento = valores[:-semanas_prueba]
+    reales = valores[-semanas_prueba:]
+    estimados = [max(0, estimado) for estimado in _pronosticar_modelo(clave, entrenamiento, semanas_prueba)]
+    return round(sum(abs(real - estimado) for real, estimado in zip(reales, estimados)) / semanas_prueba, 2)
+
+
+def pronostico_ventas_negocio(negocio, limite=10, semanas_historial=26):
+    """Compara pronósticos semanales y error de prueba para los productos más vendidos."""
+    filtro = ItemVenta.objects.filter(
+        venta__negocio=negocio,
+        venta__estado=Venta.Estado.COBRADA,
+        producto__negocio=negocio,
+        producto__activo=True,
+    )
+    populares = list(
+        filtro.order_by().values("producto_id", "producto__nombre")
+        .annotate(unidades=Sum("cantidad"))
+        .order_by("-unidades", "producto_id")[:limite]
+    )
+    if not populares:
+        return {"estado": "sin_ventas", "productos": [], "modelos": MODELOS_PRONOSTICO}
+
+    ids = [producto["producto_id"] for producto in populares]
+    semanas = list(
+        filtro.filter(producto_id__in=ids)
+        .order_by().values("producto_id")
+        .annotate(semana=TruncWeek("venta__creado_en"))
+        .values("producto_id", "semana")
+        .annotate(unidades=Sum("cantidad"))
+        .order_by("producto_id", "semana")
+    )
+    ultima_semana = max(
+        semana["semana"].date() if hasattr(semana["semana"], "date") else semana["semana"]
+        for semana in semanas
+    )
+    primera_semana = ultima_semana - timedelta(weeks=semanas_historial - 1)
+    por_producto = {producto_id: {} for producto_id in ids}
+    for fila in semanas:
+        fecha_semana = fila["semana"].date() if hasattr(fila["semana"], "date") else fila["semana"]
+        if primera_semana <= fecha_semana <= ultima_semana:
+            por_producto[fila["producto_id"]][fecha_semana] = float(fila["unidades"])
+
+    productos = []
+    for popular in populares:
+        serie = [
+            por_producto[popular["producto_id"]].get(
+                primera_semana + timedelta(weeks=indice), 0.0,
+            )
+            for indice in range(semanas_historial)
+        ]
+        modelos = {}
+        for modelo in MODELOS_PRONOSTICO:
+            clave = modelo["clave"]
+            try:
+                prediccion = max(0, _pronosticar_modelo(clave, serie, 1)[0])
+                error = _evaluar_modelo(clave, serie)
+                modelos[clave] = {
+                    "pronostico": int(round(prediccion)),
+                    "mae": error,
+                    "disponible": True,
+                }
+            except Exception:
+                modelos[clave] = {"pronostico": None, "mae": None, "disponible": False}
+
+        evaluables = [
+            (modelo["clave"], modelo["nombre"], modelos[modelo["clave"]])
+            for modelo in MODELOS_PRONOSTICO
+            if modelos[modelo["clave"]]["mae"] is not None
+        ]
+        mejor = min(evaluables, key=lambda fila: fila[2]["mae"]) if evaluables else None
+        productos.append({
+            "nombre": popular["producto__nombre"],
+            "unidades_historicas": round(float(popular["unidades"]), 2),
+            "semanas_con_venta": sum(valor > 0 for valor in serie),
+            "modelos": modelos,
+            "mejor_modelo": mejor[1] if mejor else None,
+            "mejor_pronostico": mejor[2]["pronostico"] if mejor else None,
+        })
+
+    return {
+        "estado": "ok",
+        "productos": productos,
+        "modelos": MODELOS_PRONOSTICO,
+        "ultima_semana": ultima_semana,
+        "semana_pronostico": ultima_semana + timedelta(weeks=1),
+        "semanas_historial": semanas_historial,
     }

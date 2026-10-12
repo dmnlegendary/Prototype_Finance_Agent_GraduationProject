@@ -222,6 +222,23 @@ a.fin-stat-card:hover {
 .fin-progress-track { height: 10px; background: var(--bg-muted); border-radius: var(--radius-full); overflow: hidden; }
 .fin-progress-fill { height: 100%; background: var(--color-primary); border-radius: var(--radius-full); }
 
+.fin-pronostico-periodo, .fin-pronostico-nota, .fin-pronostico-vacio {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: 14px 0 8px;
+}
+.fin-tabla-scroll { overflow-x: auto; margin-top: 12px; }
+.fin-pronostico-tabla { border-collapse: collapse; min-width: 760px; width: 100%; font-size: 12px; }
+.fin-pronostico-tabla th, .fin-pronostico-tabla td {
+  border-bottom: 1px solid var(--border-light);
+  padding: 10px 8px;
+  text-align: right;
+  white-space: nowrap;
+}
+.fin-pronostico-tabla thead th { color: var(--text-muted); font-weight: 700; }
+.fin-pronostico-tabla th:first-child, .fin-pronostico-tabla td:first-child { text-align: left; }
+.fin-pronostico-tabla small { font-weight: 400; }
+
 .fin-filtro-margen { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .fin-filtro-margen label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
 .fin-filtro-margen input {

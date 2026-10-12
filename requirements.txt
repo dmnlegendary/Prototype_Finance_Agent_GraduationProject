@@ -4,7 +4,7 @@ google-generativeai
 python-dotenv
 # Driver de PostgreSQL (solo se usa si en el .env se define DB_NAME)
 psycopg[binary]>=3.1
+statsmodels>=0.14,<1.0  # ARIMA and Holt-Winters sales forecasting
 
-# Se agregan hasta la fase 2, cuando se elija el modelo de pronóstico de ventas:
-# scikit-learn
-# statsmodels
+# The linear-regression baseline is implemented with Python's standard library.
+

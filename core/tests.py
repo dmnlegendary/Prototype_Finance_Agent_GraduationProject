@@ -156,6 +156,29 @@ class ImportarCsvTests(TestCase):
         self.assertEqual(timezone.localtime(ventas[0].creado_en).date().isoformat(), "2026-10-01")
         self.assertEqual(timezone.localtime(ventas[1].creado_en).date().isoformat(), "2026-10-02")
 
+    def test_importa_csv_de_ventas_articulos_y_crea_productos_pendientes(self):
+        ventas = self.archivo(
+            "ventas_articulos.csv",
+            "fecha,ticket_id,producto,cantidad,precio,total\n"
+            "2025-05-30 23:09:08,85,Agua 1lt,12,15,180\n"
+            "2025-05-30 23:14:40,85,Agua 1lt,1,16,16\n"
+            "2025-06-01 21:34:52,97,Otro producto,2,25,50\n",
+        )
+
+        self.importar(ventas=ventas, productos_desde_ventas=True)
+
+        producto = Producto.objects.get(negocio=self.negocio, nombre="Agua 1lt")
+        self.assertEqual(Producto.objects.filter(negocio=self.negocio).count(), 2)
+        self.assertEqual(producto.precio_venta, Decimal("16.00"))
+        self.assertEqual(producto.cantidad_actual, Decimal("0"))
+        self.assertTrue(producto.pendiente_validacion)
+        self.assertEqual(Venta.objects.filter(negocio=self.negocio).count(), 2)
+        self.assertEqual(ItemVenta.objects.filter(venta__negocio=self.negocio).count(), 3)
+
+    def test_productos_desde_ventas_requiere_archivo_de_ventas(self):
+        with self.assertRaises(CommandError):
+            self.importar(productos_desde_ventas=True)
+
     def test_un_csv_sin_las_columnas_necesarias_da_error(self):
         with self.assertRaises(CommandError):
             self.importar(productos=self.archivo("malo.csv", "color,talla\nrojo,M\n"))

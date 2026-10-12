@@ -16,6 +16,8 @@
   </div>
 </div>
 
+{% include "partials/ayuda.html" %}
+
 <!-- Modal de la IA: resumen de ayer al entrar, y explicación del dashboard / reportes -->
 <div class="modal-backdrop" id="modal-resumen-avi">
   <div class="form-card" style="max-width:480px;">
@@ -34,5 +36,6 @@
 
 {% block extra_scripts %}
 <script src="{% static 'js/app.js' %}"></script>
+<script src="{% static 'js/sinconexion.js' %}"></script>
 {% block app_extra_scripts %}{% endblock %}
 {% endblock %}

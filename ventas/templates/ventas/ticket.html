@@ -21,11 +21,11 @@
         <div class="ticket-receipt">
           <div class="receipt-title">
             {{ venta.negocio.nombre_tienda }}<br/>
-            {% if venta.negocio.alcaldia %}<span style="font-weight:400;font-size:12px;color:var(--text-muted)">{{ venta.negocio.get_alcaldia_display }}, CDMX</span><br/>{% endif %}
+            {% if venta.negocio.ubicacion %}<span style="font-weight:400;font-size:12px;color:var(--text-muted)">{{ venta.negocio.ubicacion }}</span><br/>{% endif %}
             <span style="font-weight:400;font-size:12px;color:var(--text-muted)">{{ venta.creado_en|date:"d/m/Y" }} · {{ venta.creado_en|date:"H:i" }} · Folio #{{ venta.folio|stringformat:"04d" }}</span>
           </div>
           {% for item in items %}
-          <div class="receipt-row"><span>{{ item.producto.nombre }} x{{ item.cantidad|floatformat:"-2" }}</span><span>${{ item.subtotal }}</span></div>
+          <div class="receipt-row"><span>{{ item.producto.nombre }} x{{ item.cantidad|floatformat:"-3" }} {{ item.producto.unidad }}</span><span>${{ item.subtotal }}</span></div>
           {% empty %}
           <div class="receipt-row"><span>Este ticket no tiene productos.</span><span></span></div>
           {% endfor %}

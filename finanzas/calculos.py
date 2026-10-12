@@ -74,16 +74,37 @@ def ingresos_periodo(negocio, desde, hasta):
 
 
 def gastos_periodo(negocio, desde, hasta, tipo=None):
+    """Gastos operativos (fijos y variables). La compra de mercancía NO entra aquí:
+    esa se cuenta aparte (compras_periodo) porque su costo ya se resta al vender."""
     gastos = GastoOperativo.objects.filter(negocio=negocio, fecha__gte=desde, fecha__lt=hasta)
     if tipo:
         gastos = gastos.filter(tipo=tipo)
+    else:
+        gastos = gastos.exclude(tipo=GastoOperativo.Tipo.MERCANCIA)
     return redondear(_suma(gastos, "monto"))
 
 
+def compras_periodo(negocio, desde, hasta):
+    """Lo que se gastó en comprar mercancía (se registra sola al agregar piezas al inventario)."""
+    compras = GastoOperativo.objects.filter(
+        negocio=negocio, fecha__gte=desde, fecha__lt=hasta, tipo=GastoOperativo.Tipo.MERCANCIA,
+    )
+    return redondear(_suma(compras, "monto"))
+
+
 def costo_de_ventas_periodo(negocio, desde, hasta):
-    """Lo que costó (costo de adquisición) la mercancía que se vendió."""
+    """Lo que costó (costo de adquisición) la mercancía que se vendió. Usa el costo
+    guardado en cada renglón de venta, no el costo actual del producto."""
     items = ItemVenta.objects.filter(venta__in=ventas_cobradas(negocio, desde, hasta))
-    return redondear(_suma(items, F("cantidad") * F("producto__costo")))
+    return redondear(_suma(items, F("cantidad") * F("costo_unitario")))
+
+
+def renglones_sin_costo(negocio, desde, hasta):
+    """Cuántos renglones vendidos no tienen precio de compra. Mientras existan, la
+    utilidad se ve más alta de lo que es en realidad."""
+    return ItemVenta.objects.filter(
+        venta__in=ventas_cobradas(negocio, desde, hasta), costo_unitario=0,
+    ).count()
 
 
 # ------------------------------------------------------------------- ISR
@@ -109,11 +130,15 @@ def tasa_isr_del_negocio(negocio, hoy):
 
 # ------------------------------------------- flujo, margen y utilidad neta
 
-def resumen_desde_sumas(ingresos, costo_ventas, gastos, tasa_isr):
+def resumen_desde_sumas(ingresos, costo_ventas, gastos, tasa_isr, compras=CERO):
     """
-    Flujo de efectivo  = ingresos - egresos (gastos registrados)
+    Flujo de efectivo  = ingresos - egresos (gastos operativos + compras de mercancía)
     Margen operativo   = (ingresos - costo de ventas - gastos operativos) / ingresos * 100
     Utilidad neta      = ingresos - costo de ventas - gastos operativos - ISR RESICO
+
+    Las compras de mercancía solo cuentan para el flujo de efectivo (es dinero que
+    salió); para la utilidad no, porque el costo de lo vendido ya se resta en
+    "costo de ventas" y se contaría dos veces.
     """
     isr = redondear(ingresos * tasa_isr / 100)
     utilidad_operativa = ingresos - costo_ventas - gastos
@@ -124,7 +149,8 @@ def resumen_desde_sumas(ingresos, costo_ventas, gastos, tasa_isr):
         "ingresos": ingresos,
         "costo_ventas": costo_ventas,
         "gastos": gastos,
-        "flujo_efectivo": ingresos - gastos,
+        "compras": compras,
+        "flujo_efectivo": ingresos - gastos - compras,
         "margen_operativo": margen_operativo,
         "tasa_isr": tasa_isr,
         "isr": isr,
@@ -138,7 +164,44 @@ def resumen_financiero(negocio, desde, hasta, tasa_isr):
         costo_de_ventas_periodo(negocio, desde, hasta),
         gastos_periodo(negocio, desde, hasta),
         tasa_isr,
+        compras=compras_periodo(negocio, desde, hasta),
     )
+
+
+def resumen_por_meses(negocio, meses, tasa_isr):
+    """El resumen de varios meses seguidos con solo 4 consultas (en vez de 4 por mes).
+    `meses` es la lista de primeros días de mes, del más viejo al más nuevo."""
+    desde = meses[0]
+    hasta = mes_siguiente(meses[-1])
+    dinero = DecimalField(max_digits=14, decimal_places=2)
+
+    def por_mes(consulta, campo_fecha, expresion):
+        filas = (
+            consulta.annotate(mes=TruncMonth(campo_fecha)).order_by().values("mes")
+            .annotate(suma=Sum(expresion, output_field=dinero))
+        )
+        resultado = {}
+        for fila in filas:
+            mes = fila["mes"]
+            resultado[mes.date() if hasattr(mes, "date") else mes] = fila["suma"] or CERO
+        return resultado
+
+    ventas = ventas_cobradas(negocio, desde, hasta)
+    ingresos = por_mes(ventas, "creado_en", "total")
+    costos = por_mes(
+        ItemVenta.objects.filter(venta__in=ventas), "venta__creado_en", F("cantidad") * F("costo_unitario"),
+    )
+    gastos_todos = GastoOperativo.objects.filter(negocio=negocio, fecha__gte=desde, fecha__lt=hasta)
+    gastos = por_mes(gastos_todos.exclude(tipo=GastoOperativo.Tipo.MERCANCIA), "fecha", "monto")
+    compras = por_mes(gastos_todos.filter(tipo=GastoOperativo.Tipo.MERCANCIA), "fecha", "monto")
+
+    return [
+        resumen_desde_sumas(
+            redondear(ingresos.get(mes, CERO)), redondear(costos.get(mes, CERO)),
+            redondear(gastos.get(mes, CERO)), tasa_isr, compras=redondear(compras.get(mes, CERO)),
+        )
+        for mes in meses
+    ]
 
 
 # ------------------------------------------------------- precio sugerido
@@ -220,7 +283,7 @@ def punto_equilibrio_negocio(negocio, hoy, meses_historial=3):
     dinero = DecimalField(max_digits=14, decimal_places=2)
     por_categoria = items.order_by().values("producto__categoria__nombre").annotate(
         ventas=Sum(F("cantidad") * F("precio_unitario"), output_field=dinero),
-        costo=Sum(F("cantidad") * F("producto__costo"), output_field=dinero),
+        costo=Sum(F("cantidad") * F("costo_unitario"), output_field=dinero),
         unidades=Sum("cantidad"),
     )
     categorias = [

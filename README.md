@@ -115,3 +115,16 @@ Para responder rápido:
 - Luis Bernardo Delgado Acosta — Ingeniería en Inteligencia Artificial
 
 Escuela Superior de Cómputo (ESCOM) — Instituto Politécnico Nacional.
+
+## Novedades de la versión actual
+
+- **Compras de mercancía automáticas.** Toda pieza que entra al inventario (alta de producto, resurtir, importar CSV, registro inicial, el asistente) se registra sola como gasto de "Compra de mercancía". Cuenta para el flujo de efectivo pero no para la utilidad (el costo de lo vendido ya se resta al vender), así no se duplica.
+- **Precio y costo congelados en cada venta.** Si cambias el precio o el costo de un producto, las ventas de antes no cambian.
+- **Regla de oro:** no se vende más de lo que hay. Si falta, el sistema pregunta cuántas piezas (o kilos) agregar y a qué precio de compra, y sigue con la venta.
+- **Productos a granel:** se venden por gramos (el precio y las existencias son por kilo).
+- **Dos carritos** por tienda, cantidad escrita con el teclado y búsqueda tolerante (sin acentos, sin importar el orden, con errores de dedo).
+- **Código de barras:** un lector USB o Bluetooth "escribe" el código en el buscador de ventas y da Enter; también se puede capturar en el alta y la edición del producto.
+- **Importar CSV desde la pantalla de inventario**, con revisión y confirmación antes de guardar (columnas obligatorias: `producto, cantidad, precio_compra, precio_venta`).
+- **Sin internet:** se puede cobrar, dar de alta productos y registrar mercancía. Todo se guarda en el dispositivo y se sincroniza solo al regresar la conexión (ver `static/js/sinconexion.js`, `static/sw.js` y `core/sync.py`).
+- **Pantallas ligeras:** inventario y alertas cargan 20 renglones y el resto con "Ver más"; los reportes usan pocas consultas.
+- **El asistente solo recibe las herramientas de la pantalla en la que estás**, para gastar menos.

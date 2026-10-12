@@ -18,6 +18,14 @@
   </div>
 </div>
 
+{% if renglones_sin_costo %}
+<div class="fin-callout" style="border-color:var(--color-warning);">
+  <i class="bi bi-exclamation-triangle-fill" style="color:var(--color-warning);"></i>
+  <strong>Ojo con tu utilidad:</strong> {{ renglones_sin_costo }} renglones vendidos no tienen precio de compra, así que tu utilidad se ve más alta de lo que es.
+  <a href="{% url 'finanzas:registrar_gastos' %}" data-sin-loader>Completa los precios de compra</a>.
+</div>
+{% endif %}
+
 <div class="fin-stat-grid">
   <div class="fin-stat-card">
     <div class="fin-stat-label">Ingresos totales</div>
@@ -57,7 +65,8 @@
     </tbody>
   </table>
   <p class="fin-subtitle" style="margin-top:10px;">
-    Flujo de efectivo = ingresos − gastos registrados.
+    Flujo de efectivo = ingresos − gastos − compras de mercancía (${{ total.compras|floatformat:2|intcomma }} en este periodo): es el dinero que realmente entró y salió.
+    Las compras de mercancía no se restan otra vez en la utilidad, porque su costo ya está en "lo que te costó la mercancía que vendiste".
     Margen operativo = lo que te queda antes de impuestos entre lo que vendiste.
     La tasa de ISR RESICO depende de tus ingresos de los últimos 12 meses.
   </p>
@@ -94,14 +103,6 @@
 
 <div class="fin-card">
   <h3><i class="bi bi-robot"></i> Alertas y sugerencias</h3>
-  {% if baja_rotacion %}
-  <div class="fin-result-item">
-    <span>
-      <i class="bi bi-exclamation-triangle-fill" style="color:var(--color-warning);"></i>
-      No has vendido nada de {% for p in baja_rotacion %}<strong>{{ p.nombre }}</strong>{% if not forloop.last %}, {% endif %}{% endfor %} en este periodo. Considera una promoción o revisar si sigue siendo relevante en tu catálogo.
-    </span>
-  </div>
-  {% endif %}
   {% if gasto_inusual %}
   <div class="fin-result-item">
     <span>
@@ -110,10 +111,33 @@
     </span>
   </div>
   {% endif %}
-  {% if not baja_rotacion and not gasto_inusual %}
-  <div class="fin-result-item">
-    <span><i class="bi bi-check-circle-fill" style="color:var(--color-success);"></i> No encontramos nada fuera de lo normal en este periodo.</span>
-  </div>
-  {% endif %}
+  <div id="listaBajaRotacion" data-url="{% url 'finanzas:baja_rotacion' %}" data-desde="{{ desde_baja_rotacion }}" data-siguiente="1"></div>
+  <button type="button" class="btn-ghost" id="btnBajaRotacion" onclick="verBajaRotacion()" style="margin-top:8px;"><i class="bi bi-box-seam"></i> Ver productos que no se han vendido en este periodo</button>
 </div>
+{% endblock %}
+
+{% block app_extra_scripts %}
+<script>
+  // "Ver más": los productos sin ventas se piden por lotes de 10 (es la parte más pesada del reporte)
+  function verBajaRotacion() {
+    const caja = document.getElementById('listaBajaRotacion');
+    const boton = document.getElementById('btnBajaRotacion');
+    boton.disabled = true;
+    boton.textContent = 'Cargando…';
+
+    fetch(caja.dataset.url + '?desde=' + caja.dataset.desde + '&page=' + caja.dataset.siguiente)
+      .then(function (r) { return r.json(); })
+      .then(function (datos) {
+        caja.insertAdjacentHTML('beforeend', datos.html);
+        caja.dataset.siguiente = datos.siguiente;
+        if (datos.total === 0) {
+          caja.innerHTML = '<div class="fin-result-item"><span><i class="bi bi-check-circle-fill" style="color:var(--color-success);"></i> Todos tus productos se vendieron en este periodo.</span></div>';
+        }
+        boton.style.display = datos.hay_mas ? 'inline-flex' : 'none';
+        boton.textContent = 'Ver más';
+      })
+      .catch(function () { boton.textContent = 'No pude cargar, intenta de nuevo'; })
+      .finally(function () { boton.disabled = false; });
+  }
+</script>
 {% endblock %}

@@ -1,4 +1,6 @@
 # Vistas de accounts: login/logout + registro en 3 pasos (Cuenta -> Negocio -> Productos)
+from decimal import Decimal
+
 from django.contrib import messages
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth import login as auth_login
@@ -7,6 +9,7 @@ from django.contrib.auth.views import LoginView, LogoutView
 from django.shortcuts import redirect, render
 
 from core import cache_negocio
+from inventario.compras import a_decimal, registrar_compra
 from inventario.models import Categoria, Producto, ProductoCatalogo
 from ventas.models import ItemVenta
 
@@ -54,28 +57,43 @@ def productos_precargados(request):
     if negocio is None:
         return redirect("accounts:datos_negocio")
 
+    errores = []
+    elegidos = []
     if request.method == "POST":
-        seleccionados = request.POST.getlist("productos_catalogo")
-        catalogo_items = ProductoCatalogo.objects.filter(id__in=seleccionados)
-        Producto.objects.bulk_create([
-            Producto(
-                negocio=negocio,
-                nombre=item.nombre,
-                categoria=item.categoria,
-                icono=item.icono,
-                costo=item.precio_sugerido,
-                precio_venta=item.precio_sugerido,
-                catalogo_origen=item,
-            )
-            for item in catalogo_items
-        ])
-        # bulk_create no avisa a las señales, así que se limpia el cache a mano
-        cache_negocio.invalidar(negocio.pk)
-        return redirect("ventas:punto_de_venta")
+        elegidos = request.POST.getlist("productos_catalogo")
+        catalogo_items = list(ProductoCatalogo.objects.filter(id__in=elegidos))
+
+        # de cada producto elegido se piden las piezas y lo que costó y se vende cada una
+        nuevos = []
+        for item in catalogo_items:
+            piezas = a_decimal(request.POST.get(f"piezas_{item.id}"))
+            costo = a_decimal(request.POST.get(f"costo_{item.id}"))
+            precio = a_decimal(request.POST.get(f"precio_{item.id}"))
+            if piezas is None or piezas < 0 or piezas != piezas.to_integral_value():
+                errores.append(f'"{item.nombre}": escribe cuántas piezas tienes (un número entero, puede ser 0).')
+            elif costo is None or costo < 0:
+                errores.append(f'"{item.nombre}": escribe cuánto te costó cada pieza.')
+            elif precio is None or precio <= 0:
+                errores.append(f'"{item.nombre}": escribe en cuánto lo vendes.')
+            else:
+                nuevos.append(Producto(
+                    negocio=negocio, nombre=item.nombre, categoria=item.categoria, icono=item.icono,
+                    costo=costo, precio_venta=precio, cantidad_actual=piezas, catalogo_origen=item,
+                ))
+
+        if not errores:
+            Producto.objects.bulk_create(nuevos)
+            # las piezas con las que arranca cada producto son mercancía que se compró
+            registrar_compra(negocio, "Compra de mercancía (inventario inicial)", sum((p.cantidad_actual * p.costo for p in nuevos), Decimal("0")))
+            # bulk_create no avisa a las señales, así que se limpia el cache a mano
+            cache_negocio.invalidar(negocio.pk)
+            return redirect("ventas:punto_de_venta")
 
     context = {
         "productos_catalogo": ProductoCatalogo.objects.select_related("categoria"),
         "categorias": Categoria.objects.all(),
+        "errores": errores,
+        "elegidos": elegidos,
     }
     return render(request, "accounts/productos_precargados.html", context)
 

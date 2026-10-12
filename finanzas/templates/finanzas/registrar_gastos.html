@@ -7,7 +7,8 @@
 <div class="fin-callout">
   <i class="bi bi-lightbulb-fill"></i> <strong>¿Cuál es la diferencia?</strong><br>
   <strong>Gastos fijos:</strong> los pagas siempre, aunque no vendas nada (renta, luz, internet).<br>
-  <strong>Gastos variables:</strong> cambian según cuánto vendas o compres (inventario, merma, bolsas).
+  <strong>Gastos variables:</strong> cambian según cuánto vendas (bolsas, flete, merma).<br>
+  <strong>No registres aquí la mercancía que compras:</strong> esa compra se anota sola cuando agregas piezas al inventario, y su costo ya se resta cuando vendes.
 </div>
 
 <div class="fin-grid-2">
@@ -63,10 +64,29 @@
         <div class="fin-stat-label">Total general</div>
         <div class="fin-stat-value">${{ total_general }}</div>
       </div>
+      <div class="fin-mini-stat">
+        <div class="fin-stat-label">Compras de mercancía</div>
+        <div class="fin-stat-value">${{ total_compras }}</div>
+      </div>
     </div>
     <p class="fin-subtitle" style="margin-top:10px;">Con base en los gastos que ya registraste este mes.</p>
   </div>
 </div>
+
+{% if productos_sin_precio %}
+<div class="fin-card" style="margin-top:14px;">
+  <h3><i class="bi bi-question-circle-fill" style="color:var(--color-orange);"></i> Productos no encontrados</h3>
+  <p class="fin-subtitle">Los vendiste sin tenerlos en el inventario. Ponles su precio de compra para que tu utilidad sea real y la compra se refleje en tus gastos.</p>
+  {% for p in productos_sin_precio %}
+  <form method="post" action="{% url 'finanzas:completar_no_encontrado' p.pk %}" class="fila-no-encontrado">
+    {% csrf_token %}
+    <span><strong>{{ p.nombre }}</strong> · vendiste {{ p.vendidas|floatformat:"-3" }} a ${{ p.precio_venta }}</span>
+    <input type="number" name="precio_compra" step="0.01" min="0.01" placeholder="Precio de compra" required>
+    <button type="submit" class="fin-btn-primary" style="padding:6px 12px;">Guardar</button>
+  </form>
+  {% endfor %}
+</div>
+{% endif %}
 
 <div class="modal-backdrop" id="modal-categoria-gasto-nueva">
   <div class="form-card" style="max-width:360px;">

@@ -67,14 +67,24 @@ class NegocioForm(forms.ModelForm):
 
     class Meta:
         model = Negocio
-        fields = ["nombre_tienda", "alcaldia", "anios_operacion", "regimen_resico", "rfc"]
+        fields = ["nombre_tienda", "alcaldia", "alcaldia_otra", "anios_operacion", "regimen_resico", "rfc"]
         widgets = {
             "nombre_tienda": forms.TextInput(attrs={"placeholder": "Ej. Abarrotes Don Raúl", "class": INPUT_CLASSES}),
             "alcaldia": forms.Select(attrs={"class": SELECT_CLASSES}),
+            "alcaldia_otra": forms.TextInput(attrs={"placeholder": "Ej. Naucalpan, Estado de México", "class": INPUT_CLASSES}),
             "anios_operacion": forms.Select(attrs={"class": SELECT_CLASSES}),
             "regimen_resico": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "rfc": forms.TextInput(attrs={"placeholder": "MARL850312AB3", "class": INPUT_CLASSES}),
         }
+
+    def clean(self):
+        datos = super().clean()
+        if datos.get("alcaldia") == Negocio.Alcaldia.OTRA:
+            if not (datos.get("alcaldia_otra") or "").strip():
+                self.add_error("alcaldia_otra", "Escribe el nombre del lugar donde está tu tienda.")
+        else:
+            datos["alcaldia_otra"] = ""
+        return datos
 
 
 class RecuperarPasswordForm(PasswordResetForm):

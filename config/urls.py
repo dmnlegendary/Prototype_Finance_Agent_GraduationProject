@@ -12,6 +12,7 @@ urlpatterns = [
     path("ventas/", include("ventas.urls")),
     path("finanzas/", include("finanzas.urls")),
     path("avi/", include("avi.urls")),
+    path("", include("core.urls")),
 
     # la raíz del sitio manda directo al punto de venta
     path("", RedirectView.as_view(pattern_name="ventas:punto_de_venta", permanent=False)),

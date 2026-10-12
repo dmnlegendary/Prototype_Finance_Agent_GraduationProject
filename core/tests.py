@@ -1,4 +1,7 @@
+import json
 import tempfile
+from datetime import datetime
+from datetime import timezone as dt_timezone
 from decimal import Decimal
 from io import StringIO
 from pathlib import Path
@@ -7,9 +10,12 @@ from unittest.mock import patch
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import SimpleTestCase, TestCase
+from django.urls import reverse
 from django.utils import timezone
 
+from finanzas.models import GastoOperativo
 from inventario.models import Categoria, Producto
+from ventas import carrito
 from ventas.models import ItemVenta, Venta
 
 from . import cache_negocio
@@ -213,3 +219,150 @@ class ImportarCsvTests(TestCase):
             "productos.csv", "nombre,precio_venta,cantidad_actual,cantidad_minima\nPepsi,18,1,5\n",
         ))
         self.assertEqual(conteo_alertas(self.negocio)["rojo"], 1)
+
+
+class SincronizacionSinInternetTests(TestCase):
+    """Lo que se hizo sin internet llega al servidor cuando regresa la conexión."""
+
+    def setUp(self):
+        self.usuario, self.negocio = crear_negocio()
+        self.client.force_login(self.usuario)
+        self.coca = crear_producto(self.negocio, nombre="Coca 600", cantidad="10", costo="15", precio="25")
+
+    def enviar(self, *operaciones):
+        respuesta = self.client.post(
+            reverse("core:sincronizar"), data=json.dumps({"operaciones": list(operaciones)}), content_type="application/json",
+        )
+        return respuesta.json()["resultados"]
+
+    def venta(self, uuid="v1", cantidad=2, **extra):
+        datos = {
+            "carrito": 1, "fecha": "2026-01-05T15:30:00Z", "limpiar_carrito": False,
+            "renglones": [{"producto_id": self.coca.pk, "cantidad": cantidad, "precio_unitario": 25}],
+        }
+        datos.update(extra)
+        return {"uuid": uuid, "tipo": "venta", "datos": datos}
+
+    def test_una_venta_hecha_sin_internet_se_guarda_con_su_fecha_y_descuenta_el_inventario(self):
+        resultado = self.enviar(self.venta())[0]
+
+        self.assertTrue(resultado["ok"])
+        venta = Venta.objects.get()
+        self.assertEqual(venta.estado, Venta.Estado.COBRADA)
+        self.assertEqual(venta.total, Decimal("50.00"))
+        self.assertEqual(venta.creado_en, datetime(2026, 1, 5, 15, 30, tzinfo=dt_timezone.utc))
+        self.assertEqual(ItemVenta.objects.get().costo_unitario, Decimal("15.00"))
+        self.coca.refresh_from_db()
+        self.assertEqual(self.coca.cantidad_actual, Decimal("8"))
+
+    def test_mandar_dos_veces_la_misma_operacion_no_la_duplica(self):
+        self.enviar(self.venta(uuid="repetida"))
+        resultado = self.enviar(self.venta(uuid="repetida"))[0]
+
+        self.assertTrue(resultado["ok"])
+        self.assertEqual(Venta.objects.count(), 1)
+        self.coca.refresh_from_db()
+        self.assertEqual(self.coca.cantidad_actual, Decimal("8"))
+
+    def test_las_operaciones_se_aplican_en_orden_y_cada_una_responde_por_separado(self):
+        resultados = self.enviar(self.venta(uuid="a", cantidad=1), self.venta(uuid="b", cantidad=3))
+        self.assertEqual([r["uuid"] for r in resultados], ["a", "b"])
+        self.assertEqual(Venta.objects.count(), 2)
+        self.coca.refresh_from_db()
+        self.assertEqual(self.coca.cantidad_actual, Decimal("6"))
+
+    def test_una_venta_de_un_producto_que_ya_no_existe_se_rechaza_para_siempre(self):
+        operacion = self.venta()
+        operacion["datos"]["renglones"][0]["producto_id"] = 99999
+        resultado = self.enviar(operacion)[0]
+
+        self.assertFalse(resultado["ok"])
+        self.assertTrue(resultado["definitivo"])
+        self.assertEqual(Venta.objects.count(), 0)
+
+    def test_si_ya_no_alcanzaban_las_existencias_la_venta_se_guarda_y_se_avisa(self):
+        resultado = self.enviar(self.venta(cantidad=15))[0]
+
+        self.assertTrue(resultado["ok"])
+        self.assertIn("no alcanzaban", resultado["mensaje"])
+        self.coca.refresh_from_db()
+        self.assertEqual(self.coca.cantidad_actual, Decimal("0"))  # nunca queda en negativo
+
+    def test_si_la_venta_venia_de_un_carrito_del_servidor_se_vacia_ese_carrito(self):
+        abierto = carrito.venta_en_curso(self.negocio, 1)
+        ItemVenta.objects.create(venta=abierto, producto=self.coca, cantidad=Decimal("2"), precio_unitario=Decimal("25"))
+
+        self.enviar(self.venta(limpiar_carrito=True))
+        abierto.refresh_from_db()
+        self.assertEqual(abierto.items.count(), 0)
+        self.assertEqual(abierto.estado, Venta.Estado.EN_CURSO)
+
+    def test_un_producto_no_encontrado_vendido_sin_internet_queda_pendiente(self):
+        operacion = self.venta()
+        operacion["datos"]["renglones"] = [{"no_encontrado": True, "nombre": "Bolsa de hielo", "cantidad": 1, "precio_unitario": 20}]
+        self.enviar(operacion)
+
+        pendiente = Producto.objects.get(nombre="Bolsa de hielo")
+        self.assertTrue(pendiente.pendiente_validacion)
+        self.assertEqual(Venta.objects.get().total, Decimal("20.00"))
+
+    def test_una_pieza_con_decimales_se_rechaza(self):
+        resultado = self.enviar(self.venta(cantidad=1.5))[0]
+        self.assertTrue(resultado["definitivo"])
+        self.assertEqual(Venta.objects.count(), 0)
+
+    def test_alta_de_un_producto_sin_internet(self):
+        resultado = self.enviar({
+            "uuid": "alta1", "tipo": "alta_producto",
+            "datos": {
+                "nombre": "Pepsi 600", "costo": "13", "precio_venta": "18", "cantidad_actual": "12",
+                "cantidad_minima": "4", "a_granel": False, "descripcion": "",
+            },
+        })[0]
+
+        self.assertTrue(resultado["ok"])
+        self.assertEqual(Producto.objects.get(nombre="Pepsi 600").cantidad_actual, Decimal("12"))
+        self.assertEqual(GastoOperativo.objects.get().monto, Decimal("156.00"))
+
+    def test_un_alta_con_datos_malos_se_rechaza(self):
+        resultado = self.enviar({"uuid": "alta2", "tipo": "alta_producto", "datos": {"nombre": "Sin precios"}})[0]
+        self.assertFalse(resultado["ok"])
+        self.assertTrue(resultado["definitivo"])
+        self.assertFalse(Producto.objects.filter(nombre="Sin precios").exists())
+
+    def test_resurtir_sin_internet_suma_las_piezas_y_registra_la_compra(self):
+        self.enviar({"uuid": "r1", "tipo": "resurtir", "datos": {"producto_id": self.coca.pk, "cantidad": "20", "costo": "16"}})
+        self.coca.refresh_from_db()
+        self.assertEqual(self.coca.cantidad_actual, Decimal("30"))
+        self.assertEqual(GastoOperativo.objects.get().monto, Decimal("320.00"))
+
+    def test_una_operacion_desconocida_se_descarta(self):
+        resultado = self.enviar({"uuid": "x", "tipo": "borrar_todo", "datos": {}})[0]
+        self.assertFalse(resultado["ok"])
+        self.assertTrue(resultado["definitivo"])
+
+    def test_no_se_pueden_tocar_productos_de_otra_tienda(self):
+        otro_usuario, otro_negocio = crear_negocio(telefono="5599999999", email="otro@ejemplo.com", nombre_tienda="Otra")
+        ajeno = crear_producto(otro_negocio, nombre="Ajeno", cantidad="5")
+        resultado = self.enviar({"uuid": "r2", "tipo": "resurtir", "datos": {"producto_id": ajeno.pk, "cantidad": "5"}})[0]
+        self.assertFalse(resultado["ok"])
+        ajeno.refresh_from_db()
+        self.assertEqual(ajeno.cantidad_actual, Decimal("5"))
+
+    def test_pide_sesion(self):
+        self.client.logout()
+        respuesta = self.client.post(reverse("core:sincronizar"), data="{}", content_type="application/json")
+        self.assertEqual(respuesta.status_code, 302)
+
+    def test_un_envio_mal_armado_da_error_400(self):
+        respuesta = self.client.post(reverse("core:sincronizar"), data=json.dumps({"operaciones": "no"}), content_type="application/json")
+        self.assertEqual(respuesta.status_code, 400)
+
+    def test_el_navegador_puede_preguntar_si_ya_hay_conexion(self):
+        self.assertTrue(self.client.get(reverse("core:estado_de_la_conexion")).json()["ok"])
+
+    def test_el_service_worker_se_sirve_desde_la_raiz(self):
+        respuesta = self.client.get("/sw.js")
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta["Service-Worker-Allowed"], "/")
+        self.assertIn("addEventListener('fetch'", respuesta.content.decode())

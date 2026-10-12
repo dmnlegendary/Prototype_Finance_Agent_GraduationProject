@@ -20,7 +20,7 @@
       <div class="search-filter-row" style="padding:0;">
         <div class="search-inv" style="border-radius:var(--radius-full);">
           <i class="bi bi-search"></i>
-          <input type="text" id="buscarAlerta" placeholder="Buscar un producto en las alertas…" autocomplete="off" oninput="filtrarAlertas()"/>
+          <input type="text" id="buscarAlerta" placeholder="Buscar un producto en las alertas…" autocomplete="off" oninput="buscarAlertas()"/>
         </div>
       </div>
 
@@ -33,31 +33,16 @@
 
       <div class="catalog-wrap" style="padding:0; flex:none;">
         <div class="catalog-card" style="padding:14px;">
-          <div class="alert-list" id="listaAlertas">
+          <div class="alert-list" id="listaAlertas" data-url="{% url 'inventario:alertas_filas' %}">
+            {% include "inventario/_alertas_items.html" %}
+          </div>
 
-            {% for p in alertas %}
-            <div class="alert-item nivel-{{ p.nivel_stock }}" data-nombre="{{ p.nombre|lower }}" data-nivel="{{ p.nivel_stock }}">
-              <div class="alert-icon">{{ p.icono }}</div>
-              <div class="alert-body">
-                <div class="alert-title">{{ p.nombre }}</div>
-                <div class="alert-desc">
-                  Quedan {{ p.cantidad_actual|floatformat:"-2" }} pzas (mínimo: {{ p.cantidad_minima|floatformat:"-2" }}, ideal: {{ p.stock_ideal_efectivo|floatformat:"-2" }}).
-                  {% if p.proveedor %}Proveedor: {{ p.proveedor.nombre }}.{% endif %}
-                </div>
-                <div class="alert-meta">Categoría: {{ p.categoria.nombre|default:"Sin categoría" }}</div>
-              </div>
-              <span class="alert-priority nivel-{{ p.nivel_stock }}">
-                {% if p.nivel_stock == "rojo" %}Resurtir ya{% elif p.nivel_stock == "naranja" %}Queda un cuarto{% else %}Va a la mitad{% endif %}
-              </span>
-            </div>
-            {% endfor %}
+          <p class="sin-resultados" id="sinResultadosAlertas" style="{% if not alertas %}display:block;{% endif %}">
+            {% if conteo.total %}Ningún producto coincide con la búsqueda.{% else %}<i class="bi bi-check-circle-fill"></i> No hay alertas de inventario por ahora.{% endif %}
+          </p>
 
-            <p class="sin-resultados" id="sinResultadosAlertas">Ningún producto coincide con la búsqueda.</p>
-
-            {% if not alertas %}
-            <p style="color:var(--text-faint); font-size:13px; text-align:center; padding:24px;"><i class="bi bi-check-circle-fill"></i> No hay alertas de inventario por ahora.</p>
-            {% endif %}
-
+          <div style="text-align:center; margin-top:10px; {% if not hay_mas %}display:none;{% endif %}" id="verMasAlertasWrap">
+            <button type="button" class="btn-ghost" id="verMasAlertas" onclick="verMasAlertas()">Ver más</button>
           </div>
         </div>
       </div>

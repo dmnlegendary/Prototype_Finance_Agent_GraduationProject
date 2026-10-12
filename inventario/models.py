@@ -71,19 +71,27 @@ class Producto(ModeloBase):
     costo = models.DecimalField("Costo ($)", max_digits=10, decimal_places=2)
     precio_venta = models.DecimalField("Precio de venta ($)", max_digits=10, decimal_places=2)
 
-    cantidad_actual = models.DecimalField("Cantidad actual", max_digits=10, decimal_places=2, default=0)
-    cantidad_minima = models.DecimalField("Cantidad mínima", max_digits=10, decimal_places=2, default=0)
+    cantidad_actual = models.DecimalField("Cantidad actual", max_digits=10, decimal_places=3, default=0)
+    cantidad_minima = models.DecimalField("Cantidad mínima", max_digits=10, decimal_places=3, default=0)
     # Lo que tienes cuando resurtes completo. Con este número se pintan los
     # colores del semáforo: amarillo a la mitad, naranja a un cuarto y rojo al
     # llegar al mínimo. Si se deja en 0 se usa 4 veces el mínimo.
     stock_ideal = models.DecimalField(
-        "Stock ideal", max_digits=10, decimal_places=2, default=0,
+        "Stock ideal", max_digits=10, decimal_places=3, default=0,
         help_text="Piezas que tienes cuando resurtes completo. Déjalo en 0 si no lo sabes.",
     )
 
     catalogo_origen = models.ForeignKey(
         ProductoCatalogo, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
     )
+
+    # Producto "a granel": se vende por peso (frijol, azúcar...). Su precio es por
+    # kilo y sus existencias se guardan en kilos (125 g = 0.125). En pantalla se
+    # captura en gramos.
+    a_granel = models.BooleanField("Se vende a granel (por kilo)", default=False)
+    # Código de barras (opcional). Un lector de códigos conectado a la compu o al
+    # celular "escribe" el código como si fuera un teclado.
+    codigo_barras = models.CharField("Código de barras", max_length=40, blank=True, default="")
 
     activo = models.BooleanField(default=True)
     # True solo para los productos creados desde "producto no encontrado" en
@@ -101,6 +109,11 @@ class Producto(ModeloBase):
             models.Index(fields=["negocio", "nombre"], name="producto_negocio_nombre_idx"),
         ]
         constraints = [
+            # el mismo código de barras no puede estar en dos productos de la misma tienda
+            models.UniqueConstraint(
+                fields=["negocio", "codigo_barras"], condition=~models.Q(codigo_barras=""),
+                name="producto_codigo_unico_por_negocio",
+            ),
             models.CheckConstraint(
                 condition=models.Q(costo__gte=0) & models.Q(precio_venta__gte=0),
                 name="producto_precios_no_negativos",
@@ -119,6 +132,11 @@ class Producto(ModeloBase):
 
     def __str__(self):
         return f"{self.nombre} ({self.negocio.nombre_tienda})"
+
+    @property
+    def unidad(self):
+        """"kg" para los productos a granel y "pzas" para los demás."""
+        return "kg" if self.a_granel else "pzas"
 
     @property
     def margen_porcentaje(self):

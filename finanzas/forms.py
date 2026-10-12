@@ -20,3 +20,10 @@ class GastoOperativoForm(forms.ModelForm):
         if negocio is not None:
             self.fields["categoria"].queryset = CategoriaGasto.objects.filter(negocio=negocio)
         self.fields["categoria"].required = False
+
+    def clean_tipo(self):
+        # la compra de mercancía no se captura a mano: se registra sola al agregar piezas al inventario
+        tipo = self.cleaned_data["tipo"]
+        if tipo == GastoOperativo.Tipo.MERCANCIA:
+            raise forms.ValidationError("La compra de mercancía se registra sola al agregar piezas al inventario.")
+        return tipo

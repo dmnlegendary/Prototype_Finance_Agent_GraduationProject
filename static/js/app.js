@@ -49,10 +49,61 @@ function toggleAviExpand() {
   if (panel) panel.classList.toggle('expanded');
 }
 
+function csrfAvi() {
+  const campo = document.querySelector('#aviForm input[name=csrfmiddlewaretoken]');
+  return campo ? campo.value : '';
+}
+
+// Los modelos suelen contestar con markdown (**negritas**, "* viñetas"); aquí se
+// muestra como texto limpio.
+function limpiarTextoIA(texto) {
+  return String(texto || '')
+    .replace(/\*\*/g, '')
+    .replace(/^\s*[*-]\s+/gm, '• ');
+}
+
+function agregarBurbujaAvi(rol, texto) {
+  const chat = document.getElementById('aviChat');
+  const burbuja = document.createElement('div');
+  burbuja.className = 'bubble ' + (rol === 'usuario' ? 'user' : 'bot');
+  burbuja.textContent = rol === 'usuario' ? texto : limpiarTextoIA(texto);
+  chat.appendChild(burbuja);
+  return burbuja;
+}
+
+// La conversación vive en el servidor (últimas 24 horas): al cambiar de pantalla
+// se vuelve a cargar aquí y el chat no se borra.
+function cargarHistorialAvi() {
+  const chat = document.getElementById('aviChat');
+  if (!chat) return;
+
+  fetch('/avi/historial/')
+    .then(function (r) { return r.json(); })
+    .then(function (datos) {
+      if (!datos.mensajes || !datos.mensajes.length) return;
+      chat.innerHTML = '';
+      datos.mensajes.forEach(function (m) { agregarBurbujaAvi(m.rol, m.texto); });
+      chat.scrollTop = chat.scrollHeight;
+    })
+    .catch(function () {});
+}
+
 function limpiarChatAvi() {
   const chat = document.getElementById('aviChat');
-  if (chat) chat.innerHTML = '<div class="bubble bot">Chat vaciado. ¿En qué puedo ayudarte?</div>';
+  if (!chat) return;
+  if (!confirm('¿Borrar toda la conversación con el asistente?')) return;
+
+  fetch('/avi/limpiar/', { method: 'POST', headers: { 'X-CSRFToken': csrfAvi() } })
+    .finally(function () {
+      chat.innerHTML = '';
+      const saludo = document.createElement('div');
+      saludo.className = 'bubble bot';
+      saludo.textContent = chat.dataset.saludo || 'Chat vaciado. ¿En qué puedo ayudarte?';
+      chat.appendChild(saludo);
+    });
 }
+
+document.addEventListener('DOMContentLoaded', cargarHistorialAvi);
 
 document.addEventListener('DOMContentLoaded', function () {
   const panel = document.getElementById('aviPanel');
@@ -123,11 +174,17 @@ function enviarMensajeAvi(event) {
       'Content-Type': 'application/json',
       'X-CSRFToken': csrftoken,
     },
-    body: JSON.stringify({ mensaje: texto, modelo: modeloSelect ? modeloSelect.value : 'chatgpt' }),
+    body: JSON.stringify({
+      mensaje: texto,
+      modelo: modeloSelect ? modeloSelect.value : 'chatgpt',
+      // en qué pantalla está y en qué carrito trabaja: la IA solo recibe las herramientas de esa pantalla
+      pantalla: (document.querySelector('.app-shell') || {dataset: {}}).dataset.modulo || null,
+      carrito: window.carritoActivo || 1,
+    }),
   })
     .then(function (respuesta) { return respuesta.json(); })
     .then(function (datos) {
-      burbujaCargando.textContent = datos.respuesta;
+      burbujaCargando.textContent = limpiarTextoIA(datos.respuesta);
       if (datos.refrescar) refrescarVistaActual();
     })
     .catch(function () {
@@ -141,6 +198,8 @@ function enviarMensajeAvi(event) {
 }
 
 function refrescarVistaActual() {
+  // el punto de venta se dibuja con JS: se vuelve a pedir el carrito al servidor
+  if (window.refrescarPOS) { window.refrescarPOS(); return; }
   // trae la página actual y solo reemplaza el contenido del módulo (carrito,
   // catálogo, gastos…) sin tocar el panel del chat ni perder la conversación
   fetch(window.location.pathname + window.location.search)
@@ -391,3 +450,40 @@ function showToast(mensaje, tipo) {
   stack.appendChild(toast);
   setTimeout(function () { toast.remove(); }, tipo === 'alerta' ? 9000 : 4000);
 }
+
+// Ayuda: filtra las preguntas frecuentes mientras escribes (sin importar acentos)
+function filtrarAyuda(texto) {
+  const buscado = texto.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  let visibles = 0;
+
+  document.querySelectorAll('#modal-ayuda .faq-item').forEach(function (item) {
+    const contenido = item.textContent.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const coincide = !buscado || contenido.includes(buscado);
+    item.style.display = coincide ? '' : 'none';
+    // si se está buscando, se abren las que coinciden para ver la respuesta
+    item.open = Boolean(buscado) && coincide;
+    if (coincide) visibles += 1;
+  });
+
+  // se esconden los títulos de grupo que se quedaron sin preguntas
+  document.querySelectorAll('#modal-ayuda [data-grupo]').forEach(function (grupo) {
+    const hayVisibles = [...grupo.querySelectorAll('.faq-item')].some(function (i) { return i.style.display !== 'none'; });
+    grupo.style.display = hayVisibles ? '' : 'none';
+  });
+
+  document.getElementById('ayudaSinResultados').style.display = visibles === 0 ? 'block' : 'none';
+}
+
+// Un aviso que se quiere mostrar DESPUÉS de recargar la página (por ejemplo "Agregué la mercancía…")
+function guardarAvisoPendiente(texto) {
+  try { sessionStorage.setItem('aviso_pendiente', texto); } catch (e) {}
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  let aviso = null;
+  try {
+    aviso = sessionStorage.getItem('aviso_pendiente');
+    sessionStorage.removeItem('aviso_pendiente');
+  } catch (e) {}
+  if (aviso) showToast(aviso, 'success');
+});

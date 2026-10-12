@@ -6,9 +6,11 @@ from django.urls import reverse
 
 from core.testing import CLAVE, crear_negocio, crear_producto
 from ventas.models import ItemVenta, Venta
-from inventario.models import Producto
+from finanzas.models import GastoOperativo
+from inventario.alertas import conteo_alertas
+from inventario.models import Categoria, Producto, ProductoCatalogo
 
-from .models import Usuario
+from .models import Negocio, Usuario
 
 
 class InicioDeSesionTests(TestCase):
@@ -104,3 +106,113 @@ class EliminarCuentaTests(TestCase):
         self.assertEqual(Usuario.objects.count(), 1)
         self.assertEqual(Producto.objects.count(), 1)
         self.assertEqual(ItemVenta.objects.count(), 1)
+
+
+class DatosDelNegocioTests(TestCase):
+    def setUp(self):
+        self.usuario = Usuario.objects.create_user(
+            username="5512345678", password=CLAVE, email="t@ejemplo.com", telefono="5512345678", nombre_completo="Tendero",
+        )
+        self.client.force_login(self.usuario)
+
+    def datos(self, **cambios):
+        datos = {
+            "nombre_tienda": "Abarrotes Prueba", "alcaldia": "TLALPAN", "alcaldia_otra": "",
+            "anios_operacion": "DE_3_A_10", "regimen_resico": "on", "rfc": "",
+        }
+        datos.update(cambios)
+        return datos
+
+    def test_con_una_alcaldia_de_la_lista_el_ticket_dice_cdmx(self):
+        self.client.post(reverse("accounts:datos_negocio"), self.datos())
+        self.assertEqual(self.usuario.negocio.ubicacion, "Tlalpan, CDMX")
+
+    def test_si_elige_otra_hay_que_escribir_el_nombre_del_lugar(self):
+        respuesta = self.client.post(reverse("accounts:datos_negocio"), self.datos(alcaldia="OTRA"))
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertFalse(Negocio.objects.filter(usuario=self.usuario).exists())
+
+    def test_el_lugar_escrito_es_el_que_sale_en_el_ticket_y_sin_decir_cdmx(self):
+        self.client.post(
+            reverse("accounts:datos_negocio"), self.datos(alcaldia="OTRA", alcaldia_otra="Naucalpan, Estado de México"),
+        )
+        self.assertEqual(self.usuario.negocio.ubicacion, "Naucalpan, Estado de México")
+
+    def test_si_cambia_a_una_alcaldia_de_la_lista_se_borra_el_lugar_escrito(self):
+        self.client.post(reverse("accounts:datos_negocio"), self.datos(alcaldia="OTRA", alcaldia_otra="Naucalpan"))
+        self.client.post(reverse("accounts:datos_negocio"), self.datos(alcaldia="COYOACAN"))
+        self.usuario.negocio.refresh_from_db()
+        self.assertEqual(self.usuario.negocio.alcaldia_otra, "")
+        self.assertEqual(self.usuario.negocio.ubicacion, "Coyoacán, CDMX")
+
+
+class ProductosPrecargadosTests(TestCase):
+    """Paso 3 del registro: ahora se piden las piezas y los precios de cada producto elegido."""
+
+    def setUp(self):
+        self.usuario, self.negocio = crear_negocio()
+        self.client.force_login(self.usuario)
+        categoria = Categoria.objects.create(nombre="Bebidas")
+        self.coca = ProductoCatalogo.objects.create(nombre="Coca-Cola 600ml", categoria=categoria, precio_sugerido=Decimal("18"))
+        self.agua = ProductoCatalogo.objects.create(nombre="Agua Ciel", categoria=categoria, precio_sugerido=Decimal("12"))
+
+    def enviar(self, **campos):
+        return self.client.post(reverse("accounts:productos_precargados"), campos)
+
+    def test_se_crean_con_sus_piezas_costo_y_precio(self):
+        respuesta = self.enviar(
+            productos_catalogo=[self.coca.pk, self.agua.pk],
+            **{
+                f"piezas_{self.coca.pk}": "24", f"costo_{self.coca.pk}": "13.5", f"precio_{self.coca.pk}": "18",
+                f"piezas_{self.agua.pk}": "10", f"costo_{self.agua.pk}": "8", f"precio_{self.agua.pk}": "12",
+            },
+        )
+
+        self.assertRedirects(respuesta, reverse("ventas:punto_de_venta"), fetch_redirect_response=False)
+        coca = Producto.objects.get(nombre="Coca-Cola 600ml")
+        self.assertEqual(coca.cantidad_actual, Decimal("24"))
+        self.assertEqual(coca.costo, Decimal("13.50"))
+        self.assertNotEqual(coca.costo, coca.precio_venta)
+
+    def test_el_inventario_inicial_se_registra_como_una_compra_de_mercancia(self):
+        self.enviar(
+            productos_catalogo=[self.coca.pk],
+            **{f"piezas_{self.coca.pk}": "24", f"costo_{self.coca.pk}": "13.5", f"precio_{self.coca.pk}": "18"},
+        )
+        compra = GastoOperativo.objects.get()
+        self.assertEqual(compra.tipo, GastoOperativo.Tipo.MERCANCIA)
+        self.assertEqual(compra.monto, Decimal("324.00"))
+
+    def test_si_faltan_las_piezas_no_se_crea_nada_y_se_avisa(self):
+        respuesta = self.enviar(
+            productos_catalogo=[self.coca.pk], **{f"costo_{self.coca.pk}": "13", f"precio_{self.coca.pk}": "18"},
+        )
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "cuántas piezas tienes")
+        self.assertEqual(Producto.objects.filter(negocio=self.negocio).count(), 0)
+
+    def test_si_falta_el_costo_se_avisa(self):
+        respuesta = self.enviar(
+            productos_catalogo=[self.coca.pk], **{f"piezas_{self.coca.pk}": "5", f"precio_{self.coca.pk}": "18"},
+        )
+        self.assertContains(respuesta, "cuánto te costó")
+
+    def test_las_piezas_deben_ser_enteras(self):
+        respuesta = self.enviar(
+            productos_catalogo=[self.coca.pk],
+            **{f"piezas_{self.coca.pk}": "2.5", f"costo_{self.coca.pk}": "13", f"precio_{self.coca.pk}": "18"},
+        )
+        self.assertContains(respuesta, "número entero")
+        self.assertEqual(Producto.objects.filter(negocio=self.negocio).count(), 0)
+
+    def test_se_puede_continuar_sin_elegir_productos(self):
+        respuesta = self.enviar()
+        self.assertRedirects(respuesta, reverse("ventas:punto_de_venta"), fetch_redirect_response=False)
+
+    def test_los_productos_nuevos_no_quedan_todos_en_rojo_por_costo_igual_al_precio(self):
+        self.enviar(
+            productos_catalogo=[self.coca.pk],
+            **{f"piezas_{self.coca.pk}": "24", f"costo_{self.coca.pk}": "13.5", f"precio_{self.coca.pk}": "18"},
+        )
+        # con 24 piezas y mínimo 0 no hay alerta
+        self.assertEqual(conteo_alertas(self.negocio)["total"], 0)

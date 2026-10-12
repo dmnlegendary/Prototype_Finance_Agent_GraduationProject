@@ -348,3 +348,18 @@
 }
 .barra-stock > span { display: block; height: 100%; background: var(--nivel); }
 .sin-resultados { display: none; text-align: center; color: var(--text-faint); font-size: 13px; padding: 20px; }
+
+/* ---- importar CSV, resurtir y granel ---- */
+.btn-importar { background: #0891b2; }
+.btn-importar:hover { background: #0e7490; }
+.btn-edit-row.btn-resurtir { border-color: var(--color-success); color: var(--color-success); }
+.btn-edit-row.btn-resurtir:hover { background: var(--color-success); color: var(--bg-white); }
+.check-granel { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
+.columnas-csv { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
+.columnas-csv code { background: var(--bg-muted); border-radius: var(--radius-md); padding: 2px 8px; font-size: 12px; }
+.titulo-grupo { font-size: 14px; margin: 0 0 4px; }
+.nota-grupo { font-size: 12px; color: var(--text-muted); margin: 0 0 8px; }
+.fila-decision { border-top: 1px solid var(--border); padding: 10px 0; font-size: 13px; }
+.opciones-decision { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; font-size: 12px; }
+.opciones-decision label, .marcar-todos { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.marcar-todos { font-size: 12px; font-weight: 600; margin-bottom: 8px; }

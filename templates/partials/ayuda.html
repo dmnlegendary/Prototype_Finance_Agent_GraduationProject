@@ -1,0 +1,140 @@
+<!-- Ayuda: preguntas frecuentes (se abre con el "?" del navbar) -->
+<div class="modal-backdrop" id="modal-ayuda">
+  <div class="form-card" style="max-width:560px;">
+    <div class="panel-header">
+      <h3><i class="bi bi-question-circle"></i> Ayuda</h3>
+      <button type="button" class="panel-close" onclick="closeModal('ayuda')"><i class="bi bi-x-lg"></i></button>
+    </div>
+
+    <div class="panel-body faq-body">
+      <input type="text" id="buscarAyuda" class="filtro-picker" placeholder="Busca tu duda… (ej. cobrar, stock, gasto)" autocomplete="off" oninput="filtrarAyuda(this.value)">
+
+      <div class="faq-grupo" data-grupo>
+        <h4><i class="bi bi-cart3"></i> Ventas</h4>
+        <details class="faq-item">
+          <summary>¿Cómo agrego un producto al carrito?</summary>
+          <p>Escribe el nombre en la barra amarilla (no importan los acentos ni si te equivocas en una letra) y presiona <b>Enter</b> para agregar el primer resultado, o toca el que quieras. Si tienes lector de códigos de barras, solo escanea el producto.</p>
+        </details>
+        <details class="faq-item">
+          <summary>¿Cómo cambio la cantidad?</summary>
+          <p>Escribe el número directo en el cuadro de cantidad del carrito (por ejemplo 90) y presiona Enter. También puedes usar <b>+</b> y <b>−</b>. El bote de basura quita el producto.</p>
+        </details>
+        <details class="faq-item">
+          <summary>¿Cómo vendo algo por peso (a granel)?</summary>
+          <p>Al seleccionar un producto a granel te pregunta cuántos <b>gramos</b> son (hay atajos de ¼, ½ y 1 kg). El precio es por kilo y el sistema calcula el total. Para marcar un producto como a granel, activa esa opción en su alta o al editarlo.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Me dice que no hay existencias, ¿qué hago?</summary>
+          <p>No se puede vender lo que no hay en el inventario. El sistema te pregunta cuántas piezas (o kilos) quieres agregar y a qué precio de compra; las agrega, registra esa compra en tus gastos y sigues con la venta.</p>
+        </details>
+        <details class="faq-item">
+          <summary>¿Para qué son los dos carritos?</summary>
+          <p>Para que dos personas cobren al mismo tiempo sin chocar: cada quien usa su carrito (pestañas "Carrito 1" y "Carrito 2"). Cobrar uno no mueve el otro.</p>
+        </details>
+        <details class="faq-item">
+          <summary>El producto que me piden no está en el sistema, ¿qué hago?</summary>
+          <p>Usa el botón naranja <b>No encontrado</b>: pones nombre y precio y lo cobras. Los que ya vendiste antes salen como atajo. Después, en Finanzas &gt; Registrar gastos, les pones su precio de compra para que tu utilidad sea real.</p>
+        </details>
+        <details class="faq-item">
+          <summary>¿Cómo cobro y cómo veo el ticket?</summary>
+          <p>Toca el botón verde <b>Cobrar</b>. Se descuenta del inventario y aparece el ticket. Las ventas anteriores y sus tickets están en el <b>Historial</b>.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Me equivoqué, ¿cómo cancelo la venta?</summary>
+          <p>Con el botón rojo <b>Cancelar venta</b>. El inventario no se mueve.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Se me cayó el internet, ¿puedo seguir vendiendo?</summary>
+          <p>Sí. Aparece un aviso abajo y todo se guarda en tu dispositivo: ventas, mercancía que llega y productos nuevos. Cuando regrese el internet el sistema se actualiza solo. Abre la pantalla de ventas una vez con internet cada día para que tenga tu catálogo guardado.</p>
+        </details>
+      </div>
+
+      <div class="faq-grupo" data-grupo>
+        <h4><i class="bi bi-boxes"></i> Inventario</h4>
+        <details class="faq-item">
+          <summary>¿Cómo doy de alta un producto nuevo?</summary>
+          <p>En <b>Alta de productos</b> pon nombre, precio de compra, precio de venta y cuántas piezas tienes. También puedes poner categoría, proveedor y código de barras. Esas piezas se registran solas como compra de mercancía.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Tengo muchos productos, ¿cómo los cargo de una vez?</summary>
+          <p>Con <b>Importar CSV</b>: subes un archivo con las columnas <b>producto, cantidad, precio_compra y precio_venta</b> (hay un archivo de ejemplo para descargar). Primero te muestra qué pasaría con cada producto y no guarda nada hasta que confirmes. Si falta alguna columna, no se carga.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Llegó mercancía, ¿cómo la registro?</summary>
+          <p>Toca <b>Resurtir</b> en el renglón del producto, escribe cuántas llegaron y a cuánto te las dieron. Se suman al inventario y la compra queda en tus gastos.</p>
+        </details>
+        <details class="faq-item">
+          <summary>¿Qué significan el mínimo y el stock ideal?</summary>
+          <p>El <b>mínimo</b> es la cantidad a la que ya hay que resurtir. El <b>stock ideal</b> es lo que tienes cuando resurtes completo. Si no lo sabes, déjalo en 0 y el sistema usa 4 veces el mínimo.</p>
+        </details>
+        <details class="faq-item">
+          <summary>¿Qué significan los colores amarillo, naranja y rojo?</summary>
+          <p>🟡 queda la mitad del stock ideal · 🟠 queda un cuarto · 🔴 llegó al mínimo, hay que resurtir. La campana de arriba cambia de color y te dice cuántos productos hay que revisar.</p>
+        </details>
+        <details class="faq-item">
+          <summary>¿Cómo cambio el precio o los datos de un producto?</summary>
+          <p>Toca <b>Editar</b> en su renglón. Te pedirá un motivo del cambio (por ejemplo "subió el proveedor"), que queda guardado en su historial.</p>
+        </details>
+        <details class="faq-item">
+          <summary>¿Qué pasa si doy de baja un producto?</summary>
+          <p>Deja de aparecer en ventas, pero sus ventas anteriores no se pierden.</p>
+        </details>
+      </div>
+
+      <div class="faq-grupo" data-grupo>
+        <h4><i class="bi bi-graph-up-arrow"></i> Agente financiero</h4>
+        <details class="faq-item">
+          <summary>¿Cómo registro un gasto?</summary>
+          <p>En <b>Registrar gastos</b> elige si es fijo (renta, luz) o variable (bolsas, flete), escribe el concepto y el monto. No registres aquí lo que le pagas al proveedor por mercancía: eso el sistema ya lo cuenta solo al vender.</p>
+        </details>
+        <details class="faq-item">
+          <summary>¿Qué es el punto de equilibrio?</summary>
+          <p>Es lo mínimo que tienes que vender en el mes para no perder dinero. Se calcula con tus gastos fijos y lo que más vendes. Necesitas haber registrado gastos fijos y tener ventas.</p>
+        </details>
+        <details class="faq-item">
+          <summary>¿Para qué sirven los precios sugeridos?</summary>
+          <p>Te dicen a cuánto vender cada producto para ganar el margen que elijas. Si te convence, lo aceptas con un clic.</p>
+        </details>
+        <details class="faq-item">
+          <summary>No entiendo mis números, ¿alguien me los explica?</summary>
+          <p>Sí: toca el botón <b>"Pídele a marIA que te explique tu negocio"</b> en el inicio, o <b>"Explícame mis reportes"</b> en los reportes.</p>
+        </details>
+      </div>
+
+      <div class="faq-grupo" data-grupo>
+        <h4><i class="bi bi-robot"></i> Asistente marIA</h4>
+        <details class="faq-item">
+          <summary>¿Qué le puedo pedir al asistente?</summary>
+          <p>Lo que haces a mano en la pantalla donde estés (ventas, inventario o finanzas): "agrega 2 cocas", "cóbralo", "da de alta una Pepsi a $18 que me cuesta $13", "llegaron 20 refrescos a $12 cada uno", "registra un gasto de luz de 450", "¿cuánto vendí hoy?", "¿qué tengo que resurtir?".</p>
+        </details>
+        <details class="faq-item">
+          <summary>¿Puedo hablarle en vez de escribir?</summary>
+          <p>Sí, toca el micrófono del chat, di tu petición y envíala. Si hay mucho ruido en la tienda, conecta unos audífonos con micrófono (o un micrófono externo): el navegador usará el que tengas conectado.</p>
+        </details>
+        <details class="faq-item">
+          <summary>¿Para qué es el selector de modelo (ChatGPT / Gemini)?</summary>
+          <p>Es la inteligencia artificial que contesta. Cualquiera sirve; usa la que prefieras.</p>
+        </details>
+      </div>
+
+      <div class="faq-grupo" data-grupo>
+        <h4><i class="bi bi-person-circle"></i> Mi cuenta</h4>
+        <details class="faq-item">
+          <summary>¿Cómo cambio mi ícono o cierro sesión?</summary>
+          <p>Toca tu foto de perfil: ahí eliges el ícono y cierras sesión.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Olvidé mi contraseña</summary>
+          <p>En la pantalla de inicio de sesión toca "¿Olvidaste tu contraseña?".</p>
+        </details>
+      </div>
+
+      <p class="faq-vacio" id="ayudaSinResultados">No encontré esa duda. Pregúntale a marIA en el chat.</p>
+    </div>
+
+    <div class="panel-footer">
+      <button type="button" class="btn-success" onclick="closeModal('ayuda'); mostrarTutorial();"><i class="bi bi-play-circle"></i> Ver recorrido de esta pantalla</button>
+      <button type="button" class="btn-ghost" onclick="closeModal('ayuda')">Cerrar</button>
+    </div>
+  </div>
+</div>

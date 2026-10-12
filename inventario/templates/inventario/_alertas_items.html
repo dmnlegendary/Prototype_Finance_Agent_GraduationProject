@@ -1,0 +1,16 @@
+{% for p in alertas %}
+<div class="alert-item nivel-{{ p.nivel_stock }}">
+  <div class="alert-icon">{{ p.icono }}</div>
+  <div class="alert-body">
+    <div class="alert-title">{{ p.nombre }}</div>
+    <div class="alert-desc">
+      Quedan {{ p.cantidad_actual|floatformat:"-3" }} {{ p.unidad }} (mínimo: {{ p.cantidad_minima|floatformat:"-3" }}, ideal: {{ p.stock_ideal_efectivo|floatformat:"-3" }}).
+      {% if p.proveedor %}Proveedor: {{ p.proveedor.nombre }}.{% endif %}
+    </div>
+    <div class="alert-meta">Categoría: {{ p.categoria.nombre|default:"Sin categoría" }}</div>
+  </div>
+  <span class="alert-priority nivel-{{ p.nivel_stock }}">
+    {% if p.nivel_stock == "rojo" %}Resurtir ya{% elif p.nivel_stock == "naranja" %}Queda un cuarto{% else %}Va a la mitad{% endif %}
+  </span>
+</div>
+{% endfor %}

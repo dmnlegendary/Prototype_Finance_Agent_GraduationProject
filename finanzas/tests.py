@@ -1,12 +1,14 @@
 from datetime import timedelta
 from decimal import Decimal
 
+from django.db import connection
 from django.test import SimpleTestCase, TestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
 from core.testing import crear_negocio, crear_producto
-from inventario.models import Categoria, HistorialModificacionProducto
+from inventario.models import Categoria, HistorialModificacionProducto, Producto
 from ventas.models import ItemVenta, Venta
 
 from . import calculos
@@ -188,3 +190,177 @@ class FinanzasConDatosRealesTests(TestCase):
         gasto = GastoOperativo.objects.get()
         self.assertEqual(gasto.categoria, categoria)
         self.assertEqual(gasto.monto, Decimal("450.00"))
+
+
+class UtilidadConfiableTests(TestCase):
+    """La mercancía que se compra no debe contarse dos veces en la utilidad."""
+
+    def setUp(self):
+        self.usuario, self.negocio = crear_negocio()
+        self.client.force_login(self.usuario)
+        self.hoy = timezone.localdate()
+        self.manana = self.hoy + timedelta(days=1)
+        self.inicio_mes = calculos.primer_dia_del_mes(self.hoy)
+
+    def vender(self, producto, cantidad, folio=1):
+        venta = Venta.objects.create(negocio=self.negocio, folio=folio, estado=Venta.Estado.COBRADA)
+        ItemVenta.objects.create(venta=venta, producto=producto, cantidad=Decimal(cantidad), precio_unitario=producto.precio_venta)
+        venta.recalcular_total()
+
+    def resumen(self):
+        return calculos.resumen_financiero(self.negocio, self.inicio_mes, self.manana, Decimal("1"))
+
+    def test_la_compra_de_mercancia_no_cambia_la_utilidad_pero_si_el_flujo_de_efectivo(self):
+        producto = crear_producto(self.negocio, costo="15", precio="25", cantidad="100")
+        self.vender(producto, "10")  # ingresos 250, costo de ventas 150
+        sin_compra = self.resumen()
+
+        GastoOperativo.objects.create(
+            negocio=self.negocio, tipo=GastoOperativo.Tipo.MERCANCIA, concepto="Compra", monto=Decimal("1500"),
+        )
+        con_compra = self.resumen()
+
+        self.assertEqual(con_compra["utilidad_neta"], sin_compra["utilidad_neta"])
+        self.assertEqual(con_compra["margen_operativo"], sin_compra["margen_operativo"])
+        self.assertEqual(con_compra["gastos"], Decimal("0.00"))
+        self.assertEqual(con_compra["compras"], Decimal("1500.00"))
+        self.assertEqual(con_compra["flujo_efectivo"], Decimal("250.00") - Decimal("1500.00"))
+
+    def test_los_gastos_fijos_y_variables_si_restan_utilidad(self):
+        producto = crear_producto(self.negocio, costo="15", precio="25", cantidad="100")
+        self.vender(producto, "10")
+        antes = self.resumen()["utilidad_neta"]
+        GastoOperativo.objects.create(negocio=self.negocio, tipo=GastoOperativo.Tipo.FIJO, concepto="Renta", monto=Decimal("50"))
+        self.assertEqual(self.resumen()["utilidad_neta"], antes - Decimal("50"))
+
+    def test_el_costo_de_ventas_usa_el_costo_de_cuando_se_vendio(self):
+        producto = crear_producto(self.negocio, costo="15", precio="25", cantidad="100")
+        self.vender(producto, "10")
+        antes = self.resumen()["costo_ventas"]
+
+        producto.costo = Decimal("40")
+        producto.save()
+
+        self.assertEqual(self.resumen()["costo_ventas"], antes)
+        self.assertEqual(antes, Decimal("150.00"))
+
+    def test_el_punto_de_equilibrio_no_cuenta_la_mercancia_como_gasto_fijo(self):
+        GastoOperativo.objects.create(
+            negocio=self.negocio, tipo=GastoOperativo.Tipo.MERCANCIA, concepto="Compra", monto=Decimal("9999"),
+        )
+        datos = calculos.punto_equilibrio_negocio(self.negocio, self.hoy)
+        self.assertEqual(datos["estado"], "sin_fijos")
+
+    def test_las_ventas_sin_precio_de_compra_se_cuentan(self):
+        sin_costo = crear_producto(self.negocio, nombre="Sin costo", costo="0", precio="20", cantidad="5")
+        con_costo = crear_producto(self.negocio, nombre="Con costo", costo="8", precio="20", cantidad="5")
+        self.vender(sin_costo, "2", folio=1)
+        self.vender(con_costo, "2", folio=2)
+        self.assertEqual(calculos.renglones_sin_costo(self.negocio, self.inicio_mes, self.manana), 1)
+
+    def test_el_reporte_por_meses_da_lo_mismo_que_calcular_mes_por_mes(self):
+        producto = crear_producto(self.negocio, costo="15", precio="25", cantidad="100")
+        self.vender(producto, "4")
+        GastoOperativo.objects.create(negocio=self.negocio, tipo=GastoOperativo.Tipo.FIJO, concepto="Luz", monto=Decimal("30"))
+        GastoOperativo.objects.create(
+            negocio=self.negocio, tipo=GastoOperativo.Tipo.MERCANCIA, concepto="Compra", monto=Decimal("200"),
+        )
+
+        mes_anterior = calculos.mes_anterior(self.inicio_mes)
+        por_meses = calculos.resumen_por_meses(self.negocio, [mes_anterior, self.inicio_mes], Decimal("1"))
+        self.assertEqual(por_meses[0]["ingresos"], Decimal("0.00"))
+        self.assertEqual(por_meses[1], self.resumen())
+
+    def test_el_reporte_usa_pocas_consultas(self):
+        producto = crear_producto(self.negocio, costo="15", precio="25", cantidad="100")
+        self.vender(producto, "4")
+        self.client.get(reverse("finanzas:reportes_financieros"))  # calienta
+        with CaptureQueriesContext(connection) as consultas:
+            self.client.get(reverse("finanzas:reportes_financieros"))
+        self.assertLess(len(consultas), 16)
+
+    def test_el_aviso_de_utilidad_inflada_aparece(self):
+        sin_costo = crear_producto(self.negocio, costo="0", precio="20", cantidad="5")
+        self.vender(sin_costo, "2")
+        respuesta = self.client.get(reverse("finanzas:reportes_financieros"))
+        self.assertContains(respuesta, "no tienen precio de compra")
+
+    def test_no_se_puede_registrar_a_mano_una_compra_de_mercancia(self):
+        respuesta = self.client.post(reverse("finanzas:registrar_gastos"), {
+            "tipo": "MERCANCIA", "concepto": "Compra", "monto": "500", "nota": "",
+        })
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(GastoOperativo.objects.count(), 0)
+
+    def test_la_pantalla_de_gastos_ya_no_dice_que_el_inventario_es_un_gasto(self):
+        respuesta = self.client.get(reverse("finanzas:registrar_gastos"))
+        self.assertNotContains(respuesta, "(inventario, merma, bolsas)")
+        self.assertContains(respuesta, "No registres aquí la mercancía")
+
+    def test_el_historial_de_gastos_muestra_las_compras_de_mercancia(self):
+        GastoOperativo.objects.create(
+            negocio=self.negocio, tipo=GastoOperativo.Tipo.MERCANCIA, concepto="Compra de mercancía: Coca", monto=Decimal("90"),
+        )
+        self.assertContains(self.client.get(reverse("finanzas:historial_gastos")), "Mercancía")
+
+
+class ProductosNoEncontradosEnGastosTests(TestCase):
+    def setUp(self):
+        self.usuario, self.negocio = crear_negocio()
+        self.client.force_login(self.usuario)
+        self.pendiente = Producto.objects.create(
+            negocio=self.negocio, nombre="Bolsa de hielo", costo=0, precio_venta=20, activo=False, pendiente_validacion=True,
+        )
+        venta = Venta.objects.create(negocio=self.negocio, folio=1, estado=Venta.Estado.COBRADA)
+        self.item = ItemVenta.objects.create(venta=venta, producto=self.pendiente, cantidad=Decimal("3"), precio_unitario=Decimal("20"))
+
+    def test_aparece_en_la_pantalla_de_gastos_con_lo_que_se_vendio(self):
+        respuesta = self.client.get(reverse("finanzas:registrar_gastos"))
+        self.assertContains(respuesta, "Productos no encontrados")
+        self.assertContains(respuesta, "Bolsa de hielo")
+
+    def test_ponerle_precio_de_compra_completa_el_costo_y_registra_la_compra(self):
+        self.client.post(reverse("finanzas:completar_no_encontrado", args=[self.pendiente.pk]), {"precio_compra": "8"})
+
+        self.item.refresh_from_db()
+        self.pendiente.refresh_from_db()
+        self.assertEqual(self.item.costo_unitario, Decimal("8.00"))
+        self.assertEqual(self.pendiente.costo, Decimal("8.00"))
+        compra = GastoOperativo.objects.get()
+        self.assertEqual(compra.tipo, GastoOperativo.Tipo.MERCANCIA)
+        self.assertEqual(compra.monto, Decimal("24.00"))  # 3 vendidas x $8
+
+    def test_ya_con_precio_no_vuelve_a_aparecer_ni_se_puede_registrar_dos_veces(self):
+        url = reverse("finanzas:completar_no_encontrado", args=[self.pendiente.pk])
+        self.client.post(url, {"precio_compra": "8"})
+        self.assertEqual(self.client.post(url, {"precio_compra": "9"}).status_code, 404)
+        self.assertEqual(GastoOperativo.objects.count(), 1)
+        self.assertNotContains(self.client.get(reverse("finanzas:registrar_gastos")), "Productos no encontrados")
+
+    def test_un_precio_malo_no_cambia_nada(self):
+        self.client.post(reverse("finanzas:completar_no_encontrado", args=[self.pendiente.pk]), {"precio_compra": "-5"})
+        self.pendiente.refresh_from_db()
+        self.assertEqual(self.pendiente.costo, Decimal("0"))
+        self.assertEqual(GastoOperativo.objects.count(), 0)
+
+    def test_no_se_puede_tocar_un_producto_de_otra_tienda(self):
+        otro_usuario, _ = crear_negocio(telefono="5599999999", email="otro@ejemplo.com", nombre_tienda="Otra")
+        self.client.force_login(otro_usuario)
+        respuesta = self.client.post(reverse("finanzas:completar_no_encontrado", args=[self.pendiente.pk]), {"precio_compra": "8"})
+        self.assertEqual(respuesta.status_code, 404)
+
+
+class BajaRotacionPorLotesTests(TestCase):
+    def test_los_productos_sin_ventas_se_piden_por_lotes_de_diez(self):
+        usuario, negocio = crear_negocio()
+        self.client.force_login(usuario)
+        for numero in range(25):
+            crear_producto(negocio, nombre=f"Producto {numero:02d}")
+
+        respuesta = self.client.get(reverse("finanzas:baja_rotacion"), {"desde": "2020-01-01", "page": 1}).json()
+        self.assertEqual(respuesta["html"].count("baja-rotacion-item"), 10)
+        self.assertTrue(respuesta["hay_mas"])
+        self.assertEqual(respuesta["total"], 25)
+
+        ultimo = self.client.get(reverse("finanzas:baja_rotacion"), {"desde": "2020-01-01", "page": 3}).json()
+        self.assertFalse(ultimo["hay_mas"])

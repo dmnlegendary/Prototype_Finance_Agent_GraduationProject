@@ -1,0 +1,70 @@
+{% extends "base_app.html" %}
+{% load static %}
+
+{% block app_extra_head %}
+<link rel="stylesheet" href="{% static 'inventario/css/inventario.css' %}">
+{% endblock %}
+
+{% block avi_panel %}
+{% include "partials/avi_panel.html" %}
+{% endblock %}
+
+{% block app_content %}
+<div class="layout">
+  <div class="main-content">
+    <div class="state active" style="padding:16px; gap:14px; overflow-y:auto;">
+
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <h2 style="font-size:16px;"><i class="bi bi-file-earmark-arrow-up-fill"></i> Importar productos desde un CSV</h2>
+        <a href="{% url 'inventario:panel' %}" class="btn-ghost" style="text-decoration:none;">← Volver al inventario</a>
+      </div>
+
+      <div class="card-simple" style="padding:16px;">
+        <p style="font-size:13px; color:var(--text-secondary); margin:0 0 10px;">
+          Sube un archivo CSV (en Excel: Archivo → Guardar como → CSV). Primero lo revisamos y te mostramos qué se va a hacer con cada producto; <strong>no se guarda nada hasta que lo confirmes</strong>.
+        </p>
+
+        <p style="font-size:13px; margin:0 0 6px;"><strong>Columnas obligatorias</strong> (si falta alguna, no se carga el archivo):</p>
+        <p class="columnas-csv">
+          {% for c in obligatorias %}<code>{{ c }}</code>{% endfor %}
+        </p>
+        <p style="font-size:13px; margin:10px 0 6px;"><strong>Columnas opcionales:</strong></p>
+        <p class="columnas-csv">
+          {% for c in opcionales %}<code>{{ c }}</code>{% endfor %}
+        </p>
+        <ul style="font-size:12px; color:var(--text-muted); margin:10px 0 14px; padding-left:18px; line-height:1.6;">
+          <li><code>cantidad</code> son las piezas que compraste (kilos si el producto es a granel).</li>
+          <li><code>a_granel</code> se llena con "si" o "no".</li>
+          <li>Los productos que ya existen suman las piezas y se actualizan sus precios. Los que no se encuentran te los mostramos para que confirmes si se agregan.</li>
+          <li>Las piezas importadas se registran como compra de mercancía en tus gastos.</li>
+        </ul>
+
+        <a href="{% url 'inventario:importar_plantilla' %}" class="btn-ghost" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px;" data-sin-loader>
+          <i class="bi bi-download"></i> Descargar archivo de ejemplo
+        </a>
+      </div>
+
+      {% if errores %}
+      <div class="card-simple" style="padding:14px; border-color:var(--color-danger); background:var(--color-danger-bg);">
+        <p style="font-weight:700; color:var(--color-danger-text); margin:0 0 6px;"><i class="bi bi-x-octagon-fill"></i> No se pudo cargar el archivo. No se guardó nada.</p>
+        <ul style="font-size:13px; color:var(--color-danger-text); margin:0; padding-left:18px; line-height:1.6;">
+          {% for e in errores %}<li>{{ e }}</li>{% endfor %}
+        </ul>
+        {% if mas_errores %}<p style="font-size:12px; color:var(--color-danger-text); margin:6px 0 0;">… y {{ mas_errores }} errores más.</p>{% endif %}
+      </div>
+      {% endif %}
+
+      <form method="post" enctype="multipart/form-data" class="card-simple" style="padding:16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+        {% csrf_token %}
+        <input type="file" name="archivo" accept=".csv,text/csv" required style="flex:1; min-width:200px;">
+        <button type="submit" class="btn-success">Revisar archivo</button>
+      </form>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block app_extra_scripts %}
+<script src="{% static 'inventario/js/inventario.js' %}"></script>
+{% endblock %}

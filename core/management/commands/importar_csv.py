@@ -211,10 +211,12 @@ class Command(BaseCommand):
     def importar_ventas(self, negocio, ruta):
         renglones = self.leer_csv(ruta, ["fecha", "producto", "cantidad"])
 
-        # nombre -> (id, precio actual), para no consultar la base de datos por cada renglón
+        # nombre -> (id, precio actual, costo actual), para no consultar la base de datos por cada renglón
         productos = {
-            normalizar(nombre): (pk, precio)
-            for pk, nombre, precio in Producto.objects.filter(negocio=negocio).values_list("pk", "nombre", "precio_venta")
+            normalizar(nombre): (pk, precio, costo)
+            for pk, nombre, precio, costo in Producto.objects.filter(negocio=negocio).values_list(
+                "pk", "nombre", "precio_venta", "costo",
+            )
         }
 
         # se agrupan los renglones por folio: cada folio es un ticket (si el CSV
@@ -239,14 +241,14 @@ class Command(BaseCommand):
             clave = renglon.get("folio") or f"sin-folio-{len(tickets)}"
             if clave not in tickets:
                 tickets[clave] = {"fecha": fecha, "items": []}
-            tickets[clave]["items"].append((producto[0], cantidad, precio))
+            tickets[clave]["items"].append((producto[0], cantidad, precio, producto[2]))
 
         # los folios del sistema siguen la numeración que ya tenga la tienda
         ventas = []
         ultimo_folio = Venta.objects.filter(negocio=negocio).order_by("-folio").values_list("folio", flat=True).first() or 0
         for ticket in tickets.values():
             ultimo_folio += 1
-            total = sum((c * p for _, c, p in ticket["items"]), Decimal("0")).quantize(CENTAVOS, rounding=ROUND_HALF_UP)
+            total = sum((c * p for _, c, p, _ in ticket["items"]), Decimal("0")).quantize(CENTAVOS, rounding=ROUND_HALF_UP)
             ticket["venta"] = Venta(negocio=negocio, folio=ultimo_folio, estado=Venta.Estado.COBRADA, total=total)
             ventas.append(ticket["venta"])
         Venta.objects.bulk_create(ventas, batch_size=TAMANO_PAQUETE)
@@ -259,10 +261,11 @@ class Command(BaseCommand):
             venta = ticket["venta"]
             venta.pk = folio_a_pk[venta.folio]
             venta.creado_en = ticket["fecha"]
-            for producto_id, cantidad, precio in ticket["items"]:
+            for producto_id, cantidad, precio, costo in ticket["items"]:
                 items.append(ItemVenta(
                     venta=venta, producto_id=producto_id, cantidad=cantidad,
                     precio_unitario=precio.quantize(CENTAVOS, rounding=ROUND_HALF_UP),
+                    costo_unitario=costo,  # el costo que tenía el producto al cargar el archivo
                 ))
         Venta.objects.bulk_update(ventas, ["creado_en"], batch_size=TAMANO_PAQUETE)
         ItemVenta.objects.bulk_create(items, batch_size=TAMANO_PAQUETE)

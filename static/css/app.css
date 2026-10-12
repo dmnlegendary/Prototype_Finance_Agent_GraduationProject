@@ -314,6 +314,7 @@ nav {
   border-radius: var(--radius-2xl);
   font-size: 13px;
   line-height: 1.5;
+  white-space: pre-line;
 }
 .bubble.bot {
   background: var(--bg-white);
@@ -867,3 +868,47 @@ nav {
 .resumen-numeros .ganancia strong { color: var(--color-success); }
 .resumen-numeros .gastos strong { color: var(--color-danger); }
 .resumen-texto { margin: 0; font-size: 14px; line-height: 1.6; color: var(--text-secondary); white-space: pre-line; }
+
+/* ---- ayuda / preguntas frecuentes ---- */
+.faq-body { gap: 10px; }
+.faq-grupo { display: flex; flex-direction: column; gap: 6px; }
+.faq-grupo h4 {
+  font-size: 12px; font-weight: 700; color: var(--color-primary);
+  text-transform: uppercase; letter-spacing: .5px;
+  margin: 8px 0 2px;
+}
+.faq-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-white);
+  padding: 0 12px;
+}
+.faq-item summary {
+  cursor: pointer;
+  padding: 10px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.faq-item[open] { background: var(--bg-light); }
+.faq-item p { margin: 0 0 10px; font-size: 13px; line-height: 1.5; color: var(--text-secondary); }
+.faq-vacio { display: none; text-align: center; font-size: 13px; color: var(--text-faint); padding: 14px; }
+#buscarAyuda {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 9px 12px;
+  font-size: 14px;
+  outline: none;
+}
+#buscarAyuda:focus { border-color: var(--color-primary-deep); }
+
+/* ---- aviso de trabajo sin internet ---- */
+.barra-sin-conexion {
+  display: none;
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 600;
+  padding: 8px 16px;
+  font-size: 12px; font-weight: 600; text-align: center;
+}
+.barra-sin-conexion.sin-internet { background: var(--color-warning); color: var(--bg-white); }
+.barra-sin-conexion.sincronizando { background: var(--color-info); color: var(--bg-white); }

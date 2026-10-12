@@ -1,0 +1,27 @@
+{% for producto in productos %}
+{% with nivel=producto.nivel_stock %}
+<tr class="{% if nivel != 'ok' %}fila-nivel-{{ nivel }}{% endif %}">
+  <td>
+    {{ producto.icono }} {{ producto.nombre }}
+    {% if producto.pendiente_validacion %}<span class="badge-cat" style="background:var(--color-yellow-bg);color:#a16207;">Pendiente de validar</span>{% endif %}
+    {% if producto.a_granel %}<span class="badge-cat" style="background:var(--color-info-bg);color:var(--color-info-text);">A granel</span>{% endif %}
+  </td>
+  <td>{% if producto.categoria %}<span class="badge-cat cat-{{ producto.categoria.nombre|lower }}">{{ producto.categoria.nombre }}</span>{% endif %}</td>
+  <td class="stock-celda {% if nivel != 'ok' %}nivel-{{ nivel }}{% endif %}">{% if nivel != 'ok' %}<span class="punto-nivel"></span>{% endif %}{{ producto.cantidad_actual|floatformat:"-3" }} {{ producto.unidad }}</td>
+  <td>{{ producto.cantidad_minima|floatformat:"-3" }}</td>
+  <td class="right">${{ producto.costo }} / ${{ producto.precio_venta }}{% if producto.a_granel %} por kg{% endif %}</td>
+  <td style="display:flex; gap:6px; flex-wrap:wrap;">
+    {% if not producto.pendiente_validacion %}
+    <button type="button" class="btn-edit-row btn-resurtir" data-pk="{{ producto.pk }}" data-nombre="{{ producto.nombre }}" data-granel="{{ producto.a_granel|yesno:'1,0' }}" data-costo="{{ producto.costo }}" onclick="abrirResurtir(this)">Resurtir</button>
+    {% endif %}
+    <button type="button" class="btn-edit-row" onclick="abrirEdicion({{ producto.pk }})">{% if producto.pendiente_validacion %}Completar{% else %}Editar{% endif %}</button>
+    {% if not producto.pendiente_validacion %}
+    <form method="post" action="{% url 'inventario:producto_eliminar' producto.pk %}" onsubmit="return confirm('{% if producto.con_ventas %}Este producto ya tiene ventas registradas. Se dará de baja pero no se perderá su historial. ¿Continuar?{% else %}¿Dar de baja {{ producto.nombre|escapejs }}?{% endif %}');">
+      {% csrf_token %}
+      <button type="submit" class="btn-edit-row btn-danger-row">Baja</button>
+    </form>
+    {% endif %}
+  </td>
+</tr>
+{% endwith %}
+{% endfor %}

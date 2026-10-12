@@ -1,15 +1,18 @@
 import hashlib
 import json
 import logging
+from datetime import timedelta
 
 from django.contrib.auth.decorators import login_required
 from django.http import Http404, JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from ventas import carrito
+
 from . import services
 from .clients import (
-    MENSAJE_SIN_LLAVE, SinLlaveError, generar_texto, modelo_disponible,
+    MENSAJE_SIN_LLAVE, SinLlaveError, generar_texto, mensaje_de_error, modelo_disponible,
     preguntar_chatgpt, preguntar_gemini,
 )
 from .models import ExplicacionIA, HistorialConversacion, ResumenDiario
@@ -17,7 +20,7 @@ from .models import ExplicacionIA, HistorialConversacion, ResumenDiario
 registro = logging.getLogger(__name__)
 
 MENSAJE_SIN_LIBRERIA = "Falta instalar la librería del modelo (pip install -r requirements.txt)."
-MENSAJE_SIN_CONEXION = "No pude conectarme con el modelo de lenguaje en este momento."
+MAXIMO_MENSAJES_EN_PANTALLA = 60
 
 
 @login_required
@@ -40,26 +43,68 @@ def chat(request):
     # ojo: el historial se guarda HASTA ABAJO, después de llamar al LLM, para
     # que preguntar_chatgpt/preguntar_gemini no se encuentren este mismo
     # mensaje duplicado al armar el contexto de la conversación.
+    # la pantalla manda en qué módulo está y en qué carrito (1 o 2) trabaja, para darle a la IA solo
+    # las herramientas de esa pantalla y que agregue al carrito correcto
+    pantalla = datos.get("pantalla")
+    services.CARRITO_ACTIVO.set(carrito.numero_de_carrito_valido(datos.get("carrito")))
+
+    fallo = False
     try:
         if modelo == "gemini":
-            respuesta, funciones = preguntar_gemini(mensaje, negocio)
+            respuesta, funciones = preguntar_gemini(mensaje, negocio, pantalla)
         else:
-            respuesta, funciones = preguntar_chatgpt(mensaje, negocio)
+            respuesta, funciones = preguntar_chatgpt(mensaje, negocio, pantalla)
     except ImportError:
-        respuesta, funciones = MENSAJE_SIN_LIBRERIA, []
-    except Exception:
+        respuesta, funciones, fallo = MENSAJE_SIN_LIBRERIA, [], True
+    except Exception as error:
         registro.exception("Falló la llamada al modelo de lenguaje")
-        respuesta, funciones = MENSAJE_SIN_CONEXION, []
+        respuesta, funciones, fallo = mensaje_de_error(error), [], True
 
-    HistorialConversacion.objects.create(
-        negocio=negocio, usuario=request.user, rol=HistorialConversacion.Rol.USUARIO, mensaje=mensaje,
-    )
-    HistorialConversacion.objects.create(
-        negocio=negocio, usuario=request.user, rol=HistorialConversacion.Rol.ASISTENTE, mensaje=respuesta,
-    )
+    # un mensaje que falló no se guarda: así no ensucia la memoria de la IA ni
+    # reaparece en el chat cuando se vuelve a cargar la pantalla
+    if not fallo and respuesta != MENSAJE_SIN_LLAVE:
+        HistorialConversacion.objects.create(
+            negocio=negocio, usuario=request.user, rol=HistorialConversacion.Rol.USUARIO, mensaje=mensaje,
+        )
+        HistorialConversacion.objects.create(
+            negocio=negocio, usuario=request.user, rol=HistorialConversacion.Rol.ASISTENTE, mensaje=respuesta,
+        )
 
     refrescar = any(f in services.FUNCIONES_QUE_CAMBIAN_LA_VISTA for f in funciones)
     return JsonResponse({"respuesta": respuesta, "refrescar": refrescar})
+
+
+@login_required
+def historial(request):
+    """La conversación de las últimas 24 horas, para que el chat no se borre al cambiar de pantalla."""
+    negocio = getattr(request.user, "negocio", None)
+    if negocio is None:
+        return JsonResponse({"mensajes": []})
+
+    desde = timezone.now() - timedelta(hours=services.HORAS_DE_HISTORIAL)
+    mensajes = HistorialConversacion.objects.filter(
+        negocio=negocio, creado_en__gte=desde,
+    ).order_by("-creado_en", "-id")[:MAXIMO_MENSAJES_EN_PANTALLA]
+
+    return JsonResponse({
+        "mensajes": [
+            {
+                "rol": "usuario" if mensaje.rol == HistorialConversacion.Rol.USUARIO else "asistente",
+                "texto": mensaje.mensaje,
+            }
+            for mensaje in reversed(mensajes)
+        ]
+    })
+
+
+@login_required
+@require_POST
+def limpiar(request):
+    """Borra la conversación (el botón del bote de basura del chat)."""
+    negocio = getattr(request.user, "negocio", None)
+    if negocio is not None:
+        HistorialConversacion.objects.filter(negocio=negocio).delete()
+    return JsonResponse({"ok": True})
 
 
 @login_required
@@ -91,9 +136,9 @@ def resumen_diario(request):
         respuesta = MENSAJE_SIN_LLAVE
     except ImportError:
         respuesta = MENSAJE_SIN_LIBRERIA
-    except Exception:
+    except Exception as error:
         registro.exception("Falló el resumen diario con la IA")
-        respuesta = MENSAJE_SIN_CONEXION
+        respuesta = mensaje_de_error(error)
     else:
         ResumenDiario.objects.update_or_create(
             negocio=negocio, fecha=hoy,
@@ -136,9 +181,9 @@ def explicar(request, tipo):
         return JsonResponse({"respuesta": MENSAJE_SIN_LLAVE})
     except ImportError:
         return JsonResponse({"respuesta": MENSAJE_SIN_LIBRERIA})
-    except Exception:
+    except Exception as error:
         registro.exception("Falló la explicación con la IA")
-        return JsonResponse({"respuesta": MENSAJE_SIN_CONEXION})
+        return JsonResponse({"respuesta": mensaje_de_error(error)})
 
     ExplicacionIA.objects.update_or_create(
         negocio=negocio, tipo=tipo, fecha=hoy, defaults={"huella": huella, "texto": respuesta},

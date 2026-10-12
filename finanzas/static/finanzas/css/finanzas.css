@@ -301,3 +301,10 @@ a.fin-stat-card:hover {
   .fin-stat-grid { grid-template-columns: 1fr; }
   .fin-content { padding: 12px 12px 24px; }
 }
+
+.fila-no-encontrado {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 0; border-top: 1px solid var(--border); font-size: 13px;
+}
+.fila-no-encontrado span { flex: 1; min-width: 180px; }
+.fila-no-encontrado input { width: 140px; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 6px 8px; }

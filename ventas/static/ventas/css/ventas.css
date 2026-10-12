@@ -341,3 +341,52 @@
   .btn-cobrar { padding: 8px 20px; font-size: 14px; }
   .total-display { font-size: 14px; }
 }
+
+/* ---- dos carritos, cantidad por teclado y búsqueda con teclado ---- */
+.carrito-tabs { display: flex; gap: 8px; padding: 0 16px 8px; flex-shrink: 0; }
+.carrito-tab {
+  border: 1.5px solid var(--border);
+  background: var(--bg-white);
+  color: var(--text-secondary);
+  border-radius: var(--radius-full);
+  padding: 6px 14px;
+  font-size: 13px; font-weight: 700;
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.carrito-tab.activo { background: var(--color-primary); border-color: var(--color-primary); color: var(--bg-white); }
+.carrito-contador {
+  background: rgba(0,0,0,.12);
+  border-radius: var(--radius-full);
+  padding: 0 7px; font-size: 11px; line-height: 18px;
+}
+.carrito-tab.activo .carrito-contador { background: rgba(255,255,255,.25); }
+
+.qty-input {
+  width: 64px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 14px;
+  background: var(--color-warning-qty);
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 3px 4px;
+  -moz-appearance: textfield;
+}
+.qty-input:focus { outline: none; border-color: var(--color-primary); background: var(--bg-white); }
+.qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.qty .qty-unidad { background: none; min-width: 0; padding: 0; font-weight: 600; color: var(--text-muted); }
+
+.dropdown-item.resaltado { background: var(--color-yellow-bg); }
+
+.chips-recientes { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-reciente {
+  border: 1px solid var(--color-orange); background: var(--color-orange-bg); color: #9a3412;
+  border-radius: var(--radius-full); padding: 4px 10px; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.atajos-granel { display: flex; gap: 8px; }
+.atajos-granel button {
+  flex: 1; border: 1.5px solid var(--color-primary); background: var(--bg-white); color: var(--color-primary);
+  border-radius: var(--radius-full); padding: 6px 0; font-weight: 700; cursor: pointer;
+}
+.cart-table tbody tr { cursor: default; }

@@ -21,11 +21,15 @@ class CategoriaGasto(ModeloBase):
 
 
 class GastoOperativo(ModeloBase):
-    """Gasto fijo o variable del negocio (renta, luz, inventario, merma, etc.)."""
+    """Gasto del negocio: fijo (renta, luz), variable (bolsas, flete) o compra de
+    mercancía. La compra de mercancía se registra sola cuando se agregan piezas al
+    inventario; cuenta para el flujo de efectivo pero NO para la utilidad, porque
+    el costo de lo vendido ya se resta al vender (si no, se contaría dos veces)."""
 
     class Tipo(models.TextChoices):
         FIJO = "FIJO", "Fijo"
         VARIABLE = "VARIABLE", "Variable"
+        MERCANCIA = "MERCANCIA", "Compra de mercancía"
 
     negocio = models.ForeignKey("accounts.Negocio", on_delete=models.CASCADE, related_name="gastos")
     categoria = models.ForeignKey(

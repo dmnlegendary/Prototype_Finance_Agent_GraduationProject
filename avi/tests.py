@@ -1,18 +1,20 @@
 import json
+from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from core import cache_negocio
 from core.testing import crear_negocio, crear_producto
 from finanzas.models import GastoOperativo
-from inventario.models import Categoria, HistorialModificacionProducto, Producto
+from inventario.models import Categoria, HistorialModificacionProducto, Producto, Proveedor
 from ventas.models import ItemVenta, Venta
 
 from . import services
-from .clients import MENSAJE_SIN_LLAVE, SinLlaveError, modelo_disponible
+from .clients import MENSAJE_SIN_LLAVE, SinLlaveError, con_reintentos, mensaje_de_error, modelo_disponible
 from .models import ExplicacionIA, HistorialConversacion, ResumenDiario
 
 
@@ -453,4 +455,294 @@ class ContextoDelAsistenteTests(TestCase):
         self.assertIn("1 en rojo", contexto)
 
         services.agregar_al_carrito(negocio, "coca")
-        self.assertIn("Carrito actual: 1 Coca 600", services.contexto_negocio(negocio))
+        self.assertIn("Carrito 1: 1 Coca 600", services.contexto_negocio(negocio))
+        self.assertIn("Carrito 2: vacío", services.contexto_negocio(negocio))
+
+
+@override_settings(OPENAI_API_KEY="llave-de-prueba", GEMINI_API_KEY="llave-de-prueba")
+class PersistenciaDelChatTests(TestCase):
+    def setUp(self):
+        self.usuario, self.negocio = crear_negocio()
+        self.client.force_login(self.usuario)
+
+    def guardar(self, texto, rol=HistorialConversacion.Rol.USUARIO, negocio=None, horas_atras=0):
+        mensaje = HistorialConversacion.objects.create(
+            negocio=negocio or self.negocio, usuario=self.usuario, rol=rol, mensaje=texto,
+        )
+        if horas_atras:
+            # creado_en es auto_now_add; con update() sí se puede mover la fecha
+            HistorialConversacion.objects.filter(pk=mensaje.pk).update(
+                creado_en=timezone.now() - timedelta(hours=horas_atras),
+            )
+        return mensaje
+
+    def test_el_historial_trae_las_ultimas_24_horas_en_orden(self):
+        self.guardar("mensaje de antier", horas_atras=48)
+        self.guardar("pregunta de ayer", horas_atras=20)
+        self.guardar("respuesta de ayer", rol=HistorialConversacion.Rol.ASISTENTE, horas_atras=19)
+        self.guardar("pregunta de hoy")
+
+        mensajes = self.client.get(reverse("avi:historial")).json()["mensajes"]
+
+        self.assertEqual([m["texto"] for m in mensajes], ["pregunta de ayer", "respuesta de ayer", "pregunta de hoy"])
+        self.assertEqual([m["rol"] for m in mensajes], ["usuario", "asistente", "usuario"])
+
+    def test_el_historial_no_mezcla_tiendas(self):
+        _, otro_negocio = crear_negocio(telefono="5599999999", email="otro@ejemplo.com", nombre_tienda="Otra")
+        self.guardar("mensaje de la otra tienda", negocio=otro_negocio)
+        self.assertEqual(self.client.get(reverse("avi:historial")).json()["mensajes"], [])
+
+    def test_la_memoria_de_la_ia_tambien_olvida_lo_de_hace_mas_de_un_dia(self):
+        self.guardar("mensaje viejo", horas_atras=30)
+        self.guardar("mensaje reciente")
+        self.assertEqual([m.mensaje for m in services.historial_reciente(self.negocio)], ["mensaje reciente"])
+
+    def test_vaciar_el_chat_borra_la_conversacion(self):
+        self.guardar("hola")
+        self.client.post(reverse("avi:limpiar"))
+        self.assertEqual(HistorialConversacion.objects.count(), 0)
+
+    def test_vaciar_el_chat_pide_post(self):
+        self.guardar("hola")
+        self.assertEqual(self.client.get(reverse("avi:limpiar")).status_code, 405)
+        self.assertEqual(HistorialConversacion.objects.count(), 1)
+
+    @patch("avi.views.preguntar_chatgpt", side_effect=Exception("Error 503: the model is overloaded"))
+    def test_un_mensaje_que_fallo_no_se_guarda_y_el_aviso_dice_la_causa(self, _llamada):
+        respuesta = self.client.post(
+            reverse("avi:chat"), data=json.dumps({"mensaje": "hola", "modelo": "chatgpt"}), content_type="application/json",
+        ).json()
+        self.assertIn("saturada", respuesta["respuesta"])
+        self.assertEqual(HistorialConversacion.objects.count(), 0)
+
+
+class ErroresDeLaIaTests(SimpleTestCase):
+    def test_cada_error_tiene_un_aviso_claro(self):
+        self.assertIn("límite", mensaje_de_error(Exception("429 Too Many Requests")))
+        self.assertIn("llave", mensaje_de_error(Exception("Incorrect API key provided")))
+        self.assertIn("tardó", mensaje_de_error(Exception("Request timed out")))
+        self.assertIn("saturada", mensaje_de_error(Exception("503 Service Unavailable")))
+        self.assertIn("No pude conectarme", mensaje_de_error(Exception("algo raro")))
+
+    @patch("avi.clients.time.sleep")
+    def test_reintenta_las_fallas_pasajeras(self, _espera):
+        intentos = []
+
+        def llamada():
+            intentos.append(1)
+            if len(intentos) < 3:
+                raise Exception("503 overloaded")
+            return "respuesta"
+
+        self.assertEqual(con_reintentos(llamada), "respuesta")
+        self.assertEqual(len(intentos), 3)
+
+    @patch("avi.clients.time.sleep")
+    def test_no_reintenta_si_la_llave_es_mala(self, _espera):
+        intentos = []
+
+        def llamada():
+            intentos.append(1)
+            raise Exception("401 Incorrect API key")
+
+        with self.assertRaises(Exception):
+            con_reintentos(llamada)
+        self.assertEqual(len(intentos), 1)
+
+
+class ProveedoresYBusquedaDelAsistenteTests(TestCase):
+    def setUp(self):
+        _, self.negocio = crear_negocio()
+
+    def ejecutar(self, funcion, **argumentos):
+        return services.ejecutar_funcion(funcion, argumentos, self.negocio)
+
+    def test_agregar_el_correo_a_un_proveedor_que_ya_existe(self):
+        self.ejecutar("alta_proveedor", nombre="Coca-cola")
+        resultado = self.ejecutar("modificar_proveedor", nombre_proveedor="coca cola", correo="coca-cola arroba coca-cola.com.mx")
+
+        self.assertTrue(resultado["ok"])
+        self.assertEqual(Proveedor.objects.get().correo, "coca-cola@coca-cola.com.mx")
+
+    def test_un_correo_invalido_no_se_guarda(self):
+        self.ejecutar("alta_proveedor", nombre="Coca-cola")
+        resultado = self.ejecutar("modificar_proveedor", nombre_proveedor="coca", correo="no es un correo")
+        self.assertFalse(resultado["ok"])
+        self.assertEqual(Proveedor.objects.get().correo, "")
+
+    def test_modificar_un_proveedor_que_no_existe_avisa(self):
+        self.assertFalse(self.ejecutar("modificar_proveedor", nombre_proveedor="Bimbo", telefono="5511")["ok"])
+
+    def test_dar_de_alta_con_el_correo_dictado(self):
+        self.ejecutar("alta_proveedor", nombre="Bimbo", correo="ventas arroba bimbo punto com")
+        self.assertEqual(Proveedor.objects.get().correo, "ventas@bimbo.com")
+
+    def test_el_alta_repetida_sugiere_cambiar_los_datos(self):
+        self.ejecutar("alta_proveedor", nombre="Coca-cola")
+        resultado = self.ejecutar("alta_proveedor", nombre="coca-cola")
+        self.assertFalse(resultado["ok"])
+        self.assertIn("cambiarle", resultado["mensaje"])
+
+    def test_buscar_encuentra_aunque_digan_de_y_litros(self):
+        crear_producto(self.negocio, nombre="Agua Ciel 1.5L")
+        crear_producto(self.negocio, nombre="Agua Ciel 600ml")
+        encontrados = [p["nombre"] for p in services.buscar_en_catalogo(self.negocio, "Agua Ciel de 1.5 litros")]
+        self.assertEqual(encontrados, ["Agua Ciel 1.5L"])
+
+    def test_buscar_agua_cuenta_todos_los_tipos(self):
+        for nombre in ("Agua Ciel 1.5L", "Agua Bonafont 1L", "Agua de Jamaica", "Leche Lala"):
+            crear_producto(self.negocio, nombre=nombre)
+        resultado = self.ejecutar("buscar_producto", nombre="agua")
+        self.assertEqual(resultado["total_encontrados"], 3)
+
+    def test_consultar_inventario_cuenta_por_categoria(self):
+        bebidas = Categoria.objects.create(nombre="Bebidas")
+        for nombre in ("Coca 600", "Pepsi 600"):
+            producto = crear_producto(self.negocio, nombre=nombre)
+            producto.categoria = bebidas
+            producto.save()
+        crear_producto(self.negocio, nombre="Jabón")
+
+        resultado = self.ejecutar("consultar_inventario")
+        self.assertEqual(resultado["total_productos"], 3)
+        categorias = {fila["categoria"]: fila["productos"] for fila in resultado["por_categoria"]}
+        self.assertEqual(categorias, {"Bebidas": 2, "Sin categoría": 1})
+
+        solo_bebidas = self.ejecutar("consultar_inventario", categoria="bebidas")
+        self.assertEqual([p["nombre"] for p in solo_bebidas["productos"]], ["Coca 600", "Pepsi 600"])
+
+
+class ReglaDeOroDelAsistenteTests(TestCase):
+    def setUp(self):
+        _, self.negocio = crear_negocio()
+        self.coca = crear_producto(self.negocio, nombre="Coca 600", cantidad="3", costo="15")
+
+    def ejecutar(self, funcion, **argumentos):
+        return services.ejecutar_funcion(funcion, argumentos, self.negocio)
+
+    def test_si_no_hay_piezas_pregunta_cuantas_agregar_y_el_precio_de_compra(self):
+        resultado = self.ejecutar("agregar_al_carrito", nombre_producto="coca", cantidad=5)
+
+        self.assertFalse(resultado["ok"])
+        self.assertTrue(resultado["sin_existencias"])
+        self.assertIn("precio de compra", resultado["mensaje"])
+        self.assertEqual(ItemVenta.objects.count(), 0)
+
+    def test_el_flujo_completo_agrega_mercancia_registra_la_compra_y_vende(self):
+        self.ejecutar("agregar_al_carrito", nombre_producto="coca", cantidad=5)
+        self.ejecutar("ajustar_existencias", nombre_producto="coca", cantidad=10, modo="sumar", costo=16)
+        resultado = self.ejecutar("agregar_al_carrito", nombre_producto="coca", cantidad=5)
+
+        self.assertTrue(resultado["ok"])
+        compra = GastoOperativo.objects.get()
+        self.assertEqual(compra.tipo, GastoOperativo.Tipo.MERCANCIA)
+        self.assertEqual(compra.monto, Decimal("160.00"))
+        self.coca.refresh_from_db()
+        self.assertEqual(self.coca.costo, Decimal("16.00"))
+
+    def test_para_un_producto_a_granel_pide_kilos(self):
+        frijol = crear_producto(self.negocio, nombre="Frijol", cantidad="1")
+        frijol.a_granel = True
+        frijol.save()
+        resultado = self.ejecutar("agregar_al_carrito", nombre_producto="frijol", cantidad=3)
+        self.assertIn("kilos", resultado["mensaje"])
+
+    def test_se_vende_por_kilos_con_decimales(self):
+        frijol = crear_producto(self.negocio, nombre="Frijol", cantidad="5", precio="40")
+        frijol.a_granel = True
+        frijol.save()
+        resultado = self.ejecutar("agregar_al_carrito", nombre_producto="frijol", cantidad=0.25)
+        self.assertTrue(resultado["ok"])
+        self.assertEqual(ItemVenta.objects.get().cantidad, Decimal("0.250"))
+
+    def test_las_piezas_no_aceptan_decimales(self):
+        resultado = self.ejecutar("agregar_al_carrito", nombre_producto="coca", cantidad=1.5)
+        self.assertFalse(resultado["ok"])
+
+    def test_cobrar_con_el_carrito_sin_existencias_avisa(self):
+        ItemVenta.objects.create(
+            venta=services.carrito.venta_en_curso(self.negocio, 1), producto=self.coca,
+            cantidad=Decimal("9"), precio_unitario=Decimal("25"),
+        )
+        resultado = self.ejecutar("cobrar_carrito")
+        self.assertFalse(resultado["ok"])
+        self.assertTrue(resultado["sin_existencias"])
+
+    def test_dar_de_alta_con_piezas_registra_la_compra(self):
+        self.ejecutar("dar_de_alta_producto", nombre="Pepsi", precio_venta=18, costo=13, cantidad_actual=10)
+        self.assertEqual(GastoOperativo.objects.get().monto, Decimal("130.00"))
+
+    def test_dar_de_alta_un_producto_a_granel(self):
+        resultado = self.ejecutar(
+            "dar_de_alta_producto", nombre="Azúcar", precio_venta=30, costo=24, cantidad_actual=2.5, a_granel=True,
+        )
+        self.assertTrue(resultado["ok"])
+        self.assertTrue(Producto.objects.get(nombre="Azúcar").a_granel)
+
+    def test_restar_o_establecer_no_registra_compras(self):
+        self.ejecutar("ajustar_existencias", nombre_producto="coca", cantidad=1, modo="restar")
+        self.ejecutar("ajustar_existencias", nombre_producto="coca", cantidad=9, modo="establecer")
+        self.assertEqual(GastoOperativo.objects.count(), 0)
+
+
+class CarritoActivoDelAsistenteTests(TestCase):
+    def setUp(self):
+        _, self.negocio = crear_negocio()
+        crear_producto(self.negocio, nombre="Coca 600")
+
+    def tearDown(self):
+        services.CARRITO_ACTIVO.set(1)
+
+    def test_agrega_al_carrito_en_el_que_esta_la_persona(self):
+        services.CARRITO_ACTIVO.set(2)
+        services.agregar_al_carrito(self.negocio, "coca")
+        self.assertEqual(Venta.objects.get().carrito, 2)
+
+    @override_settings(OPENAI_API_KEY="llave-de-prueba", GEMINI_API_KEY="llave-de-prueba")
+    def test_el_chat_manda_la_pantalla_y_el_carrito_a_la_ia(self):
+        usuario = self.negocio.usuario
+        self.client.force_login(usuario)
+        with patch("avi.views.preguntar_chatgpt", return_value=("Listo", [])) as llamada:
+            self.client.post(
+                reverse("avi:chat"),
+                data=json.dumps({"mensaje": "hola", "modelo": "chatgpt", "pantalla": "ventas", "carrito": 2}),
+                content_type="application/json",
+            )
+        self.assertEqual(llamada.call_args[0][2], "ventas")
+        self.assertEqual(services.CARRITO_ACTIVO.get(), 2)
+
+
+class HerramientasPorPantallaTests(SimpleTestCase):
+    def nombres(self, pantalla):
+        return {f["name"] for f in services.funciones_de(pantalla)}
+
+    def test_cada_pantalla_recibe_solo_sus_herramientas(self):
+        ventas = self.nombres("ventas")
+        self.assertIn("cobrar_carrito", ventas)
+        self.assertNotIn("registrar_gasto", ventas)
+        self.assertNotIn("dar_de_alta_producto", ventas)
+
+        self.assertIn("dar_de_alta_producto", self.nombres("inventario"))
+        self.assertNotIn("cobrar_carrito", self.nombres("inventario"))
+        self.assertIn("registrar_gasto", self.nombres("finanzas"))
+
+    def test_hay_herramientas_comunes_en_todas_las_pantallas(self):
+        for pantalla in ("ventas", "inventario", "finanzas"):
+            self.assertIn("buscar_producto", self.nombres(pantalla))
+
+    def test_sin_pantalla_se_mandan_todas(self):
+        self.assertEqual(len(services.funciones_de(None)), len(services.FUNCIONES))
+        self.assertEqual(len(services.funciones_de("otra")), len(services.FUNCIONES))
+
+    def test_mandar_solo_las_de_la_pantalla_baja_el_tamano_de_la_peticion(self):
+        completo = len(json.dumps(services.tools_openai()))
+        ventas = len(json.dumps(services.tools_openai("ventas")))
+        self.assertLess(ventas, completo * 0.6)
+
+    def test_toda_funcion_declarada_esta_en_el_despachador_y_en_alguna_pantalla(self):
+        en_pantallas = set(services.HERRAMIENTAS_COMUNES)
+        for conjunto in services.HERRAMIENTAS_POR_PANTALLA.values():
+            en_pantallas |= conjunto
+        for funcion in services.FUNCIONES:
+            self.assertIn(funcion["name"], services.DESPACHADOR)
+            self.assertIn(funcion["name"], en_pantallas)

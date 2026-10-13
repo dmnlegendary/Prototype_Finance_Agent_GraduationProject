@@ -12,52 +12,66 @@
   --text-muted:         #6b7280;
   --text-faint:         #9ca3af;
 
-  --color-primary:      #4f46e5;
-  --color-primary-bg:   #ede9fe;
-  --color-primary-border: #ddd6fe;
-  --color-primary-dark: #4338ca;
-  --color-primary-deep: #7c3aed;
+  /* ---- Paleta por tema: cada color significa una cosa en todo el sistema ----
+     morado = funciones de la IA        amarillo = búsqueda de productos
+     naranja = filtros y categorías     verde = ventas (carrito, cobrar)
+     azul = inventario                  rosa = agente financiero (como el logo)
+     rojo = alertas */
+  --ia-50: #f5f3ff;  --ia-100: #ede9fe;  --ia-200: #ddd6fe;  --ia-500: #8b5cf6;  --ia-600: #7c3aed;  --ia-700: #6d28d9;
+  --busq-50: #fefce8;  --busq-100: #fef9c3;  --busq-200: #fde047;  --busq-500: #eab308;  --busq-600: #ca8a04;  --busq-700: #a16207;  --busq-texto: #854d0e;
+  --filtro-50: #fff7ed;  --filtro-100: #ffedd5;  --filtro-200: #fed7aa;  --filtro-500: #f97316;  --filtro-600: #ea580c;  --filtro-700: #c2410c;  --filtro-texto: #9a3412;
+  --venta-50: #f0fdf4;  --venta-100: #dcfce7;  --venta-200: #bbf7d0;  --venta-500: #22c55e;  --venta-600: #16a34a;  --venta-700: #15803d;
+  --inv-50: #eff6ff;  --inv-100: #dbeafe;  --inv-200: #bfdbfe;  --inv-500: #3b82f6;  --inv-600: #2563eb;  --inv-700: #1d4ed8;
+  --fin-50: #fdf2f8;  --fin-100: #fce7f3;  --fin-200: #fbcfe8;  --fin-500: #e866b5;  --fin-600: #d6409f;  --fin-700: #be2a85;
+  --alerta-50: #fef2f2;  --alerta-100: #fee2e2;  --alerta-200: #fecaca;  --alerta-300: #fca5a5;  --alerta-600: #dc2626;  --alerta-700: #b91c1c;  --alerta-900: #991b1b;
 
-  --color-lila:         #8b5cf6;
-  --color-azul:         #2563eb;
+  /* el color "principal" cambia según el módulo (ver más abajo); fuera de ellos es el morado */
+  --color-primary:      var(--ia-600);
+  --color-primary-bg:   var(--ia-100);
+  --color-primary-border: var(--ia-200);
+  --color-primary-dark: var(--ia-700);
+  --color-primary-deep: var(--ia-600);
 
-  --color-success:      #16a34a;
-  --color-success-dark: #15803d;
-  --color-success-bg:   #f0fdf4;
+  --color-lila:         var(--ia-500);
+  --color-azul:         var(--inv-600);
+
+  --color-success:      var(--venta-600);
+  --color-success-dark: var(--venta-700);
+  --color-success-bg:   var(--venta-50);
   --color-success-text: #166534;
 
-  --color-danger:       #dc2626;
-  --color-danger-bg:    #fef2f2;
-  --color-danger-text:  #991b1b;
+  --color-danger:       var(--alerta-600);
+  --color-danger-bg:    var(--alerta-50);
+  --color-danger-text:  var(--alerta-900);
 
   --color-warning:      #d97706;
   --color-warning-bg:   #fffbeb;
   --color-warning-text: #92400e;
   --color-warning-border: #fcd34d;
 
-  --color-info:         #2563eb;
-  --color-info-bg:      #eff6ff;
+  --color-info:         var(--inv-600);
+  --color-info-bg:      var(--inv-50);
   --color-info-text:    #1e40af;
 
-  --color-orange:       #ea580c;
-  --color-orange-bg:    #fff7ed;
+  --color-orange:       var(--filtro-600);
+  --color-orange-bg:    var(--filtro-50);
 
-  --color-yellow:       #fbbf24;
-  --color-yellow-bg:    #fef9c3;
-  --color-yellow-border: #f5c542;
+  --color-yellow:       var(--busq-500);
+  --color-yellow-bg:    var(--busq-100);
+  --color-yellow-border: var(--busq-200);
 
-  --avi-header-bg:      #7c3aed;
-  --avi-panel-bg:       #ede9fe;
-  --avi-border:         #ddd6fe;
-  --avi-input-bg:       #f5f3ff;
+  --avi-header-bg:      var(--ia-600);
+  --avi-panel-bg:       var(--ia-100);
+  --avi-border:         var(--ia-200);
+  --avi-input-bg:       var(--ia-50);
 
   --nav-bg:             #F8F6F2;
   --nav-border:         #e2e4e9;
-  --nav-tab-active:     #4f46e5;
+  --nav-tab-active:     var(--color-primary);
 
-  --alert-banner-bg:    #fef2f2;
-  --alert-banner-border:#fca5a5;
-  --alert-banner-text:  #991b1b;
+  --alert-banner-bg:    var(--alerta-50);
+  --alert-banner-border:var(--alerta-300);
+  --alert-banner-text:  var(--alerta-900);
 
   --gradient-primary: linear-gradient(90deg, var(--color-primary) 55%, var(--color-primary-border) 85%, var(--color-lila) 100%);
 
@@ -71,6 +85,20 @@
   --shadow-sm: 0 1px 3px rgba(0,0,0,.06);
   --shadow-md: 0 8px 24px rgba(0,0,0,.14);
   --shadow-lg: 0 20px 50px rgba(0,0,0,.18);
+}
+
+/* cada módulo pinta sus botones, pestañas y tablas con su propio color */
+html:has(.app-shell[data-modulo="ventas"]) {
+  --color-primary: var(--venta-600); --color-primary-bg: var(--venta-100); --color-primary-border: var(--venta-200);
+  --color-primary-dark: var(--venta-700); --color-primary-deep: var(--venta-600); --color-lila: var(--venta-500);
+}
+html:has(.app-shell[data-modulo="inventario"]) {
+  --color-primary: var(--inv-600); --color-primary-bg: var(--inv-100); --color-primary-border: var(--inv-200);
+  --color-primary-dark: var(--inv-700); --color-primary-deep: var(--inv-600); --color-lila: var(--inv-500);
+}
+html:has(.app-shell[data-modulo="finanzas"]) {
+  --color-primary: var(--fin-600); --color-primary-bg: var(--fin-100); --color-primary-border: var(--fin-200);
+  --color-primary-dark: var(--fin-700); --color-primary-deep: var(--fin-600); --color-lila: var(--fin-500);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -278,7 +306,7 @@ nav {
 .avi-panel.expanded .avi-input { max-width: 720px; margin: 0 auto; width: 100%; }
 .avi-title {
   background: var(--avi-panel-bg);
-  color: var(--color-primary-dark);
+  color: var(--ia-700);
   font-size: 13px;
   font-weight: 600;
   padding: 11px 14px;
@@ -291,7 +319,7 @@ nav {
 .avi-title-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .avi-close-btn, .avi-toggle-btn, .avi-minimize-btn, .avi-expand-btn, .avi-clear-btn {
   background: none; border: none;
-  color: var(--color-primary);
+  color: var(--ia-600);
   opacity: .6;
   font-size: 15px; cursor: pointer;
   display: flex;
@@ -325,11 +353,11 @@ nav {
   box-shadow: var(--shadow-sm);
 }
 .bubble.user {
-  background: var(--color-primary-dark);
+  background: var(--ia-700);
   color: var(--bg-white);
   border-bottom-right-radius: 4px;
   align-self: flex-end;
-  box-shadow: 0 2px 10px rgba(67,56,202,.25);
+  box-shadow: 0 2px 10px rgba(109,40,217,.25);
 }
 .chips {
   display: flex;
@@ -340,7 +368,7 @@ nav {
 .chip {
   background: var(--bg-white);
   border: 1px solid var(--avi-border);
-  color: var(--color-primary-deep);
+  color: var(--ia-600);
   font-size: 11px;
   padding: 4px 10px;
   border-radius: var(--radius-full);
@@ -357,7 +385,7 @@ nav {
 }
 .avi-input input {
   flex: 1;
-  border: 1px solid var(--color-primary-border);
+  border: 1px solid var(--ia-200);
   border-radius: var(--radius-full);
   padding: 7px 12px;
   font-size: 13px;
@@ -365,9 +393,9 @@ nav {
   background: var(--bg-white);
   min-width: 0;
 }
-.avi-input input:focus { border-color: var(--color-primary-deep); }
+.avi-input input:focus { border-color: var(--ia-600); }
 .avi-input button {
-  background: var(--color-primary-dark);
+  background: var(--ia-700);
   color: var(--bg-white);
   border: none;
   border-radius: var(--radius-full);
@@ -397,8 +425,8 @@ nav {
 }
 .bubble-acciones button, .bubble-acciones a {
   background: var(--bg-white);
-  border: 1px solid var(--color-primary-border);
-  color: var(--color-primary-dark);
+  border: 1px solid var(--ia-200);
+  color: var(--ia-700);
   border-radius: var(--radius-full);
   padding: 5px 12px;
   font-size: 12px;
@@ -407,9 +435,9 @@ nav {
   text-decoration: none;
   white-space: nowrap;
 }
-.bubble-acciones button:hover, .bubble-acciones a:hover { background: var(--color-primary-bg); }
+.bubble-acciones button:hover, .bubble-acciones a:hover { background: var(--ia-100); }
 .avi-input select {
-  border: 1px solid var(--color-primary-border);
+  border: 1px solid var(--ia-200);
   border-radius: var(--radius-full);
   padding: 6px 10px;
   font-size: 11px;
@@ -441,18 +469,18 @@ nav {
   position: fixed;
   bottom: 76px; left: 16px;
   width: 50px; height: 50px;
-  background: var(--color-primary);
+  background: var(--ia-600);
   color: var(--bg-white);
   border: none;
   border-radius: var(--radius-full);
   font-size: 20px;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(79,70,229,.35);
+  box-shadow: 0 4px 12px rgba(124,58,237,.35);
   z-index: 150;
   align-items: center; justify-content: center;
   transition: background .15s;
 }
-.fab-avi:hover { background: var(--color-primary-dark); }
+.fab-avi:hover { background: var(--ia-700); }
 
 .toast-stack {
   position: fixed;
@@ -679,10 +707,11 @@ nav {
   gap: 4px;
 }
 .cat-pill input { display: none; }
+.cat-pill:hover { border-color: var(--filtro-200); background: var(--filtro-50); }
 .cat-pill.selected, .cat-pill:has(input:checked) {
-  border-color: var(--color-primary);
-  background: var(--color-primary-bg);
-  color: var(--color-primary);
+  border-color: var(--filtro-600);
+  background: var(--filtro-100);
+  color: var(--filtro-700);
 }
 
 .btn-primary {
@@ -700,7 +729,7 @@ nav {
 .btn-primary:hover { background: var(--color-primary-dark); }
 .btn-success {
   flex: 1;
-  background: var(--color-success);
+  background: var(--color-primary);
   color: var(--bg-white);
   border: none;
   border-radius: var(--radius-full);
@@ -710,7 +739,7 @@ nav {
   cursor: pointer;
   transition: background .15s;
 }
-.btn-success:hover { background: var(--color-success-dark); }
+.btn-success:hover { background: var(--color-primary-dark); }
 .btn-ghost {
   background: var(--bg-muted);
   color: var(--text-secondary);
@@ -750,40 +779,6 @@ nav {
   .avatar { width: 32px; height: 32px; font-size: 14px; }
 }
 
-.tutorial-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(17,24,39,.35);
-  z-index: 400;
-}
-.tutorial-resaltado {
-  position: relative;
-  z-index: 401;
-  outline: 3px solid var(--color-primary);
-  outline-offset: 3px;
-  border-radius: var(--radius-md);
-}
-.tutorial-globo {
-  position: fixed;
-  z-index: 402;
-  max-width: 260px;
-  background: var(--bg-white);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  padding: 14px;
-}
-.tutorial-globo p { font-size: 13px; color: var(--text-secondary); margin: 0 0 10px; }
-.tutorial-acciones { display: flex; justify-content: flex-end; gap: 8px; }
-.tutorial-acciones button {
-  border: none;
-  border-radius: var(--radius-full);
-  padding: 6px 14px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.tutorial-acciones button:first-child { background: none; color: var(--text-muted); }
-.tutorial-acciones button:last-child { background: var(--color-primary); color: var(--bg-white); }
 
 /* ---- Semáforo del reabastecimiento (rojo / naranja / amarillo) ---- */
 .nivel-rojo     { --nivel: var(--color-danger); --nivel-bg: var(--color-danger-bg); --nivel-texto: var(--color-danger-text); --nivel-borde: #fca5a5; }
@@ -794,7 +789,7 @@ nav {
   display: inline-block;
   width: 10px; height: 10px;
   border-radius: var(--radius-full);
-  background: var(--nivel, var(--color-success));
+  background: var(--nivel, var(--inv-600));
   margin-right: 6px;
 }
 
@@ -910,5 +905,30 @@ nav {
   padding: 8px 16px;
   font-size: 12px; font-weight: 600; text-align: center;
 }
-.barra-sin-conexion.sin-internet { background: var(--color-warning); color: var(--bg-white); }
+.barra-sin-conexion.sin-internet { background: var(--alerta-600); color: var(--bg-white); }
 .barra-sin-conexion.sincronizando { background: var(--color-info); color: var(--bg-white); }
+
+/* ---- lo que hace la IA siempre va en morado, sin importar el módulo ---- */
+#modal-resumen-avi .panel-header { background: var(--ia-100); border-bottom-color: var(--ia-200); }
+#modal-resumen-avi .panel-header h3 { color: var(--ia-700); }
+#modal-resumen-avi .btn-success { background: var(--ia-600); }
+#modal-resumen-avi .btn-success:hover { background: var(--ia-700); }
+/* ---- los buscadores de productos siempre son amarillos ---- */
+.buscador-producto {
+  background: var(--busq-100);
+  border: 1px solid var(--busq-200);
+  border-radius: var(--radius-md);
+  padding: 9px 12px;
+  font-size: 14px;
+  outline: none;
+  color: var(--text-secondary);
+}
+.buscador-producto:focus { border-color: var(--busq-500); box-shadow: 0 0 0 3px rgba(234,179,8,.25); }
+.buscador-producto::placeholder { color: var(--busq-700); opacity: .7; }
+
+/* ---- categorías y proveedores (en los formularios) siempre son naranjas ---- */
+.form-group select[name="categoria"], .form-group select[name="proveedor"] {
+  background: var(--filtro-50);
+  border-color: var(--filtro-200);
+}
+.form-group select[name="categoria"]:focus, .form-group select[name="proveedor"]:focus { border-color: var(--filtro-600); }

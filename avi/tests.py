@@ -14,7 +14,9 @@ from inventario.models import Categoria, HistorialModificacionProducto, Producto
 from ventas.models import ItemVenta, Venta
 
 from . import services
-from .clients import MENSAJE_SIN_LLAVE, SinLlaveError, con_reintentos, mensaje_de_error, modelo_disponible
+from .clients import (
+    MENSAJE_SIN_LLAVE, SinLlaveError, con_reintentos, generar_texto, mensaje_de_error, modelos_en_orden, preguntar_ia,
+)
 from .models import ExplicacionIA, HistorialConversacion, ResumenDiario
 
 
@@ -29,11 +31,11 @@ class ChatDelAsistenteTests(TestCase):
     def mandar(self, mensaje):
         return self.client.post(
             reverse("avi:chat"),
-            data=json.dumps({"mensaje": mensaje, "modelo": "chatgpt"}),
+            data=json.dumps({"mensaje": mensaje}),
             content_type="application/json",
         )
 
-    @patch("avi.views.preguntar_chatgpt", return_value=("Listo, agregué 2 pepsis.", ["agregar_al_carrito"]))
+    @patch("avi.views.preguntar_ia", return_value=("Listo, agregué 2 pepsis.", ["agregar_al_carrito"]))
     def test_guarda_el_historial_y_pide_refrescar_la_pantalla(self, _llamada):
         respuesta = self.mandar("agrega 2 pepsis").json()
 
@@ -41,13 +43,13 @@ class ChatDelAsistenteTests(TestCase):
         self.assertTrue(respuesta["refrescar"])
         self.assertEqual(HistorialConversacion.objects.count(), 2)
 
-    @patch("avi.views.preguntar_chatgpt", return_value=("Hoy vendiste poco.", ["consultar_ventas_hoy"]))
+    @patch("avi.views.preguntar_ia", return_value=("Hoy vendiste poco.", ["consultar_ventas_hoy"]))
     def test_una_consulta_no_refresca_la_pantalla(self, _llamada):
         respuesta = self.mandar("¿cuánto vendí hoy?").json()
         self.assertFalse(respuesta["refrescar"])
 
     def test_un_mensaje_vacio_no_llama_al_modelo(self):
-        with patch("avi.views.preguntar_chatgpt") as llamada:
+        with patch("avi.views.preguntar_ia") as llamada:
             respuesta = self.mandar("   ").json()
         self.assertEqual(llamada.call_count, 0)
         self.assertIn("Escribe algo", respuesta["respuesta"])
@@ -154,17 +156,58 @@ class FuncionesDelAsistenteTests(TestCase):
 
 class ElegirModeloTests(SimpleTestCase):
     @override_settings(OPENAI_API_KEY="", GEMINI_API_KEY="llave-de-gemini")
-    def test_si_solo_hay_llave_de_gemini_se_usa_gemini(self):
-        self.assertEqual(modelo_disponible("chatgpt"), "gemini")
+    def test_si_solo_hay_llave_de_gemini_se_usa_solo_gemini(self):
+        self.assertEqual(modelos_en_orden(), ["gemini"])
 
     @override_settings(OPENAI_API_KEY="llave-de-openai", GEMINI_API_KEY="llave-de-gemini")
-    def test_si_hay_las_dos_se_respeta_la_elegida(self):
-        self.assertEqual(modelo_disponible("gemini"), "gemini")
-        self.assertEqual(modelo_disponible("chatgpt"), "chatgpt")
+    def test_si_hay_las_dos_primero_va_gemini_y_luego_chatgpt(self):
+        self.assertEqual(modelos_en_orden(), ["gemini", "chatgpt"])
+
+    @override_settings(OPENAI_API_KEY="llave-de-openai", GEMINI_API_KEY="")
+    def test_si_solo_hay_llave_de_openai_se_usa_chatgpt(self):
+        self.assertEqual(modelos_en_orden(), ["chatgpt"])
 
     @override_settings(OPENAI_API_KEY="", GEMINI_API_KEY="")
-    def test_si_no_hay_ninguna_se_queda_con_la_elegida(self):
-        self.assertEqual(modelo_disponible("gemini"), "gemini")
+    def test_si_no_hay_ninguna_el_chat_avisa_que_falta_la_llave(self):
+        self.assertEqual(preguntar_ia("hola", None), (MENSAJE_SIN_LLAVE, []))
+        with self.assertRaises(SinLlaveError):
+            generar_texto("hola")
+
+
+@override_settings(OPENAI_API_KEY="llave-de-openai", GEMINI_API_KEY="llave-de-gemini")
+class RespaldoEntreModelosTests(SimpleTestCase):
+    @patch("avi.clients.preguntar_chatgpt")
+    @patch("avi.clients.preguntar_gemini", return_value=("Contestó Gemini", []))
+    def test_si_gemini_contesta_no_se_llama_a_chatgpt(self, _gemini, chatgpt):
+        self.assertEqual(preguntar_ia("hola", None), ("Contestó Gemini", []))
+        chatgpt.assert_not_called()
+
+    @patch("avi.clients.preguntar_chatgpt", return_value=("Contestó ChatGPT", []))
+    @patch("avi.clients.preguntar_gemini", side_effect=Exception("503 overloaded"))
+    def test_si_gemini_falla_contesta_chatgpt(self, _gemini, _chatgpt):
+        self.assertEqual(preguntar_ia("hola", None), ("Contestó ChatGPT", []))
+
+    @patch("avi.clients.preguntar_chatgpt", side_effect=Exception("sin saldo"))
+    @patch("avi.clients.preguntar_gemini", side_effect=Exception("503 overloaded"))
+    def test_si_fallan_los_dos_se_avisa_del_ultimo_error(self, _gemini, _chatgpt):
+        with self.assertRaisesMessage(Exception, "sin saldo"):
+            preguntar_ia("hola", None)
+
+    @patch("avi.clients.preguntar_chatgpt")
+    def test_si_gemini_ya_hizo_una_accion_y_falla_no_se_repite_con_chatgpt(self, chatgpt):
+        def gemini_a_medias(mensaje, negocio, pantalla, ejecutadas):
+            ejecutadas.append("agregar_al_carrito")
+            raise Exception("503 overloaded")
+
+        with patch("avi.clients.preguntar_gemini", side_effect=gemini_a_medias):
+            with self.assertRaises(Exception):
+                preguntar_ia("agrega 2 cocas", None)
+        chatgpt.assert_not_called()
+
+    @patch("avi.clients._texto_con_chatgpt", return_value="Resumen de ChatGPT")
+    @patch("avi.clients._texto_con_gemini", side_effect=Exception("429 quota"))
+    def test_los_resumenes_tambien_pasan_a_chatgpt(self, _gemini, _chatgpt):
+        self.assertEqual(generar_texto("explica"), "Resumen de ChatGPT")
 
 
 class RespuestaDirectaTests(SimpleTestCase):
@@ -507,10 +550,10 @@ class PersistenciaDelChatTests(TestCase):
         self.assertEqual(self.client.get(reverse("avi:limpiar")).status_code, 405)
         self.assertEqual(HistorialConversacion.objects.count(), 1)
 
-    @patch("avi.views.preguntar_chatgpt", side_effect=Exception("Error 503: the model is overloaded"))
+    @patch("avi.views.preguntar_ia", side_effect=Exception("Error 503: the model is overloaded"))
     def test_un_mensaje_que_fallo_no_se_guarda_y_el_aviso_dice_la_causa(self, _llamada):
         respuesta = self.client.post(
-            reverse("avi:chat"), data=json.dumps({"mensaje": "hola", "modelo": "chatgpt"}), content_type="application/json",
+            reverse("avi:chat"), data=json.dumps({"mensaje": "hola"}), content_type="application/json",
         ).json()
         self.assertIn("saturada", respuesta["respuesta"])
         self.assertEqual(HistorialConversacion.objects.count(), 0)
@@ -702,10 +745,10 @@ class CarritoActivoDelAsistenteTests(TestCase):
     def test_el_chat_manda_la_pantalla_y_el_carrito_a_la_ia(self):
         usuario = self.negocio.usuario
         self.client.force_login(usuario)
-        with patch("avi.views.preguntar_chatgpt", return_value=("Listo", [])) as llamada:
+        with patch("avi.views.preguntar_ia", return_value=("Listo", [])) as llamada:
             self.client.post(
                 reverse("avi:chat"),
-                data=json.dumps({"mensaje": "hola", "modelo": "chatgpt", "pantalla": "ventas", "carrito": 2}),
+                data=json.dumps({"mensaje": "hola", "pantalla": "ventas", "carrito": 2}),
                 content_type="application/json",
             )
         self.assertEqual(llamada.call_args[0][2], "ventas")

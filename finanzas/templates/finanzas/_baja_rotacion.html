@@ -1,5 +1,5 @@
 {% for p in productos %}
 <div class="fin-result-item baja-rotacion-item">
-  <span><i class="bi bi-box-seam" style="color:var(--color-warning);"></i> <strong>{{ p.nombre }}</strong> · {{ p.cantidad_actual|floatformat:"-3" }} {{ p.unidad }} en inventario</span>
+  <span><i class="bi bi-box-seam" style="color:var(--inv-600);"></i> <strong>{{ p.nombre }}</strong> · {{ p.cantidad_actual|floatformat:"-3" }} {{ p.unidad }} en inventario</span>
 </div>
 {% endfor %}

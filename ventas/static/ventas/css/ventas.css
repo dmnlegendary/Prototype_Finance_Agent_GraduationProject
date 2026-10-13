@@ -1,5 +1,5 @@
 :root {
-  --color-warning-qty:  #fef9c3;
+  --color-warning-qty:  var(--venta-100);
 }
 
 .main {
@@ -24,8 +24,8 @@
   padding: 0 16px;
   border-radius: var(--radius-full);
   border: none;
-  background: var(--color-orange);
-  color: var(--bg-white);
+  background: var(--busq-500);
+  color: #422006;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
@@ -62,7 +62,7 @@
   gap: 8px;
   height: 44px;
 }
-.search-box i { color: #a16207; font-size: 15px; flex-shrink: 0; }
+.search-box i { color: var(--busq-700); font-size: 15px; flex-shrink: 0; }
 .search-box input {
   flex: 1;
   border: none;
@@ -72,7 +72,8 @@
   color: var(--text-secondary);
   min-width: 0;
 }
-.search-box input::placeholder { color: #a16207; opacity: .7; }
+.search-box input::placeholder { color: var(--busq-700); opacity: .7; }
+.search-box:focus-within { border-color: var(--busq-500); box-shadow: 0 0 0 3px rgba(234,179,8,.25); }
 
 .sale-meta {
   display: flex;
@@ -381,7 +382,7 @@
 
 .chips-recientes { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip-reciente {
-  border: 1px solid var(--color-orange); background: var(--color-orange-bg); color: #9a3412;
+  border: 1px solid var(--busq-500); background: var(--busq-100); color: var(--busq-texto);
   border-radius: var(--radius-full); padding: 4px 10px; font-size: 12px; font-weight: 600; cursor: pointer;
 }
 .atajos-granel { display: flex; gap: 8px; }

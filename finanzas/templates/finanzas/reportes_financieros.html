@@ -19,8 +19,8 @@
 </div>
 
 {% if renglones_sin_costo %}
-<div class="fin-callout" style="border-color:var(--color-warning);">
-  <i class="bi bi-exclamation-triangle-fill" style="color:var(--color-warning);"></i>
+<div class="fin-callout alerta">
+  <i class="bi bi-exclamation-triangle-fill"></i>
   <strong>Ojo con tu utilidad:</strong> {{ renglones_sin_costo }} renglones vendidos no tienen precio de compra, así que tu utilidad se ve más alta de lo que es.
   <a href="{% url 'finanzas:registrar_gastos' %}" data-sin-loader>Completa los precios de compra</a>.
 </div>
@@ -33,11 +33,11 @@
   </div>
   <div class="fin-stat-card">
     <div class="fin-stat-label">Flujo de efectivo</div>
-    <div class="fin-stat-value" style="color:var(--color-azul);">${{ total.flujo_efectivo|floatformat:2|intcomma }}</div>
+    <div class="fin-stat-value" style="color:var(--fin-700);">${{ total.flujo_efectivo|floatformat:2|intcomma }}</div>
   </div>
   <div class="fin-stat-card">
     <div class="fin-stat-label">Margen operativo</div>
-    <div class="fin-stat-value" style="color:var(--color-orange);">{% if total.margen_operativo is not None %}{{ total.margen_operativo }}%{% else %}—{% endif %}</div>
+    <div class="fin-stat-value" style="color:var(--fin-500);">{% if total.margen_operativo is not None %}{{ total.margen_operativo }}%{% else %}—{% endif %}</div>
   </div>
   <div class="fin-stat-card">
     <div class="fin-stat-label">Utilidad neta</div>

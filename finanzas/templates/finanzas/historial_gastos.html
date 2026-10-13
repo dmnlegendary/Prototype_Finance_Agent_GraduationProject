@@ -23,11 +23,11 @@
         <td>{{ gasto.concepto }}</td>
         <td>
           {% if gasto.tipo == "FIJO" %}
-          <span class="badge-estado cobrada">Fijo</span>
+          <span class="badge-estado tipo-fijo">Fijo</span>
           {% elif gasto.tipo == "MERCANCIA" %}
-          <span class="badge-estado" style="background:var(--color-info-bg);color:var(--color-info-text);">Mercancía</span>
+          <span class="badge-estado tipo-mercancia">Mercancía</span>
           {% else %}
-          <span class="badge-estado cancelada">Variable</span>
+          <span class="badge-estado tipo-variable">Variable</span>
           {% endif %}
         </td>
         <td>{{ gasto.nota|default:"—" }}</td>

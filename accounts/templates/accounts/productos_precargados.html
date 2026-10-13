@@ -42,12 +42,12 @@
         <form method="post">
             {% csrf_token %}
 
-            <input type="text" id="buscar-catalogo" placeholder="Buscar producto..." class="form-control mb-3" autocomplete="off">
+            <input type="text" id="buscar-catalogo" placeholder="Buscar producto..." class="form-control buscador-producto mb-3" autocomplete="off">
 
             <div class="d-flex gap-2 overflow-auto pb-2 mb-3">
-                <button type="button" class="btn btn-sm btn-primary text-nowrap filtro-categoria" data-categoria="">Todos</button>
+                <button type="button" class="btn btn-sm text-nowrap filtro-categoria activo" data-categoria="">Todos</button>
                 {% for categoria in categorias %}
-                <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap filtro-categoria" data-categoria="{{ categoria.nombre }}">{{ categoria.icono }} {{ categoria.nombre }}</button>
+                <button type="button" class="btn btn-sm text-nowrap filtro-categoria" data-categoria="{{ categoria.nombre }}">{{ categoria.icono }} {{ categoria.nombre }}</button>
                 {% endfor %}
             </div>
 
@@ -144,7 +144,7 @@
             boton.addEventListener("click", function () {
                 categoriaElegida = boton.dataset.categoria;
                 document.querySelectorAll(".filtro-categoria").forEach(function (b) {
-                    b.className = "btn btn-sm text-nowrap filtro-categoria " + (b === boton ? "btn-primary" : "btn-outline-secondary");
+                    b.className = "btn btn-sm text-nowrap filtro-categoria" + (b === boton ? " activo" : "");
                 });
                 filtrar();
             });

@@ -12,7 +12,7 @@ resolver dudas del negocio.
 - **Ventas y carrito**: punto de venta, alta al carrito, cobro.
 - **Inventario y alertas**: catálogo de productos, proveedores, aviso de stock bajo.
 - **Agente financiero**: gastos operativos y (a futuro) pronóstico de ventas.
-- **Orquestador AVI**: conecta con el LLM (ChatGPT o Gemini) para el chat del asistente.
+- **Orquestador AVI**: conecta con el LLM para el chat del asistente. El modelo se elige solo: primero consulta a Gemini y, si no contesta, usa ChatGPT (basta con tener una de las dos llaves).
 - **Seguridad y autenticación**: registro, login y datos del negocio.
 
 ## Tecnologías

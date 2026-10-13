@@ -3,7 +3,7 @@
 <tr class="{% if nivel != 'ok' %}fila-nivel-{{ nivel }}{% endif %}">
   <td>
     {{ producto.icono }} {{ producto.nombre }}
-    {% if producto.pendiente_validacion %}<span class="badge-cat" style="background:var(--color-yellow-bg);color:#a16207;">Pendiente de validar</span>{% endif %}
+    {% if producto.pendiente_validacion %}<span class="badge-cat" style="background:var(--filtro-100);color:var(--filtro-700);">Pendiente de validar</span>{% endif %}
     {% if producto.a_granel %}<span class="badge-cat" style="background:var(--color-info-bg);color:var(--color-info-text);">A granel</span>{% endif %}
   </td>
   <td>{% if producto.categoria %}<span class="badge-cat cat-{{ producto.categoria.nombre|lower }}">{{ producto.categoria.nombre }}</span>{% endif %}</td>

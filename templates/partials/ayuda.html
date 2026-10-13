@@ -7,7 +7,7 @@
     </div>
 
     <div class="panel-body faq-body">
-      <input type="text" id="buscarAyuda" class="filtro-picker" placeholder="Busca tu duda… (ej. cobrar, stock, gasto)" autocomplete="off" oninput="filtrarAyuda(this.value)">
+      <input type="text" id="buscarAyuda" placeholder="Busca tu duda… (ej. cobrar, stock, gasto)" autocomplete="off" oninput="filtrarAyuda(this.value)">
 
       <div class="faq-grupo" data-grupo>
         <h4><i class="bi bi-cart3"></i> Ventas</h4>
@@ -111,10 +111,6 @@
           <summary>¿Puedo hablarle en vez de escribir?</summary>
           <p>Sí, toca el micrófono del chat, di tu petición y envíala. Si hay mucho ruido en la tienda, conecta unos audífonos con micrófono (o un micrófono externo): el navegador usará el que tengas conectado.</p>
         </details>
-        <details class="faq-item">
-          <summary>¿Para qué es el selector de modelo (ChatGPT / Gemini)?</summary>
-          <p>Es la inteligencia artificial que contesta. Cualquiera sirve; usa la que prefieras.</p>
-        </details>
       </div>
 
       <div class="faq-grupo" data-grupo>
@@ -133,7 +129,6 @@
     </div>
 
     <div class="panel-footer">
-      <button type="button" class="btn-success" onclick="closeModal('ayuda'); mostrarTutorial();"><i class="bi bi-play-circle"></i> Ver recorrido de esta pantalla</button>
       <button type="button" class="btn-ghost" onclick="closeModal('ayuda')">Cerrar</button>
     </div>
   </div>

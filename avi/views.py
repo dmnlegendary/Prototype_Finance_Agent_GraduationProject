@@ -11,10 +11,7 @@ from django.views.decorators.http import require_POST
 from ventas import carrito
 
 from . import services
-from .clients import (
-    MENSAJE_SIN_LLAVE, SinLlaveError, generar_texto, mensaje_de_error, modelo_disponible,
-    preguntar_chatgpt, preguntar_gemini,
-)
+from .clients import MENSAJE_SIN_LLAVE, SinLlaveError, generar_texto, mensaje_de_error, preguntar_ia
 from .models import ExplicacionIA, HistorialConversacion, ResumenDiario
 
 registro = logging.getLogger(__name__)
@@ -36,13 +33,12 @@ def chat(request):
         return JsonResponse({"respuesta": "No entendí ese mensaje."}, status=400)
 
     mensaje = datos.get("mensaje", "").strip()
-    modelo = modelo_disponible(datos.get("modelo", "chatgpt"))
     if not mensaje:
         return JsonResponse({"respuesta": "Escribe algo para que te pueda ayudar."})
 
     # ojo: el historial se guarda HASTA ABAJO, después de llamar al LLM, para
-    # que preguntar_chatgpt/preguntar_gemini no se encuentren este mismo
-    # mensaje duplicado al armar el contexto de la conversación.
+    # que preguntar_ia no se encuentre este mismo mensaje duplicado al armar
+    # el contexto de la conversación.
     # la pantalla manda en qué módulo está y en qué carrito (1 o 2) trabaja, para darle a la IA solo
     # las herramientas de esa pantalla y que agregue al carrito correcto
     pantalla = datos.get("pantalla")
@@ -50,10 +46,7 @@ def chat(request):
 
     fallo = False
     try:
-        if modelo == "gemini":
-            respuesta, funciones = preguntar_gemini(mensaje, negocio, pantalla)
-        else:
-            respuesta, funciones = preguntar_chatgpt(mensaje, negocio, pantalla)
+        respuesta, funciones = preguntar_ia(mensaje, negocio, pantalla)
     except ImportError:
         respuesta, funciones, fallo = MENSAJE_SIN_LIBRERIA, [], True
     except Exception as error:
@@ -126,12 +119,11 @@ def resumen_diario(request):
             "total_gastos": float(resumen.total_gastos),
         })
 
-    modelo = request.GET.get("modelo", "chatgpt")
     datos = services.datos_resumen_diario(negocio)
     mensaje = services.construir_mensaje_resumen(datos)
 
     try:
-        respuesta = generar_texto(mensaje, modelo)
+        respuesta = generar_texto(mensaje)
     except SinLlaveError:
         respuesta = MENSAJE_SIN_LLAVE
     except ImportError:
@@ -176,7 +168,7 @@ def explicar(request, tipo):
         return JsonResponse({"respuesta": guardada.texto, "guardada": True})
 
     try:
-        respuesta = generar_texto(services.construir_mensaje_explicacion(datos), request.GET.get("modelo", "chatgpt"))
+        respuesta = generar_texto(services.construir_mensaje_explicacion(datos))
     except SinLlaveError:
         return JsonResponse({"respuesta": MENSAJE_SIN_LLAVE})
     except ImportError:

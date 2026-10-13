@@ -28,7 +28,7 @@
 
         {% if grupos.existente or grupos.pendiente %}
         <div class="card-simple" style="padding:14px;">
-          <h3 class="titulo-grupo"><i class="bi bi-check-circle-fill" style="color:var(--color-success);"></i> Ya están en tu inventario ({{ n_ya_estan }})</h3>
+          <h3 class="titulo-grupo"><i class="bi bi-check-circle-fill" style="color:var(--inv-600);"></i> Ya están en tu inventario ({{ n_ya_estan }})</h3>
           <p class="nota-grupo">Se suman las piezas y se actualizan los precios con los del archivo. Quita la palomita de los que no quieras tocar.</p>
           <table class="tabla-datos">
             <thead><tr><th></th><th>Producto</th><th class="right">Piezas</th><th class="right">Compra</th><th class="right">Venta</th></tr></thead>
@@ -43,7 +43,7 @@
               {% for f in grupos.pendiente %}
               <tr>
                 <td><input type="checkbox" checked onchange="this.nextElementSibling.value = this.checked ? 'actualizar' : 'omitir'"><input type="hidden" name="accion_{{ f.fila }}" value="actualizar"></td>
-                <td>{{ f.producto }} <span class="badge-cat" style="background:var(--color-yellow-bg);color:#a16207;">Pendiente de validar: se completa con estos datos</span></td>
+                <td>{{ f.producto }} <span class="badge-cat" style="background:var(--filtro-100);color:var(--filtro-700);">Pendiente de validar: se completa con estos datos</span></td>
                 <td class="right">{{ f.cantidad }}</td><td class="right">${{ f.precio_compra }}</td><td class="right">${{ f.precio_venta }}</td>
               </tr>
               {% endfor %}

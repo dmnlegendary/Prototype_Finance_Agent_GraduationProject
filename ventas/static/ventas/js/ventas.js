@@ -272,7 +272,7 @@ function mostrarTicket(t, pendiente) {
 
   if (pendiente) {
     const nota = document.createElement('p');
-    nota.style.cssText = 'font-size:12px;color:var(--color-warning-text);margin:10px 0 0;';
+    nota.style.cssText = 'font-size:12px;color:var(--alerta-900);margin:10px 0 0;';
     nota.textContent = 'Venta guardada sin internet. Se actualizará el sistema una vez que haya conexión.';
     caja.appendChild(nota);
   }

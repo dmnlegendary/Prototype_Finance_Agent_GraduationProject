@@ -69,3 +69,19 @@ body {
 .btn-sm {
     border-radius: 50px;
 }
+
+/* productos precargados: buscador amarillo y categorías naranjas, igual que dentro del sistema */
+.buscador-producto {
+    background: #fef9c3;
+    border: 1px solid #fde047;
+}
+.buscador-producto:focus { background: #fef9c3; border-color: #eab308; box-shadow: 0 0 0 3px rgba(234,179,8,.25); }
+.buscador-producto::placeholder { color: #a16207; opacity: .7; }
+.filtro-categoria {
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    color: #c2410c;
+    font-weight: 600;
+}
+.filtro-categoria:hover { background: #ffedd5; color: #c2410c; }
+.filtro-categoria.activo { background: #ea580c; border-color: #ea580c; color: #fff; }

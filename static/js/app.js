@@ -149,7 +149,6 @@ function enviarMensajeAvi(event) {
   event.preventDefault();
   const input = document.getElementById('aviTexto');
   const chat = document.getElementById('aviChat');
-  const modeloSelect = document.getElementById('aviModelo');
   const texto = input.value.trim();
   if (!texto) return false;
 
@@ -176,7 +175,6 @@ function enviarMensajeAvi(event) {
     },
     body: JSON.stringify({
       mensaje: texto,
-      modelo: modeloSelect ? modeloSelect.value : 'chatgpt',
       // en qué pantalla está y en qué carrito trabaja: la IA solo recibe las herramientas de esa pantalla
       pantalla: (document.querySelector('.app-shell') || {dataset: {}}).dataset.modulo || null,
       carrito: window.carritoActivo || 1,
@@ -217,11 +215,6 @@ function dineroMx(valor) {
   return Number(valor || 0).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
 }
 
-function modeloElegido() {
-  const select = document.getElementById('aviModelo');
-  return select ? select.value : 'chatgpt';
-}
-
 // Abre el modal de la IA, pide el texto al servidor y lo muestra.
 // conNumeros = true agrega las tres cifras de ayer (ventas, ganancia y gastos).
 function mostrarModalAvi(titulo, url, textoCargando, textoError, conNumeros) {
@@ -259,10 +252,10 @@ function mostrarModalAvi(titulo, url, textoCargando, textoError, conNumeros) {
 }
 
 // Resumen de "cómo te fue ayer" al iniciar sesión
-function mostrarResumenAvi(modelo) {
+function mostrarResumenAvi() {
   mostrarModalAvi(
     'Así te fue ayer',
-    '/avi/resumen/?modelo=' + (modelo || modeloElegido()),
+    '/avi/resumen/',
     'Revisando cómo te fue ayer…',
     'No pude generar tu resumen de ayer. Intenta de nuevo.',
     true
@@ -273,7 +266,7 @@ function mostrarResumenAvi(modelo) {
 function explicarConAvi(tipo) {
   mostrarModalAvi(
     tipo === 'reportes' ? 'Tus reportes, explicados' : 'Tu negocio, explicado',
-    '/avi/explicar/' + tipo + '/?modelo=' + modeloElegido(),
+    '/avi/explicar/' + tipo + '/',
     'Revisando tus números…',
     'No pude explicarte tus números. Intenta de nuevo.',
     false
@@ -325,100 +318,6 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
   });
-});
-
-const TUTORIALES = {
-  ventas: [
-    { selector: '.search-box', texto: 'Busca un producto por nombre aquí y selecciónalo para agregarlo al carrito.' },
-    { selector: '.btn-no-encontrado', texto: '¿No encuentras el producto? Cóbralo aquí con solo el nombre y el precio.' },
-    { selector: '.btn-cobrar', texto: 'Cuando termines de agregar productos, cóbrale al cliente desde aquí.' },
-  ],
-  inventario: [
-    { selector: '.btn-alta', texto: 'Da de alta tus productos aquí, uno por uno o poco a poco.' },
-    { selector: '.search-inv', texto: 'Busca cualquier producto de tu catálogo por nombre.' },
-    { selector: '.alert-banner', texto: 'Aquí te avisamos cuando un producto se está agotando: amarillo a la mitad, naranja a un cuarto y rojo cuando ya hay que resurtir.' },
-    { selector: '.btn-campana', texto: 'La campana te avisa desde cualquier pantalla y cambia de color según qué tan urgente sea.' },
-  ],
-  finanzas: [
-    { selector: '.btn-avi-explica', texto: 'Pídele a marIA que te explique tus números en palabras simples.' },
-    { selector: '.fin-module-card', texto: 'Entra a cada tarjeta para ver gastos, precios de venta y reportes a detalle.' },
-  ],
-};
-
-function mostrarTutorial(modulo) {
-  const shell = document.querySelector('.app-shell');
-  modulo = modulo || (shell ? shell.dataset.modulo : null);
-  const pasos = (TUTORIALES[modulo] || []).filter(function (paso) {
-    return document.querySelector(paso.selector);
-  });
-  if (!pasos.length) {
-    showToast('No hay ayuda disponible para esta pantalla todavía.', 'info');
-    return;
-  }
-
-  let indice = 0;
-  const overlay = document.createElement('div');
-  overlay.className = 'tutorial-overlay';
-  document.body.appendChild(overlay);
-
-  const globo = document.createElement('div');
-  globo.className = 'tutorial-globo';
-  document.body.appendChild(globo);
-
-  function limpiarResaltado() {
-    pasos.forEach(function (p) {
-      const el = document.querySelector(p.selector);
-      if (el) el.classList.remove('tutorial-resaltado');
-    });
-  }
-
-  function mostrarPaso() {
-    limpiarResaltado();
-    const paso = pasos[indice];
-    const el = document.querySelector(paso.selector);
-    el.classList.add('tutorial-resaltado');
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-    const r = el.getBoundingClientRect();
-    globo.style.top = Math.max(10, r.bottom + 12) + 'px';
-    globo.style.left = Math.min(Math.max(10, r.left), window.innerWidth - 270) + 'px';
-    globo.innerHTML = ''
-      + '<p>' + paso.texto + '</p>'
-      + '<div class="tutorial-acciones">'
-      + '<button type="button" onclick="cerrarTutorial()">Omitir</button>'
-      + '<button type="button" onclick="siguientePasoTutorial()">' + (indice === pasos.length - 1 ? 'Entendido' : 'Siguiente') + '</button>'
-      + '</div>';
-  }
-
-  window.siguientePasoTutorial = function () {
-    indice += 1;
-    if (indice >= pasos.length) { cerrarTutorial(); return; }
-    mostrarPaso();
-  };
-
-  window.cerrarTutorial = function () {
-    limpiarResaltado();
-    overlay.remove();
-    globo.remove();
-    if (modulo) {
-      try { localStorage.setItem('tutorial_visto_' + modulo, '1'); } catch (e) {}
-    }
-  };
-
-  mostrarPaso();
-}
-
-document.addEventListener('DOMContentLoaded', function () {
-  const shell = document.querySelector('.app-shell');
-  if (!shell) return;
-  const modulo = shell.dataset.modulo;
-  if (!modulo) return;
-
-  let visto = null;
-  try { visto = localStorage.getItem('tutorial_visto_' + modulo); } catch (e) {}
-  if (!visto) {
-    setTimeout(function () { mostrarTutorial(modulo); }, 700);
-  }
 });
 
 // Aviso de reabastecimiento: una sola vez por sesión del navegador (y otra vez si suben las rojas)

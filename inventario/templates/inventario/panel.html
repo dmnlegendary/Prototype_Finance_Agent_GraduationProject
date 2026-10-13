@@ -29,7 +29,7 @@
     <span class="arrow">Ver todas →</span>
   </a>
   {% else %}
-  <div class="alert-banner" style="background:var(--color-success-bg);color:var(--color-success-text);cursor:default;">
+  <div class="alert-banner" style="background:var(--inv-50);color:var(--inv-700);border-bottom-color:var(--inv-200);cursor:default;">
     <i class="bi bi-check-circle-fill"></i> Sin alertas de stock por ahora
   </div>
   {% endif %}
@@ -203,7 +203,7 @@
       <button type="button" class="panel-close" onclick="closeModal('modificar-picker')"><i class="bi bi-x-lg"></i></button>
     </div>
     <div class="panel-body">
-      <input type="text" id="buscarModificar" placeholder="Escribe el nombre del producto…" class="filtro-picker" autocomplete="off" oninput="buscarParaModificar(this.value)" data-url="{% url 'inventario:buscar_json' %}">
+      <input type="text" id="buscarModificar" placeholder="Escribe el nombre del producto…" class="buscador-producto" autocomplete="off" oninput="buscarParaModificar(this.value)" data-url="{% url 'inventario:buscar_json' %}">
       <div id="listaModificar" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto;">
         <p style="font-size:13px;color:var(--text-faint);text-align:center;">Escribe para buscar entre tus productos.</p>
       </div>

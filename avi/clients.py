@@ -5,15 +5,18 @@ ya declarado (ver services.py). Para que esto funcione de verdad falta:
   2. tener las llaves de las APIs: corre `python manage.py configurar_ia`
 """
 import json
+import logging
 import time
 
 from django.conf import settings
 
 from . import services
 
+registro = logging.getLogger(__name__)
+
 
 class SinLlaveError(Exception):
-    """No hay llave de API para el modelo elegido."""
+    """No hay ninguna llave de API configurada."""
 
 
 # pistas en el texto del error de una falla "pasajera" (saturación, límite por minuto, red)
@@ -102,16 +105,15 @@ PROMPT_RESUMEN = (
 )
 
 
-def modelo_disponible(modelo):
-    """Si el modelo elegido no tiene llave pero el otro sí, usa el otro.
-    Así el sistema funciona aunque solo se haya configurado una de las dos."""
-    tiene_llave = {"chatgpt": bool(settings.OPENAI_API_KEY), "gemini": bool(settings.GEMINI_API_KEY)}
-    if modelo not in tiene_llave:
-        modelo = "chatgpt"
-    if tiene_llave[modelo]:
-        return modelo
-    otro = "gemini" if modelo == "chatgpt" else "chatgpt"
-    return otro if tiene_llave[otro] else modelo
+def modelos_en_orden():
+    """Los modelos que se pueden usar, en el orden en que se intentan:
+    primero Gemini y, si no contesta, ChatGPT. Solo entran los que tienen llave."""
+    modelos = []
+    if settings.GEMINI_API_KEY:
+        modelos.append("gemini")
+    if settings.OPENAI_API_KEY:
+        modelos.append("chatgpt")
+    return modelos
 
 
 def _instrucciones(negocio, pantalla=None):
@@ -126,8 +128,10 @@ def _instrucciones(negocio, pantalla=None):
     )
 
 
-def preguntar_chatgpt(mensaje, negocio, pantalla=None):
+def preguntar_chatgpt(mensaje, negocio, pantalla=None, funciones_ejecutadas=None):
     """Regresa (respuesta_en_texto, nombres_de_funciones_ejecutadas)."""
+    if funciones_ejecutadas is None:
+        funciones_ejecutadas = []
     if not settings.OPENAI_API_KEY:
         return MENSAJE_SIN_LLAVE, []
 
@@ -140,7 +144,6 @@ def preguntar_chatgpt(mensaje, negocio, pantalla=None):
         mensajes.append({"role": rol, "content": previo.mensaje})
     mensajes.append({"role": "user", "content": mensaje})
 
-    funciones_ejecutadas = []
     for _ in range(MAXIMO_DE_RONDAS):
         respuesta = con_reintentos(lambda: cliente.chat.completions.create(
             model="gpt-4o-mini", messages=mensajes, tools=services.tools_openai(pantalla),
@@ -179,8 +182,10 @@ def _texto_de_gemini(respuesta):
         return ""
 
 
-def preguntar_gemini(mensaje, negocio, pantalla=None):
+def preguntar_gemini(mensaje, negocio, pantalla=None, funciones_ejecutadas=None):
     """Regresa (respuesta_en_texto, nombres_de_funciones_ejecutadas)."""
+    if funciones_ejecutadas is None:
+        funciones_ejecutadas = []
     if not settings.GEMINI_API_KEY:
         return MENSAJE_SIN_LLAVE, []
 
@@ -202,7 +207,6 @@ def preguntar_gemini(mensaje, negocio, pantalla=None):
     chat = modelo.start_chat(history=historial)
     respuesta = con_reintentos(lambda: chat.send_message(mensaje, request_options={"timeout": 30}))
 
-    funciones_ejecutadas = []
     for _ in range(MAXIMO_DE_RONDAS):
         llamadas = [
             parte.function_call
@@ -231,24 +235,39 @@ def preguntar_gemini(mensaje, negocio, pantalla=None):
     return "No pude terminar lo que me pediste. Intenta decírmelo de forma más sencilla.", funciones_ejecutadas
 
 
-def generar_texto(prompt, modelo="chatgpt"):
-    """Una sola pregunta a la IA, sin funciones ni historial. Es la que usan los
-    resúmenes (de ayer, del dashboard y de los reportes).
+def preguntar_ia(mensaje, negocio, pantalla=None):
+    """El chat del asistente. Intenta con Gemini y, si falla, con ChatGPT.
+    Regresa (respuesta_en_texto, nombres_de_funciones_ejecutadas).
 
-    Lanza SinLlaveError si no hay ninguna llave configurada."""
-    modelo = modelo_disponible(modelo)
+    Si el primer modelo ya alcanzó a ejecutar una acción (agregar al carrito, registrar un
+    gasto...) y falla después, NO se intenta con el otro: la acción se haría dos veces."""
+    modelos = modelos_en_orden()
+    if not modelos:
+        return MENSAJE_SIN_LLAVE, []
 
-    if modelo == "gemini":
-        if not settings.GEMINI_API_KEY:
-            raise SinLlaveError(MENSAJE_SIN_LLAVE)
-        import google.generativeai as genai
+    preguntar = {"gemini": preguntar_gemini, "chatgpt": preguntar_chatgpt}
+    ultimo_error = None
+    for modelo in modelos:
+        ejecutadas = []
+        try:
+            return preguntar[modelo](mensaje, negocio, pantalla, ejecutadas)
+        except Exception as error:
+            if ejecutadas:
+                raise
+            registro.warning("Falló %s, se intenta con el siguiente modelo: %s", modelo, error)
+            ultimo_error = error
+    raise ultimo_error
 
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        modelo_gemini = genai.GenerativeModel("gemini-2.5-flash", system_instruction=PROMPT_RESUMEN)
-        return con_reintentos(lambda: modelo_gemini.generate_content(prompt, request_options={"timeout": 30})).text
 
-    if not settings.OPENAI_API_KEY:
-        raise SinLlaveError(MENSAJE_SIN_LLAVE)
+def _texto_con_gemini(prompt):
+    import google.generativeai as genai
+
+    genai.configure(api_key=settings.GEMINI_API_KEY)
+    modelo_gemini = genai.GenerativeModel("gemini-2.5-flash", system_instruction=PROMPT_RESUMEN)
+    return con_reintentos(lambda: modelo_gemini.generate_content(prompt, request_options={"timeout": 30})).text
+
+
+def _texto_con_chatgpt(prompt):
     from openai import OpenAI
 
     cliente = OpenAI(api_key=settings.OPENAI_API_KEY, timeout=30)
@@ -257,3 +276,23 @@ def generar_texto(prompt, modelo="chatgpt"):
         messages=[{"role": "system", "content": PROMPT_RESUMEN}, {"role": "user", "content": prompt}],
     ))
     return respuesta.choices[0].message.content
+
+
+def generar_texto(prompt):
+    """Una sola pregunta a la IA, sin funciones ni historial. Es la que usan los
+    resúmenes (de ayer, del dashboard y de los reportes). Primero Gemini y, si falla, ChatGPT.
+
+    Lanza SinLlaveError si no hay ninguna llave configurada."""
+    modelos = modelos_en_orden()
+    if not modelos:
+        raise SinLlaveError(MENSAJE_SIN_LLAVE)
+
+    generar = {"gemini": _texto_con_gemini, "chatgpt": _texto_con_chatgpt}
+    ultimo_error = None
+    for modelo in modelos:
+        try:
+            return generar[modelo](prompt)
+        except Exception as error:
+            registro.warning("Falló %s, se intenta con el siguiente modelo: %s", modelo, error)
+            ultimo_error = error
+    raise ultimo_error

@@ -207,6 +207,6 @@
 {% block app_extra_scripts %}
 <script src="{% static 'ventas/js/ventas.js' %}"></script>
 {% if mostrar_resumen_avi %}
-<script>document.addEventListener('DOMContentLoaded', function () { mostrarResumenAvi('chatgpt'); });</script>
+<script>document.addEventListener('DOMContentLoaded', function () { mostrarResumenAvi(); });</script>
 {% endif %}
 {% endblock %}

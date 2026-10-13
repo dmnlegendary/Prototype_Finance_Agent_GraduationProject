@@ -304,7 +304,16 @@ def aceptar_precio_sugerido(request, pk):
 
 @login_required
 def pronostico_ventas(request):
-    return render(request, "finanzas/pronostico_ventas.html", {"activo": "pronostico"})
+    negocio = _negocio_o_none(request)
+    if negocio is None:
+        return redirect("accounts:datos_negocio")
+
+    generar = request.GET.get("generar") == "1"
+    datos = calculos.pronostico_ventas_negocio(negocio) if generar else None
+    return render(request, "finanzas/pronostico_ventas.html", {
+        "activo": "pronostico",
+        "pronostico": datos,
+    })
 
 
 MESES_ABREVIADOS = [

@@ -35,6 +35,7 @@ from ventas.models import ItemVenta, Venta
 
 TAMANO_PAQUETE = 1000
 CENTAVOS = Decimal("0.01")
+MAXIMO_DECIMAL = Decimal("99999999.99")
 
 # nombres que puede tener cada columna en el CSV
 ALIAS = {
@@ -46,7 +47,7 @@ ALIAS = {
     "cantidad_minima": ["cantidad_minima", "minimo", "stock_minimo"],
     "stock_ideal": ["stock_ideal", "ideal", "stock_maximo"],
     "fecha": ["fecha", "date", "fecha_venta"],
-    "folio": ["folio", "ticket", "id_venta"],
+    "folio": ["folio", "ticket", "ticket_id", "id_venta"],
     "producto": ["producto", "nombre", "nombre_producto"],
     "cantidad": ["cantidad", "piezas", "unidades", "qty"],
     "precio_unitario": ["precio_unitario", "precio", "price"],
@@ -93,11 +94,17 @@ class Command(BaseCommand):
         parser.add_argument("--usuario", required=True, help="Correo, teléfono o usuario del dueño de la tienda")
         parser.add_argument("--productos", help="Archivo CSV de productos")
         parser.add_argument("--ventas", help="Archivo CSV de ventas")
+        parser.add_argument(
+            "--productos-desde-ventas", action="store_true",
+            help="Crea productos faltantes desde las ventas, con existencias y costo en cero, pendientes de validar",
+        )
         parser.add_argument("--limpiar", action="store_true", help="Borra antes los productos y ventas de esa tienda")
 
     def handle(self, *args, **opciones):
         if not opciones["productos"] and not opciones["ventas"]:
             raise CommandError("Indica al menos --productos o --ventas.")
+        if opciones["productos_desde_ventas"] and not opciones["ventas"]:
+            raise CommandError("--productos-desde-ventas requiere que indiques --ventas.")
 
         negocio = self.buscar_negocio(opciones["usuario"])
         self.stdout.write(f"Tienda: {negocio.nombre_tienda}")
@@ -114,6 +121,8 @@ class Command(BaseCommand):
             if opciones["productos"]:
                 self.importar_productos(negocio, opciones["productos"])
             if opciones["ventas"]:
+                if opciones["productos_desde_ventas"]:
+                    self.importar_productos_desde_ventas(negocio, opciones["ventas"])
                 self.importar_ventas(negocio, opciones["ventas"])
 
         # bulk_create no avisa a las señales, así que se limpia el cache a mano
@@ -183,7 +192,6 @@ class Command(BaseCommand):
             if not nombre or precio is None or precio < 0 or normalizar(nombre) in ya_existen:
                 omitidos += 1
                 continue
-            ya_existen.add(normalizar(nombre))
 
             categoria = None
             nombre_categoria = renglon.get("categoria", "")
@@ -194,19 +202,66 @@ class Command(BaseCommand):
                     categorias[normalizar(nombre_categoria)] = categoria
 
             minimo = max(numero(renglon.get("cantidad_minima"), Decimal("0")), Decimal("0"))
+            costo = max(numero(renglon.get("costo"), Decimal("0")), Decimal("0"))
+            cantidad_actual = max(numero(renglon.get("cantidad_actual"), Decimal("0")), Decimal("0"))
+            stock_ideal = max(numero(renglon.get("stock_ideal"), Decimal("0")), minimo)
+            if any(valor > MAXIMO_DECIMAL for valor in (precio, costo, cantidad_actual, minimo, stock_ideal)):
+                omitidos += 1
+                continue
+            ya_existen.add(normalizar(nombre))
             productos.append(Producto(
                 negocio=negocio, nombre=nombre[:150], categoria=categoria,
-                costo=max(numero(renglon.get("costo"), Decimal("0")), Decimal("0")),
+                costo=costo,
                 precio_venta=precio.quantize(CENTAVOS, rounding=ROUND_HALF_UP),
-                cantidad_actual=max(numero(renglon.get("cantidad_actual"), Decimal("0")), Decimal("0")),
+                cantidad_actual=cantidad_actual,
                 cantidad_minima=minimo,
-                stock_ideal=max(numero(renglon.get("stock_ideal"), Decimal("0")), minimo),
+                stock_ideal=stock_ideal,
             ))
 
         Producto.objects.bulk_create(productos, batch_size=TAMANO_PAQUETE)
         self.stdout.write(f"Productos importados: {len(productos)} (omitidos por datos malos o repetidos: {omitidos})")
 
     # ---------------------------------------------------------- ventas
+
+    def importar_productos_desde_ventas(self, negocio, ruta):
+        renglones = self.leer_csv(ruta, ["fecha", "producto", "cantidad", "precio_unitario"])
+        existentes = {
+            normalizar(nombre)
+            for nombre in Producto.objects.filter(negocio=negocio).values_list("nombre", flat=True)
+        }
+        inferidos = {}
+        for renglon in renglones:
+            nombre = renglon["producto"].strip()
+            clave = normalizar(nombre)
+            fecha = fecha_y_hora(renglon["fecha"])
+            cantidad = numero(renglon["cantidad"])
+            precio = numero(renglon["precio_unitario"])
+            if (
+                not nombre or clave in existentes or fecha is None
+                or cantidad is None or cantidad <= 0 or cantidad > MAXIMO_DECIMAL
+                or precio is None or precio < 0 or precio > MAXIMO_DECIMAL
+            ):
+                continue
+            if clave not in inferidos or fecha >= inferidos[clave][0]:
+                inferidos[clave] = (fecha, nombre, precio)
+
+        productos = [
+            Producto(
+                negocio=negocio,
+                nombre=nombre[:150],
+                costo=Decimal("0"),
+                precio_venta=precio.quantize(CENTAVOS, rounding=ROUND_HALF_UP),
+                cantidad_actual=Decimal("0"),
+                cantidad_minima=Decimal("0"),
+                stock_ideal=Decimal("0"),
+                pendiente_validacion=True,
+            )
+            for _, nombre, precio in inferidos.values()
+        ]
+        Producto.objects.bulk_create(productos, batch_size=TAMANO_PAQUETE)
+        self.stdout.write(
+            f"Productos creados desde ventas: {len(productos)} (pendientes de completar y validar inventario)"
+        )
 
     def importar_ventas(self, negocio, ruta):
         renglones = self.leer_csv(ruta, ["fecha", "producto", "cantidad"])
@@ -227,8 +282,13 @@ class Command(BaseCommand):
         for renglon in renglones:
             producto = productos.get(normalizar(renglon["producto"]))
             cantidad = numero(renglon["cantidad"])
+            if cantidad is not None:
+                cantidad = cantidad.quantize(CENTAVOS, rounding=ROUND_HALF_UP)
             fecha = fecha_y_hora(renglon["fecha"])
-            if producto is None or cantidad is None or cantidad <= 0:
+            if (
+                producto is None or cantidad is None or cantidad <= 0
+                or cantidad > MAXIMO_DECIMAL
+            ):
                 sin_producto += 1
                 continue
             if fecha is None:
@@ -236,6 +296,9 @@ class Command(BaseCommand):
                 continue
 
             precio = numero(renglon.get("precio_unitario"), producto[1])
+            if precio is None or precio > MAXIMO_DECIMAL:
+                sin_producto += 1
+                continue
             if precio < 0:
                 precio = producto[1]
             clave = renglon.get("folio") or f"sin-folio-{len(tickets)}"
@@ -245,10 +308,14 @@ class Command(BaseCommand):
 
         # los folios del sistema siguen la numeración que ya tenga la tienda
         ventas = []
+        tickets_fuera_rango = 0
         ultimo_folio = Venta.objects.filter(negocio=negocio).order_by("-folio").values_list("folio", flat=True).first() or 0
         for ticket in tickets.values():
+            total = sum((c * p for _, c, p in ticket["items"]), Decimal("0")).quantize(CENTAVOS, rounding=ROUND_HALF_UP)
+            if total > MAXIMO_DECIMAL:
+                tickets_fuera_rango += 1
+                continue
             ultimo_folio += 1
-            total = sum((c * p for _, c, p, _ in ticket["items"]), Decimal("0")).quantize(CENTAVOS, rounding=ROUND_HALF_UP)
             ticket["venta"] = Venta(negocio=negocio, folio=ultimo_folio, estado=Venta.Estado.COBRADA, total=total)
             ventas.append(ticket["venta"])
         Venta.objects.bulk_create(ventas, batch_size=TAMANO_PAQUETE)
@@ -258,6 +325,8 @@ class Command(BaseCommand):
         folio_a_pk = dict(Venta.objects.filter(negocio=negocio).values_list("folio", "pk"))
         items = []
         for ticket in tickets.values():
+            if "venta" not in ticket:
+                continue
             venta = ticket["venta"]
             venta.pk = folio_a_pk[venta.folio]
             venta.creado_en = ticket["fecha"]
@@ -272,5 +341,6 @@ class Command(BaseCommand):
 
         self.stdout.write(
             f"Ventas importadas: {len(ventas)} tickets con {len(items)} renglones "
-            f"(renglones omitidos: producto desconocido o cantidad mala {sin_producto}, fecha mala {sin_fecha})"
+            f"(renglones omitidos: producto/cantidad/precio inválido {sin_producto}, fecha mala {sin_fecha}; "
+            f"tickets fuera del límite Decimal(10,2): {tickets_fuera_rango})"
         )

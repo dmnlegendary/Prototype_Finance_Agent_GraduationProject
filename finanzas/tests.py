@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 
 from django.db import connection
@@ -99,6 +99,52 @@ class FinanzasConDatosRealesTests(TestCase):
         for nombre in ("finanzas:inicio", "finanzas:punto_equilibrio", "finanzas:sugerir_precios", "finanzas:reportes_financieros"):
             with self.subTest(pantalla=nombre):
                 self.assertEqual(self.client.get(reverse(nombre)).status_code, 200)
+
+    def test_pronostico_compara_tres_modelos_para_los_diez_mas_vendidos(self):
+        productos = [
+            crear_producto(self.negocio, nombre=f"Producto {indice:02d}")
+            for indice in range(11)
+        ]
+        inicio = timezone.datetime(2025, 1, 6).date()
+        for semana in range(12):
+            venta = Venta.objects.create(
+                negocio=self.negocio, folio=semana + 1, estado=Venta.Estado.COBRADA,
+            )
+            venta.creado_en = timezone.make_aware(datetime.combine(
+                inicio + timedelta(weeks=semana), time(12),
+            ))
+            venta.save(update_fields=["creado_en"])
+            ItemVenta.objects.bulk_create([
+                ItemVenta(
+                    venta=venta,
+                    producto=producto,
+                    cantidad=Decimal(20 - indice + semana % 3),
+                    precio_unitario=producto.precio_venta,
+                )
+                for indice, producto in enumerate(productos)
+            ])
+
+        resultado = calculos.pronostico_ventas_negocio(self.negocio, semanas_historial=12)
+
+        self.assertEqual(resultado["estado"], "ok")
+        self.assertEqual(len(resultado["productos"]), 10)
+        self.assertEqual(resultado["productos"][0]["nombre"], "Producto 00")
+        self.assertNotIn("Producto 10", [producto["nombre"] for producto in resultado["productos"]])
+        for producto in resultado["productos"]:
+            self.assertEqual(set(producto["modelos"]), {"arima", "lineal", "holt_winters"})
+            self.assertTrue(all(modelo["disponible"] for modelo in producto["modelos"].values()))
+            self.assertTrue(all(modelo["mae"] is not None for modelo in producto["modelos"].values()))
+        self.assertEqual(resultado["semana_pronostico"], inicio + timedelta(weeks=12))
+
+    def test_pronostico_sin_ventas_indica_que_no_hay_datos(self):
+        resultado = calculos.pronostico_ventas_negocio(self.negocio)
+        self.assertEqual(resultado["estado"], "sin_ventas")
+        self.assertEqual(resultado["productos"], [])
+
+        respuesta = self.client.get(reverse("finanzas:pronostico_ventas"), {"generar": "1"})
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta.context["pronostico"]["estado"], "sin_ventas")
+        self.assertContains(respuesta, "Aún no hay ventas cobradas")
 
     def test_punto_de_equilibrio_con_ventas_y_gastos_reales(self):
         categoria = Categoria.objects.create(nombre="Bebidas")

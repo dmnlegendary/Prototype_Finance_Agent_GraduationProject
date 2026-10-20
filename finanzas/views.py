@@ -365,8 +365,10 @@ def pronostico_base(request):
         return JsonResponse({"estado": "sin_ventas"})
     return JsonResponse({
         "estado": "ok",
+        "inicio_historial": base["primera_semana"].strftime("%d/%m/%Y"),
         "ultima_semana": base["ultima_semana"].strftime("%d/%m/%Y"),
         "semana_pronostico": base["semana_pronostico"].strftime("%d/%m/%Y"),
+        "semanas_historial": base["semanas_historial"],
         "minimo_de_dias": base["minimo_de_dias"],
         "umbrales": {nivel: float(limite) for limite, nivel in calculos.NIVELES_DE_CONFIANZA},
         "productos": [

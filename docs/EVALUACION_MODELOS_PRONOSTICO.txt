@@ -45,29 +45,33 @@ salida es una cantidad numerica de unidades, no una clase.
 - Ventas incluidas: ventas cobradas de productos activos del mismo negocio.
 - Seleccion de productos: los 10 con mas unidades vendidas; el limite es un
   parametro de la funcion y la pantalla usa el valor predeterminado de 10.
-- Ventana por producto: las ultimas 26 semanas, parametro predeterminado de
-  semanas_historial en la funcion de calculo.
-- Semanas sin venta: se incluyen como cero para tener una serie semanal continua.
+- Ventana: todas las semanas entre la primera y la ultima venta cobrada de
+  productos activos del negocio. No hay un limite fijo de semanas.
+- Semanas sin venta: se incluyen como cero para tener series semanales
+  continuas, incluso antes de la primera venta registrada de un producto.
 - Semana objetivo: la semana que inicia inmediatamente despues de la ultima
   semana con ventas considerada en la serie.
 - Historia minima para mostrar una estimacion: 30 dias naturales, configurable
   mediante PRONOSTICO_MINIMO_DIAS (predeterminado: 30).
 - Guardia tecnica de ajuste: la funcion del modelo requiere una serie de al
-  menos 8 posiciones semanales. La serie del pronostico tiene 26 posiciones
-  por defecto y rellena con cero las semanas sin ventas, por lo que esta
-  guardia no significa que deban existir 8 semanas con ventas.
+  menos 8 posiciones semanales. Las semanas sin ventas se rellenan con cero,
+  por lo que esta guardia no significa que deban existir 8 semanas con ventas.
 - Predicciones negativas: se limitan a cero antes de calcular el MAE y al
   presentar la estimacion.
 - Excepcion de dato atipico: si existen al menos cinco dias con ventas y un
-  dia concentra la mitad o mas de todas las unidades del producto en la ventana,
-  el valor de ese dia se sustituye por el segundo valor diario mas alto. La
-  serie utilizada se marca como corregida en la pantalla.
+  dia concentra la mitad o mas de todas las unidades del producto en el
+  historial utilizado, el valor de ese dia se sustituye por el segundo valor
+  diario mas alto. La serie utilizada se marca como corregida en la pantalla.
 
-Nota sobre el periodo: la ventana pronosticada se limita a 26 semanas, pero la
-seleccion de los productos mas vendidos se calcula sobre las ventas cobradas
-disponibles, sin limitar esa consulta a las 26 semanas. El historial utilizado
-por cada producto se cuenta desde el dia de su primera venta dentro de la
-ventana hasta la ultima fecha con ventas del conjunto.
+El CSV de referencia disponible tiene 63,411 renglones con fechas del
+30/05/2025 al 07/04/2026. La pantalla solo utilizara los registros que hayan
+sido cargados en la base de datos del negocio; colocar el CSV en el proyecto
+no lo importa automaticamente. Los 10 productos se seleccionan por unidades
+vendidas en todo el historial disponible. Al importar este archivo en el
+negocio de prueba, se cargaron 63,409 renglones; dos se omitieron por datos
+invalidos. Los productos creados desde ese CSV quedan pendientes de validar
+y con costo e inventario inicial en cero, porque el archivo no contiene esos
+datos.
 
 
 3. MODELO Y PARAMETROS IMPLEMENTADOS
@@ -99,14 +103,14 @@ Si hay 12 semanas:
   4 semanas;
 - se compara cada pronostico con las unidades reales de esa semana.
 
-Si la ventana predeterminada contiene 26 semanas:
-- entrenamiento: primeras 22 semanas;
+En una ejecucion normal, n es el total de semanas desde el primer registro
+disponible hasta la ultima semana con ventas, incluidas las semanas sin venta
+con valor cero. Por ejemplo, si la base contiene 45 semanas:
+- entrenamiento: primeras 41 semanas;
 - prueba: ultimas 4 semanas.
 
-En una ejecucion normal, los 26 valores son la ventana completa, incluso si
-algunas semanas no tienen ventas y valen cero. La prueba de 12 semanas pasa
-una ventana de ese tamano para comprobar el comportamiento y usa 8 posiciones
-para entrenamiento.
+La prueba unitaria de 12 semanas pasa una serie de ese tamano para comprobar
+el comportamiento y usa 8 posiciones para entrenamiento.
 
 La metrica calculada es MAE (Mean Absolute Error / error absoluto medio):
 

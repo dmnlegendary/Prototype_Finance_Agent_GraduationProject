@@ -87,7 +87,8 @@
     document.getElementById('tablaPronostico').style.display = '';
     document.getElementById('notaPronostico').style.display = '';
     const periodo = document.getElementById('periodoPronostico');
-    periodo.textContent = 'Historial hasta la semana del ' + base.ultima_semana + ' · Pronóstico para la semana del ' + base.semana_pronostico;
+    periodo.textContent = 'Historial desde la semana del ' + base.inicio_historial + ' hasta la semana del ' + base.ultima_semana +
+      ' (' + base.semanas_historial + ' semanas) · Pronóstico para la semana del ' + base.semana_pronostico;
     periodo.style.display = '';
     document.getElementById('minimoDias').textContent = base.minimo_de_dias;
   }

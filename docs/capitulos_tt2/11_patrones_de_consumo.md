@@ -52,7 +52,7 @@ Al revisar las ventas promedio por día del mes aparece un patrón que se repite
 
 ## Un problema con los datos
 
-Hay algo que se debe tomar en cuenta al interpretar el pronóstico. El número de tickets por mes baja de forma muy marcada: 4,959 en junio de 2025, 803 en diciembre y 243 en marzo de 2026. Una caída así en una tienda es poco probable, y lo más seguro es que, con el tiempo, se fueron dejando de registrar ventas en el sistema de donde salió el archivo. [CONFIRMAR con quien tiene el historial] Como el pronóstico usa las últimas 26 semanas, que en este archivo son las que menos registros tienen, los modelos aprenden una caída que quizá no sea real. Para evaluar los modelos de forma justa conviene usar un periodo con registros completos, como junio a septiembre de 2025, y aclarar esta limitación en el documento.
+Hay algo que se debe tomar en cuenta al interpretar el pronóstico. El número de tickets por mes baja de forma muy marcada: 4,959 en junio de 2025, 803 en diciembre y 243 en marzo de 2026. Una caída así en una tienda es poco probable, y lo más seguro es que, con el tiempo, se fueron dejando de registrar ventas en el sistema de donde salió el archivo. [CONFIRMAR con quien tiene el historial] Como el pronóstico ahora utiliza todo el historial, esta caída sigue presente en la serie y puede influir en el resultado; si el descenso representa registros faltantes en vez de una reducción real de ventas, el pronóstico será sesgado. Para evaluar los modelos de forma justa conviene confirmar la integridad del registro y aclarar esta limitación.
 
 ## Qué decisiones respaldan estos patrones
 

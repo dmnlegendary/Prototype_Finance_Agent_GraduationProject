@@ -772,6 +772,37 @@ class PronosticoProgresivoTests(TestCase):
         self.assertEqual(datos["productos"][0]["nombre"], "Refresco")
         self.assertTrue(datos["productos"][0]["suficiente"])
         self.assertEqual(datos["umbrales"], {"alta": 0.25, "media": 0.5})
+        self.assertEqual(datos["semanas_historial"], 12)
+        self.assertEqual(datos["inicio_historial"], "06/01/2025")
+
+    def test_por_defecto_usa_todas_las_semanas_disponibles(self):
+        refresco = crear_producto(self.negocio, nombre="Refresco")
+        self.historial(refresco, semanas=40)
+
+        base = calculos.series_de_los_mas_vendidos(self.negocio)
+
+        self.assertEqual(base["semanas_historial"], 40)
+        self.assertEqual(len(base["productos"][0]["serie"]), 40)
+        self.assertEqual(base["primera_semana"], self.inicio)
+
+    def test_serie_comienza_en_la_primera_venta_del_negocio(self):
+        producto_menos_vendido = crear_producto(self.negocio, nombre="Venta antigua")
+        primera_venta = self.inicio - timedelta(weeks=1)
+        self.vender(producto_menos_vendido, primera_venta, 1, 10000)
+        for indice in range(10):
+            producto = crear_producto(self.negocio, nombre=f"Popular {indice}")
+            self.historial(
+                producto,
+                semanas=12,
+                folio_inicial=indice * 20 + 1,
+            )
+
+        base = calculos.series_de_los_mas_vendidos(self.negocio, limite=10)
+
+        self.assertNotIn("Venta antigua", [producto["nombre"] for producto in base["productos"]])
+        self.assertEqual(base["primera_semana"], primera_venta)
+        self.assertEqual(base["semanas_historial"], 13)
+        self.assertEqual(base["productos"][0]["serie"][0], 0)
 
     def test_solo_se_puede_solicitar_el_modelo_arima(self):
         refresco = crear_producto(self.negocio, nombre="Refresco")

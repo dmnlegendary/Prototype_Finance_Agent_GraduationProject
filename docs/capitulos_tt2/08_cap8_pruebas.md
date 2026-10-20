@@ -88,7 +88,7 @@ Tabla 8.4. Casos de prueba funcionales.
 | PF-08a | Sin internet | Apagar el wifi con productos en la caja y seguir vendiendo | Los productos siguen en la caja, se cobra sin internet y al volver la conexión la venta se guarda una sola vez | Navegador |
 | PF-15g | Core | Guardar una llave de la IA y revisar la base de datos | La llave queda cifrada, se lee bien y, si cambia la SECRET_KEY, no truena | Automática |
 | PF-16a | Asistente | Pedir "explícame mi pronóstico" | Se manda una segunda llamada a la API con los datos del pronóstico; si no hay datos suficientes ni se llama a la API | Automática (API simulada) |
-| PF-17 | Pronóstico | Abrir la pantalla con el historial de ventas | Muestra el pronóstico de cada producto con sus tres modelos | [COMPLETAR] |
+| PF-17 | Pronóstico | Abrir la pantalla con el historial de ventas | Muestra el pronóstico semanal ARIMA, su MAE y el nivel de confianza por producto | [COMPLETAR] |
 
 La prueba que sigue pendiente es la de un día completo de trabajo en una tienda, con ventas, altas de productos, gastos y consultas al asistente de principio a fin. [COMPLETAR cuando se haga la prueba con los tenderos; se puede resumir aquí lo que se hizo y cuánto duró]
 

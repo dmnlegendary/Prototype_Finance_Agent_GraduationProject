@@ -4,6 +4,7 @@ punto de equilibrio y precios sugeridos) usan estas funciones para que los
 números siempre coincidan.
 """
 import calendar
+import logging
 import math
 import warnings
 from datetime import date, timedelta
@@ -22,6 +23,7 @@ from .models import GastoOperativo
 CERO = Decimal("0")
 CENTAVOS = Decimal("0.01")
 DECIMA = Decimal("0.1")
+registro = logging.getLogger(__name__)
 
 # ISR RESICO: (ingresos anuales hasta, tasa en %)
 TABLA_ISR_RESICO = [
@@ -507,58 +509,34 @@ def punto_equilibrio_negocio(negocio, hoy, meses_historial=3):
 
 MODELOS_PRONOSTICO = (
     {"clave": "arima", "nombre": "ARIMA"},
-    {"clave": "lineal", "nombre": "Regresión lineal"},
-    {"clave": "holt_winters", "nombre": "Holt-Winters (ciclo de 4 semanas)"},
 )
 MINIMO_SEMANAS_MODELO = 8
 SEMANAS_PRUEBA = 4
 
 
-def _pronosticar_modelo(clave, valores, pasos):
+def _pronosticar_arima(valores, pasos):
     if len(valores) < MINIMO_SEMANAS_MODELO:
         raise ValueError("Se requieren al menos 8 semanas para ajustar el modelo.")
 
-    if clave == "lineal":
-        cantidad = len(valores)
-        media_x = (cantidad - 1) / 2
-        media_y = sum(valores) / cantidad
-        denominador = sum((indice - media_x) ** 2 for indice in range(cantidad))
-        pendiente = sum(
-            (indice - media_x) * (valor - media_y)
-            for indice, valor in enumerate(valores)
-        ) / denominador
-        intercepto = media_y - pendiente * media_x
-        return [intercepto + pendiente * (cantidad + paso) for paso in range(pasos)]
-
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        if clave == "arima":
-            from statsmodels.tsa.arima.model import ARIMA
+        from statsmodels.tsa.arima.model import ARIMA
 
-            ajustado = ARIMA(
-                valores, order=(1, 1, 1),
-                enforce_stationarity=False, enforce_invertibility=False,
-            ).fit()
-        elif clave == "holt_winters":
-            from statsmodels.tsa.holtwinters import ExponentialSmoothing
-
-            ajustado = ExponentialSmoothing(
-                valores, trend="add", damped_trend=True, seasonal="add",
-                seasonal_periods=4, initialization_method="estimated",
-            ).fit(optimized=True)
-        else:
-            raise ValueError(f"Modelo desconocido: {clave}")
+        ajustado = ARIMA(
+            valores, order=(1, 1, 1),
+            enforce_stationarity=False, enforce_invertibility=False,
+        ).fit()
         return [float(valor) for valor in ajustado.forecast(pasos)]
 
 
-def _evaluar_modelo(clave, valores):
+def _evaluar_arima(valores):
     semanas_prueba = min(SEMANAS_PRUEBA, len(valores) - MINIMO_SEMANAS_MODELO)
     if semanas_prueba <= 0:
         return None
 
     entrenamiento = valores[:-semanas_prueba]
     reales = valores[-semanas_prueba:]
-    estimados = [max(0, estimado) for estimado in _pronosticar_modelo(clave, entrenamiento, semanas_prueba)]
+    estimados = [max(0, estimado) for estimado in _pronosticar_arima(entrenamiento, semanas_prueba)]
     return round(sum(abs(real - estimado) for real, estimado in zip(reales, estimados)) / semanas_prueba, 2)
 
 
@@ -672,20 +650,26 @@ def series_de_los_mas_vendidos(negocio, limite=10, semanas_historial=26):
 
 
 def pronostico_de_un_modelo(negocio, clave, limite=10, base=None):
-    """Lo que dice UN modelo de cada producto: unidades de la semana que sigue y su error de prueba (MAE).
-    Con esto la pantalla puede mostrar primero el modelo más rápido y refinar el resultado con los demás."""
+    """Pronostico ARIMA y MAE de prueba para cada producto elegible."""
+    if clave != "arima":
+        raise ValueError(f"Modelo desconocido: {clave}")
+
     base = base or series_de_los_mas_vendidos(negocio, limite)
     resultados = []
     for producto in base["productos"]:
         dato = {"producto_id": producto["producto_id"], "pronostico": None, "mae": None, "disponible": False}
         if producto["suficiente"]:
             try:
-                prediccion = max(0, _pronosticar_modelo(clave, producto["serie"], 1)[0])
+                prediccion = max(0, _pronosticar_arima(producto["serie"], 1)[0])
                 dato.update(
-                    pronostico=int(round(prediccion)), mae=_evaluar_modelo(clave, producto["serie"]), disponible=True,
+                    pronostico=int(round(prediccion)), mae=_evaluar_arima(producto["serie"]), disponible=True,
                 )
             except Exception:
-                pass
+                registro.exception(
+                    "No se pudo calcular ARIMA para el producto %s del negocio %s",
+                    producto["producto_id"],
+                    negocio.pk,
+                )
         resultados.append(dato)
     return resultados
 
@@ -697,26 +681,16 @@ def _cambio_porcentual_semanal(pronostico, ultima_semana_real):
 
 
 def pronostico_ventas_negocio(negocio, limite=10, semanas_historial=26):
-    """Compara los tres modelos para los productos más vendidos. Cada producto trae el mejor modelo
-    (el de menor error), cuánto cambia contra la última semana, su nivel de confianza y si tiene
-    historia suficiente (si no, el estado es "Datos insuficientes" y no se estima nada)."""
+    """Pronostico ARIMA para los productos más vendidos, con su error MAE y confianza."""
     base = series_de_los_mas_vendidos(negocio, limite, semanas_historial)
     if base["estado"] == "sin_ventas":
         return {"estado": "sin_ventas", "productos": [], "modelos": MODELOS_PRONOSTICO}
 
-    por_modelo = {
-        modelo["clave"]: pronostico_de_un_modelo(negocio, modelo["clave"], base=base) for modelo in MODELOS_PRONOSTICO
-    }
+    por_modelo = pronostico_de_un_modelo(negocio, "arima", base=base)
     productos = []
     for posicion, producto in enumerate(base["productos"]):
-        modelos = {clave: por_modelo[clave][posicion] for clave in por_modelo}
-        evaluables = [
-            (modelo["clave"], modelo["nombre"], modelos[modelo["clave"]])
-            for modelo in MODELOS_PRONOSTICO
-            if modelos[modelo["clave"]]["mae"] is not None
-        ]
-        mejor = min(evaluables, key=lambda fila: fila[2]["mae"]) if evaluables else None
-        pronostico = mejor[2]["pronostico"] if mejor else None
+        arima = por_modelo[posicion]
+        pronostico = arima["pronostico"] if arima["disponible"] else None
         productos.append({
             "nombre": producto["nombre"],
             "unidades_historicas": producto["unidades_historicas"],
@@ -727,13 +701,16 @@ def pronostico_ventas_negocio(negocio, limite=10, semanas_historial=26):
             "ultima_semana_real": producto["ultima_semana_real"],
             "promedio_semanal": producto["promedio_semanal"],
             "modelos": {
-                clave: {"pronostico": dato["pronostico"], "mae": dato["mae"], "disponible": dato["disponible"]}
-                for clave, dato in modelos.items()
+                "arima": {
+                    "pronostico": arima["pronostico"],
+                    "mae": arima["mae"],
+                    "disponible": arima["disponible"],
+                },
             },
-            "mejor_modelo": mejor[1] if mejor else None,
+            "mejor_modelo": "ARIMA" if pronostico is not None else None,
             "mejor_pronostico": pronostico,
             "cambio_porcentual": _cambio_porcentual_semanal(pronostico, producto["ultima_semana_real"]),
-            "confianza": nivel_de_confianza(mejor[2]["mae"] if mejor else None, producto["promedio_semanal"]),
+            "confianza": nivel_de_confianza(arima["mae"], producto["promedio_semanal"]),
         })
 
     return {
@@ -748,8 +725,7 @@ def pronostico_ventas_negocio(negocio, limite=10, semanas_historial=26):
 
 
 def pronostico_cacheado(negocio):
-    """El pronóstico completo guardado unos minutos: lo usa la explicación con IA para no recalcular
-    los tres modelos cada vez que se pide."""
+    """El pronóstico ARIMA guardado unos minutos para reutilizarlo en la explicación con IA."""
     return cache_negocio.obtener(negocio, "pronostico", lambda: pronostico_ventas_negocio(negocio))
 
 

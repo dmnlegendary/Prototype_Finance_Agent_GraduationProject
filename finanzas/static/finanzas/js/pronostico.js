@@ -1,14 +1,8 @@
-// Pronóstico progresivo: se pide un modelo a la vez y la tabla se va llenando.
-// Primero sale la regresión lineal (la más rápida) como resultado preliminar,
-// y después se refina con Holt-Winters y ARIMA hasta tener el resultado final.
+// Se carga primero el historial y después se calcula el pronóstico con ARIMA.
 
 (function () {
   const tarjeta = document.getElementById('tarjetaPronostico');
   if (!tarjeta) return;
-
-  const ORDEN = ['lineal', 'holt_winters', 'arima'];  // del más rápido al más lento
-  const NOMBRES = { lineal: 'regresión lineal', holt_winters: 'Holt-Winters', arima: 'ARIMA' };
-  const COLUMNAS = { arima: 6, lineal: 7, holt_winters: 8 };
 
   const estado = document.getElementById('estadoPronostico');
   const barra = document.getElementById('barraPronostico');
@@ -17,7 +11,7 @@
   const botonExplicar = document.getElementById('btnExplicarPronostico');
 
   let base = null;
-  let resultados = {};   // clave del modelo -> lista de resultados por producto
+  let resultados = [];
   let corrida = 0;       // para ignorar respuestas de un cálculo viejo
 
   function texto(celda, valor, clase) {
@@ -41,42 +35,21 @@
     return 'baja';
   }
 
-  // el modelo con menor error de cada producto, con lo que ya se haya calculado
-  function mejorHastaAhora(indice) {
-    let mejor = null;
-    ORDEN.forEach(function (clave) {
-      const lista = resultados[clave];
-      if (!lista) return;
-      const dato = lista[indice];
-      if (dato && dato.disponible && dato.mae !== null && (!mejor || dato.mae < mejor.dato.mae)) {
-        mejor = { clave: clave, dato: dato };
-      }
-    });
-    if (!mejor) {
-      // si todavía no hay error de prueba pero sí un pronóstico, se muestra ese
-      ORDEN.forEach(function (clave) {
-        const lista = resultados[clave];
-        if (!mejor && lista && lista[indice] && lista[indice].disponible) mejor = { clave: clave, dato: lista[indice] };
-      });
-    }
-    return mejor;
-  }
-
   function dibujarFila(producto, indice) {
     const fila = cuerpo.children[indice];
     const celdas = fila.children;
 
     if (!producto.suficiente) {
       texto(celdas[2], 'Datos insuficientes');
-      celdas[2].colSpan = 7;
+      celdas[2].colSpan = 4;
       celdas[2].title = 'Tiene ' + producto.dias_de_historia + ' días de historia y se necesitan ' + base.minimo_de_dias + '.';
       while (celdas.length > 3) fila.removeChild(celdas[3]);
       return;
     }
 
-    const mejor = mejorHastaAhora(indice);
-    if (mejor) {
-      const pronostico = mejor.dato.pronostico;
+    const dato = resultados[indice];
+    if (dato && dato.disponible) {
+      const pronostico = dato.pronostico;
       texto(celdas[2], String(pronostico), 'fin-cifra');
       let cambio = '—';
       let claseCambio = '';
@@ -86,22 +59,13 @@
         claseCambio = pct > 0 ? 'fin-sube' : (pct < 0 ? 'fin-baja' : '');
       }
       texto(celdas[3], cambio, claseCambio);
-      const nivel = nivelDeConfianza(mejor.dato.mae, producto.promedio_semanal);
+      const nivel = nivelDeConfianza(dato.mae, producto.promedio_semanal);
       texto(celdas[4], nivel, 'fin-confianza fin-confianza-' + nivel.replace(' ', '-'));
-      texto(celdas[5], NOMBRES[mejor.clave] ? NOMBRES[mejor.clave] : mejor.clave);
+      texto(celdas[5], dato.pronostico + ' / ' + (dato.mae === null ? 's/d' : dato.mae));
+    } else {
+      texto(celdas[2], 's/d');
+      texto(celdas[5], 's/d');
     }
-
-    Object.keys(COLUMNAS).forEach(function (clave) {
-      const celda = celdas[COLUMNAS[clave]];
-      const lista = resultados[clave];
-      if (!lista) { texto(celda, '…'); return; }
-      const dato = lista[indice];
-      if (dato && dato.disponible) {
-        texto(celda, dato.pronostico + ' / ' + (dato.mae === null ? 's/d' : dato.mae));
-      } else {
-        texto(celda, 's/d');
-      }
-    });
   }
 
   function dibujarTabla() {
@@ -112,7 +76,7 @@
     cuerpo.innerHTML = '';
     base.productos.forEach(function (producto) {
       const fila = document.createElement('tr');
-      for (let i = 0; i < 9; i++) fila.appendChild(document.createElement('td'));
+      for (let i = 0; i < 6; i++) fila.appendChild(document.createElement('td'));
       const nombre = fila.children[0];
       nombre.textContent = producto.nombre + (producto.atipico_corregido ? ' *' : '');
       nombre.style.fontWeight = '700';
@@ -137,8 +101,8 @@
     const esta = ++corrida;
     botonRecalcular.disabled = true;
     botonExplicar.disabled = true;
-    resultados = {};
-    avance(0, ORDEN.length + 1, 'Preparando tus ventas…');
+    resultados = [];
+    avance(0, 2, 'Preparando tus ventas…');
 
     try {
       base = await pedir(tarjeta.dataset.urlBase);
@@ -151,24 +115,13 @@
       }
       document.getElementById('vacioPronostico').style.display = 'none';
       armarTabla();
-      avance(1, ORDEN.length + 1, 'Listo, ya tengo tus ventas. Calculando el primer resultado…');
-
-      for (let i = 0; i < ORDEN.length; i++) {
-        const clave = ORDEN[i];
-        const url = tarjeta.dataset.urlModelo.replace('CLAVE', clave);
-        const respuesta = await pedir(url);
-        if (esta !== corrida) return;
-        resultados[clave] = respuesta.resultados;
-        dibujarTabla();
-        const faltan = ORDEN.length - i - 1;
-        if (i === 0) {
-          avance(i + 2, ORDEN.length + 1,
-            'Resultado preliminar con ' + NOMBRES[clave] + '. Lo estoy refinando con ' + faltan + ' método' + (faltan === 1 ? '' : 's') + ' más…');
-        } else if (faltan > 0) {
-          avance(i + 2, ORDEN.length + 1, 'Ya probé ' + NOMBRES[clave] + '. Faltan ' + faltan + ' método' + (faltan === 1 ? '' : 's') + '…');
-        }
-      }
-      avance(1, 1, 'Resultado final: se compararon los tres métodos y se eligió el de menor error de cada producto.');
+      avance(1, 2, 'Historial listo. Calculando el pronóstico ARIMA…');
+      const url = tarjeta.dataset.urlModelo.replace('CLAVE', 'arima');
+      const respuesta = await pedir(url);
+      if (esta !== corrida) return;
+      resultados = respuesta.resultados;
+      dibujarTabla();
+      avance(2, 2, 'Pronóstico ARIMA calculado.');
       botonExplicar.disabled = false;
     } catch (error) {
       if (esta === corrida) {

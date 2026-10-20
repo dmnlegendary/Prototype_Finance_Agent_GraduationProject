@@ -50,7 +50,7 @@ Hay cinco puntos donde el requisito o la regla se contradice con otra, o con lo 
 | RF-F01 | Cumple | Gastos fijos y variables, con categorías propias y con el mes al que corresponde cada uno. |
 | RF-F02 | Cumple | Punto de equilibrio mensual y diario, con explicación en lenguaje sencillo. |
 | RF-F03 | Cumple | Precios sugeridos con el costo y los gastos: la opción "Cubrir mis gastos" calcula el margen necesario. Se acepta, ajusta o rechaza cada precio. |
-| RF-F04 | Cumple | Pronóstico semanal con tres modelos, comparación contra la última semana, nivel de confianza y explicación con IA. Se muestra de forma progresiva. |
+| RF-F04 | Cumple | Pronóstico semanal con ARIMA, comparación contra la última semana, MAE, nivel de confianza orientativo y explicación con IA. |
 | RF-F05 | Cumple | Reportes de 1, 3, 6 o 12 meses, o de un rango de meses que el tendero escoge, con alertas y sugerencias concretas (gasto inusual, meses con pérdida, gastos que suben, margen bajo, baja rotación). Además hay un reporte de ventas con filtro por fechas, productos más vendidos y ganancias. |
 
 ## Requisitos funcionales del asistente

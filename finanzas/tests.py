@@ -1,5 +1,6 @@
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.db import connection
 from django.test import SimpleTestCase, TestCase
@@ -100,7 +101,7 @@ class FinanzasConDatosRealesTests(TestCase):
             with self.subTest(pantalla=nombre):
                 self.assertEqual(self.client.get(reverse(nombre)).status_code, 200)
 
-    def test_pronostico_compara_tres_modelos_para_los_diez_mas_vendidos(self):
+    def test_pronostico_usa_arima_para_los_diez_mas_vendidos(self):
         productos = [
             crear_producto(self.negocio, nombre=f"Producto {indice:02d}")
             for indice in range(11)
@@ -130,10 +131,12 @@ class FinanzasConDatosRealesTests(TestCase):
         self.assertEqual(len(resultado["productos"]), 10)
         self.assertEqual(resultado["productos"][0]["nombre"], "Producto 00")
         self.assertNotIn("Producto 10", [producto["nombre"] for producto in resultado["productos"]])
+        self.assertEqual([modelo["clave"] for modelo in resultado["modelos"]], ["arima"])
         for producto in resultado["productos"]:
-            self.assertEqual(set(producto["modelos"]), {"arima", "lineal", "holt_winters"})
-            self.assertTrue(all(modelo["disponible"] for modelo in producto["modelos"].values()))
-            self.assertTrue(all(modelo["mae"] is not None for modelo in producto["modelos"].values()))
+            self.assertEqual(set(producto["modelos"]), {"arima"})
+            self.assertTrue(producto["modelos"]["arima"]["disponible"])
+            self.assertIsNotNone(producto["modelos"]["arima"]["mae"])
+            self.assertEqual(producto["mejor_modelo"], "ARIMA")
         self.assertEqual(resultado["semana_pronostico"], inicio + timedelta(weeks=12))
 
     def test_pronostico_sin_ventas_indica_que_no_hay_datos(self):
@@ -704,6 +707,14 @@ class PreciosParaCubrirGastosTests(TestCase):
 
 
 class ReglasDelPronosticoTests(SimpleTestCase):
+    def test_mae_de_arima_usa_las_ultimas_semanas_como_prueba(self):
+        valores = [10, 10, 10, 10, 10, 10, 10, 10, 9, 8, 7, 6]
+        with patch("finanzas.calculos._pronosticar_arima", return_value=[8, 8, 8, 8]) as pronosticar:
+            mae = calculos._evaluar_arima(valores)
+
+        self.assertEqual(mae, 1.0)
+        pronosticar.assert_called_once_with(valores[:8], 4)
+
     def test_un_dia_que_vendio_la_mitad_de_todo_se_ajusta(self):
         dias = {f"d{n}": 4.0 for n in range(8)}  # 32 unidades en 8 días
         dias["d3"] = 40.0  # un día de 40 sobre un total de 68: más de la mitad
@@ -748,6 +759,9 @@ class PronosticoProgresivoTests(TestCase):
     def test_la_pantalla_trae_el_aviso_de_que_es_una_estimacion(self):
         respuesta = self.client.get(reverse("finanzas:pronostico_ventas"))
         self.assertContains(respuesta, "estimación de apoyo")
+        self.assertContains(respuesta, "ARIMA(1,1,1)")
+        self.assertNotContains(respuesta, "Holt-Winters")
+        self.assertNotContains(respuesta, "Regresión lineal")
         self.assertContains(respuesta, "Volver a calcular")
 
     def test_la_base_sale_sin_correr_ningun_modelo(self):
@@ -759,20 +773,23 @@ class PronosticoProgresivoTests(TestCase):
         self.assertTrue(datos["productos"][0]["suficiente"])
         self.assertEqual(datos["umbrales"], {"alta": 0.25, "media": 0.5})
 
-    def test_cada_modelo_se_pide_por_separado(self):
+    def test_solo_se_puede_solicitar_el_modelo_arima(self):
         refresco = crear_producto(self.negocio, nombre="Refresco")
         self.historial(refresco)
-        for clave in ("lineal", "holt_winters", "arima"):
-            with self.subTest(modelo=clave):
-                datos = self.client.get(reverse("finanzas:pronostico_modelo", args=[clave])).json()
-                self.assertEqual(datos["clave"], clave)
-                resultado = datos["resultados"][0]
-                self.assertTrue(resultado["disponible"])
-                self.assertIsNotNone(resultado["pronostico"])
-                self.assertIsNotNone(resultado["mae"])
+        datos = self.client.get(reverse("finanzas:pronostico_modelo", args=["arima"])).json()
+        self.assertEqual(datos["clave"], "arima")
+        resultado = datos["resultados"][0]
+        self.assertTrue(resultado["disponible"])
+        self.assertIsNotNone(resultado["pronostico"])
+        self.assertIsNotNone(resultado["mae"])
 
-    def test_un_modelo_que_no_existe_da_404(self):
-        self.assertEqual(self.client.get(reverse("finanzas:pronostico_modelo", args=["magia"])).status_code, 404)
+    def test_otro_modelo_no_se_puede_solicitar(self):
+        for clave in ("lineal", "holt_winters", "magia"):
+            with self.subTest(modelo=clave):
+                self.assertEqual(
+                    self.client.get(reverse("finanzas:pronostico_modelo", args=[clave])).status_code,
+                    404,
+                )
 
     def test_un_producto_con_pocos_dias_de_historia_dice_datos_insuficientes(self):
         nuevo = crear_producto(self.negocio, nombre="Nuevo")

@@ -382,7 +382,7 @@ def pronostico_base(request):
 @login_required
 @require_GET
 def pronostico_modelo(request, clave):
-    """Lo que dice un solo modelo (lineal, holt_winters o arima) de cada producto."""
+    """Pronostico ARIMA para cada producto elegible."""
     negocio = _negocio_o_none(request)
     if negocio is None or clave not in {modelo["clave"] for modelo in calculos.MODELOS_PRONOSTICO}:
         raise Http404("Ese modelo no existe.")

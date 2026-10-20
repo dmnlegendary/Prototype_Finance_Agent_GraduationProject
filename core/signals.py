@@ -23,7 +23,7 @@ def producto_cambio(sender, instance, **kwargs):
 
 @receiver([post_save, post_delete], sender=Venta)
 def venta_cambio(sender, instance, **kwargs):
-    # el carrito siempre termina con venta.recalcular_total(), que guarda la
+    # la caja siempre termina con venta.recalcular_total(), que guarda la
     # venta, así que con escuchar a Venta también se cubren los ItemVenta
     cache_negocio.invalidar(instance.negocio_id)
 

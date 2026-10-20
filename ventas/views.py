@@ -1,6 +1,6 @@
 # La pantalla de ventas habla con el servidor por JSON (fetch) para que agregar productos,
 # cambiar cantidades o cobrar no recargue la página. Las reglas (existencias, granel,
-# dos carritos) viven en ventas/carrito.py y ventas/cobro.py.
+# dos cajas) viven en ventas/carrito.py y ventas/cobro.py.
 import json
 from decimal import Decimal
 
@@ -17,7 +17,7 @@ from inventario.compras import CantidadInvalida, a_decimal, texto_numero
 from inventario.models import Producto
 
 from . import carrito
-from .cobro import SinExistencias, cobrar_venta, texto_aviso_stock
+from .cobro import SinExistencias, VentaYaCobrada, cobrar_venta, texto_aviso_stock
 from .models import MAXIMO_DE_CARRITOS, ItemVenta, Venta
 
 
@@ -44,7 +44,7 @@ def _sin_existencias(error):
         error.mensaje, 409, error="sin_existencias", disponible=texto_numero(error.disponible),
         producto={
             "id": producto.pk, "nombre": producto.nombre, "a_granel": producto.a_granel,
-            "unidad": producto.unidad, "costo": str(producto.costo),
+            "unidad": producto.unidad, "costo": str(producto.costo), "precio_venta": str(producto.precio_venta),
         },
     )
 
@@ -68,7 +68,7 @@ def punto_de_venta(request):
     context = {
         "estado_inicial": carrito.estado_del_carrito(negocio, numero),
         "recientes": [{"nombre": r["nombre"], "precio": str(r["precio_venta"])} for r in recientes],
-        "carritos": range(1, MAXIMO_DE_CARRITOS + 1),
+        "cajas": range(1, MAXIMO_DE_CARRITOS + 1),
         "mostrar_resumen_avi": request.session.pop("mostrar_resumen_avi", False),
     }
     return render(request, "ventas/punto_de_venta.html", context)
@@ -189,12 +189,14 @@ def api_cobrar(request, numero):
 
     venta = carrito.venta_en_curso(negocio, numero, request.user)
     if not venta.items.exists():
-        return _error("El carrito está vacío, no hay nada que cobrar.")
+        return _error("La caja está vacía, no hay nada que cobrar.")
 
     try:
         productos_que_empeoraron = cobrar_venta(venta)
     except SinExistencias as error:
         return _sin_existencias(error)
+    except VentaYaCobrada as error:
+        return _error(error.mensaje, estado=409, error="ya_cobrada")
 
     ahora = timezone.localtime()
     renglones = venta.items.select_related("producto")

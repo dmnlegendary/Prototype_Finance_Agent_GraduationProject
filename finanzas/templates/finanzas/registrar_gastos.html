@@ -25,7 +25,7 @@
         <label>Categoría</label>
         <div class="cat-pills">
           {% for radio in form.categoria %}
-          <label class="cat-pill">{{ radio.tag }} {{ radio.choice_label }}</label>
+          <label class="cat-pill" data-tipo="{{ radio.data.value.instance.tipo }}">{{ radio.tag }} {{ radio.choice_label }}</label>
           {% endfor %}
           <button type="button" class="cat-pill" onclick="openModal('categoria-gasto-nueva')"><i class="bi bi-plus-lg"></i> Nueva</button>
         </div>
@@ -37,6 +37,12 @@
       <div class="fin-form-group">
         <label>Monto ($) <span class="campo-requerido">*</span></label>
         {{ form.monto }}
+      </div>
+      <div class="fin-form-group">
+        <label>Mes al que corresponde <span class="campo-requerido">*</span></label>
+        {{ form.periodo }}
+        <small style="font-size:11px;color:var(--text-faint);">{{ form.periodo.help_text }}</small>
+        {% if form.periodo.errors %}<small style="color:var(--color-danger);">{{ form.periodo.errors|join:", " }}</small>{% endif %}
       </div>
       <div class="fin-form-group">
         <label>Nota (opcional)</label>
@@ -100,6 +106,13 @@
         <label>Nombre de la categoría <span class="campo-requerido">*</span></label>
         <input type="text" name="nombre" placeholder="Ej. Renta, Luz, Internet…" required>
       </div>
+      <div class="form-group">
+        <label>¿Es un gasto fijo o variable?</label>
+        <select name="tipo" class="filter-select">
+          <option value="FIJO">Fijo: lo pago siempre (renta, luz…)</option>
+          <option value="VARIABLE">Variable: cambia cada mes (bolsas, flete…)</option>
+        </select>
+      </div>
       <div class="panel-footer" style="padding:0;border-top:none;">
         <button type="submit" class="btn-success">Guardar categoría</button>
         <button type="button" class="btn-ghost" onclick="closeModal('categoria-gasto-nueva')">Cancelar</button>
@@ -116,5 +129,12 @@
     document.getElementById('btnTipoFijo').classList.toggle('active', tipo === 'FIJO');
     document.getElementById('btnTipoVariable').classList.toggle('active', tipo === 'VARIABLE');
   }
+
+  // al elegir una categoría se propone si es fijo o variable (se puede cambiar con los botones)
+  document.querySelectorAll('.cat-pill[data-tipo]').forEach(function (pill) {
+    pill.addEventListener('change', function () {
+      if (pill.dataset.tipo) elegirTipoGasto(pill.dataset.tipo);
+    });
+  });
 </script>
 {% endblock %}

@@ -28,3 +28,22 @@ class OperacionSincronizada(ModeloBase):
 
     def __str__(self):
         return f"{self.tipo} {self.uuid[:8]}"
+
+
+class LlaveIA(ModeloBase):
+    """Llave de acceso a un servicio de IA (OpenAI o Google). Se guarda CIFRADA, nunca en texto plano
+    (ver core/llaves.py)."""
+
+    OPENAI = "openai"
+    GEMINI = "gemini"
+    PROVEEDORES = [(OPENAI, "OpenAI (ChatGPT)"), (GEMINI, "Google (Gemini)")]
+
+    proveedor = models.CharField(max_length=20, choices=PROVEEDORES, unique=True)
+    valor_cifrado = models.TextField()
+
+    class Meta:
+        verbose_name = "Llave de IA"
+        verbose_name_plural = "Llaves de IA"
+
+    def __str__(self):
+        return self.get_proveedor_display()

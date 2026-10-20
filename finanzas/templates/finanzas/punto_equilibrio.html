@@ -12,6 +12,13 @@
   <a href="{% url 'finanzas:registrar_gastos' %}" data-sin-loader><strong>Registrar mis gastos fijos</strong></a>
 </div>
 
+{% elif estado == "sin_costos" %}
+<div class="fin-callout">
+  <i class="bi bi-lightbulb-fill"></i> Para calcularlo también necesito saber cuánto te cuesta cada producto.
+  Todavía ninguno de tus productos tiene precio de compra. Agrégalo desde el inventario (al editar el producto o al resurtir).
+  <a href="{% url 'inventario:panel' %}" data-sin-loader><strong>Ir al inventario</strong></a>
+</div>
+
 {% elif estado == "sin_ventas" %}
 <div class="fin-callout">
   <i class="bi bi-lightbulb-fill"></i> Todavía no hay ventas cobradas en los últimos {{ meses_historial }} meses.

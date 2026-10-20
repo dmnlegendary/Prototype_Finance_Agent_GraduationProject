@@ -8,7 +8,8 @@ import json
 import logging
 import time
 
-from django.conf import settings
+
+from core import llaves
 
 from . import services
 
@@ -73,9 +74,10 @@ SYSTEM_PROMPT = (
     "explicaciones largas.\n\n"
     "Todo lo que el dueño puede hacer a mano en la pantalla donde está, tú lo puedes hacer con las "
     "funciones disponibles. Cuando pida una acción, usa la función de inmediato en vez de inventar "
-    "la respuesta. Solo tienes las funciones de la pantalla actual: si te pide algo que se hace en "
-    "otra pantalla (Módulo de ventas, Auxiliar de inventario o Agente financiero), dile con "
-    "amabilidad en cuál se hace.\n\n"
+    "la respuesta. Las consultas (ver existencias, alertas, gastos, ventas, finanzas) las puedes hacer "
+    "desde cualquier pantalla; pero las acciones que cambian datos solo las de la pantalla actual: si te "
+    "pide cambiar algo que se hace en otra pantalla (Módulo de ventas, Auxiliar de inventario o Agente "
+    "financiero), dile con amabilidad en cuál se hace.\n\n"
     "Regla de oro: no se puede vender lo que no hay en el inventario. Si falta, pregunta cuántas "
     "piezas (o kilos, en productos a granel) quiere agregar y a qué precio de compra, agrégalas "
     "con ajustar_existencias y sigue con la venta.\n\n"
@@ -90,12 +92,17 @@ SYSTEM_PROMPT = (
     "Para saber qué productos hay, cuántos son o cuántos de un tipo (por ejemplo 'aguas'), usa "
     "consultar_inventario o buscar_producto con una palabra: nunca digas que solo puedes buscar "
     "uno por uno. Si te dictan un correo con la palabra 'arroba', escríbelo con @.\n\n"
-    "El pronóstico de ventas todavía está en construcción: si lo piden, dilo con sinceridad y ofrece "
-    "mejor las ventas de hoy o el punto de equilibrio. No puedes cambiar todos los productos de un "
+    "El pronóstico de ventas no lo calculas tú: se ve en la pantalla Pronóstico de ventas del Agente "
+    "financiero, y ahí el botón 'Explícame mi pronóstico' lo explica en palabras sencillas. Si te lo piden, "
+    "mándalo a esa pantalla. No puedes cambiar todos los productos de un "
     "jalón; si lo piden, explica que se hace producto por producto.\n\n"
-    "Si la petición no tiene que ver con la tienda o no la entendiste, no digas solamente que no "
-    "puedes ayudar: explica brevemente qué sí puedes hacer y dale uno o dos ejemplos concretos, "
-    "como 'agrega 2 cocas al carrito' o 'registra un gasto de luz de 450 pesos'."
+    "En ventas hay dos cajas (la persona también puede llamarlas carrito). Solo hablas de temas de la tienda: ventas, inventario y finanzas. Si te preguntan cualquier otra "
+    "cosa (política, recetas, tareas, chistes, etcétera), no la contestes y responde exactamente con este "
+    "mensaje estándar: «Solo puedo ayudarte con las ventas, el inventario y las finanzas de tu tienda. "
+    "Prueba, por ejemplo: 'agrega 2 cocas a la caja', '¿qué productos se están acabando?' o "
+    "'registra un gasto de luz de 450 pesos'.» Si la petición sí es de la tienda pero no la entendiste, "
+    "no digas solamente que no puedes ayudar: explica brevemente qué sí puedes hacer y dale uno o dos "
+    "ejemplos concretos."
 )
 
 PROMPT_RESUMEN = (
@@ -109,9 +116,9 @@ def modelos_en_orden():
     """Los modelos que se pueden usar, en el orden en que se intentan:
     primero Gemini y, si no contesta, ChatGPT. Solo entran los que tienen llave."""
     modelos = []
-    if settings.GEMINI_API_KEY:
+    if llaves.obtener(llaves.LlaveIA.GEMINI):
         modelos.append("gemini")
-    if settings.OPENAI_API_KEY:
+    if llaves.obtener(llaves.LlaveIA.OPENAI):
         modelos.append("chatgpt")
     return modelos
 
@@ -132,12 +139,13 @@ def preguntar_chatgpt(mensaje, negocio, pantalla=None, funciones_ejecutadas=None
     """Regresa (respuesta_en_texto, nombres_de_funciones_ejecutadas)."""
     if funciones_ejecutadas is None:
         funciones_ejecutadas = []
-    if not settings.OPENAI_API_KEY:
+    llave = llaves.obtener(llaves.LlaveIA.OPENAI)
+    if not llave:
         return MENSAJE_SIN_LLAVE, []
 
     from openai import OpenAI
 
-    cliente = OpenAI(api_key=settings.OPENAI_API_KEY, timeout=30)
+    cliente = OpenAI(api_key=llave, timeout=30)
     mensajes = [{"role": "system", "content": _instrucciones(negocio, pantalla)}]
     for previo in services.historial_reciente(negocio):
         rol = "user" if previo.rol == previo.Rol.USUARIO else "assistant"
@@ -186,12 +194,13 @@ def preguntar_gemini(mensaje, negocio, pantalla=None, funciones_ejecutadas=None)
     """Regresa (respuesta_en_texto, nombres_de_funciones_ejecutadas)."""
     if funciones_ejecutadas is None:
         funciones_ejecutadas = []
-    if not settings.GEMINI_API_KEY:
+    llave = llaves.obtener(llaves.LlaveIA.GEMINI)
+    if not llave:
         return MENSAJE_SIN_LLAVE, []
 
     import google.generativeai as genai
 
-    genai.configure(api_key=settings.GEMINI_API_KEY)
+    genai.configure(api_key=llave)
     modelo = genai.GenerativeModel(
         "gemini-2.5-flash",
         tools=services.tools_gemini(pantalla),
@@ -239,7 +248,7 @@ def preguntar_ia(mensaje, negocio, pantalla=None):
     """El chat del asistente. Intenta con Gemini y, si falla, con ChatGPT.
     Regresa (respuesta_en_texto, nombres_de_funciones_ejecutadas).
 
-    Si el primer modelo ya alcanzó a ejecutar una acción (agregar al carrito, registrar un
+    Si el primer modelo ya alcanzó a ejecutar una acción (agregar a la caja, registrar un
     gasto...) y falla después, NO se intenta con el otro: la acción se haría dos veces."""
     modelos = modelos_en_orden()
     if not modelos:
@@ -262,7 +271,7 @@ def preguntar_ia(mensaje, negocio, pantalla=None):
 def _texto_con_gemini(prompt):
     import google.generativeai as genai
 
-    genai.configure(api_key=settings.GEMINI_API_KEY)
+    genai.configure(api_key=llaves.obtener(llaves.LlaveIA.GEMINI))
     modelo_gemini = genai.GenerativeModel("gemini-2.5-flash", system_instruction=PROMPT_RESUMEN)
     return con_reintentos(lambda: modelo_gemini.generate_content(prompt, request_options={"timeout": 30})).text
 
@@ -270,7 +279,7 @@ def _texto_con_gemini(prompt):
 def _texto_con_chatgpt(prompt):
     from openai import OpenAI
 
-    cliente = OpenAI(api_key=settings.OPENAI_API_KEY, timeout=30)
+    cliente = OpenAI(api_key=llaves.obtener(llaves.LlaveIA.OPENAI), timeout=30)
     respuesta = con_reintentos(lambda: cliente.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "system", "content": PROMPT_RESUMEN}, {"role": "user", "content": prompt}],

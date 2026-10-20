@@ -195,8 +195,8 @@ a.fin-stat-card:hover {
 .fin-result-group h4 {
   font-size: 12px;
   font-weight: 700;
-  color: var(--color-success-text);
-  background: var(--color-success-bg);
+  color: var(--color-primary-dark);
+  background: var(--color-primary-bg);
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -213,8 +213,8 @@ a.fin-stat-card:hover {
   font-size: 13px;
 }
 .fin-badge-green {
-  background: var(--color-success-bg);
-  color: var(--color-success-text);
+  background: var(--color-primary-bg);
+  color: var(--color-primary-dark);
   font-weight: 700;
   font-size: 12px;
   padding: 2px 10px;
@@ -278,11 +278,11 @@ a.fin-stat-card:hover {
   color: var(--color-primary-dark);
 }
 .fin-insight-green {
-  background: var(--color-success-bg);
+  background: var(--color-primary-bg);
   border-radius: var(--radius-xl);
   padding: 10px 12px;
   font-size: 13px;
-  color: var(--color-success-text);
+  color: var(--color-primary-dark);
   font-weight: 600;
 }
 
@@ -335,3 +335,25 @@ a.fin-stat-card:hover {
 .badge-estado.tipo-fijo { background: var(--filtro-100); color: var(--filtro-700); }
 .badge-estado.tipo-variable { background: var(--filtro-200); color: var(--filtro-texto); }
 .badge-estado.tipo-mercancia { background: var(--inv-100); color: var(--inv-700); }
+
+/* sugerir precios: elegir entre cubrir gastos o escribir el margen */
+.fin-opciones-margen { display: flex; gap: 14px; flex-wrap: wrap; width: 100%; }
+.fin-opcion-margen {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--text-secondary); cursor: pointer;
+}
+.fin-campo-modo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fin-campo-modo label { font-size: 13px; font-weight: 600; color: var(--filtro-700); }
+
+/* pronóstico progresivo */
+.fin-pronostico-estado { margin: 14px 0 8px; font-size: 13px; color: var(--text-secondary); font-weight: 600; }
+.fin-progreso { height: 8px; background: var(--bg-muted); border-radius: var(--radius-full); overflow: hidden; }
+.fin-progreso-barra { height: 100%; background: var(--color-primary); border-radius: var(--radius-full); transition: width .4s ease; }
+.fin-cifra { font-weight: 700; color: var(--text-primary); font-size: 14px; }
+.fin-sube { color: var(--color-success); font-weight: 700; }
+.fin-baja { color: var(--color-danger); font-weight: 700; }
+.fin-confianza { font-weight: 700; text-transform: capitalize; }
+.fin-confianza-alta { color: var(--color-success); }
+.fin-confianza-media { color: var(--color-warning); }
+.fin-confianza-baja { color: var(--color-danger); }
+.fin-confianza-sin-datos { color: var(--text-faint); }

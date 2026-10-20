@@ -19,7 +19,7 @@
   <form class="avi-input" id="aviForm" onsubmit="return enviarMensajeAvi(event)">
     {% csrf_token %}
     <input type="text" id="aviTexto" placeholder="Escribe aquí… (ej. 2 coca cola 600)" autocomplete="off"/>
-    <button type="button" class="avi-mic-btn" onclick="activarMicrofono()" title="Hablar"><i class="bi bi-mic-fill"></i></button>
+    <button type="button" class="avi-mic-btn" title="Mantén presionado para hablar y suéltalo al terminar" aria-label="Mantén presionado para hablar"><i class="bi bi-mic-fill"></i></button>
     <button type="submit"><i class="bi bi-send-fill"></i></button>
   </form>
 </div>

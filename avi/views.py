@@ -40,7 +40,7 @@ def chat(request):
     # que preguntar_ia no se encuentre este mismo mensaje duplicado al armar
     # el contexto de la conversación.
     # la pantalla manda en qué módulo está y en qué carrito (1 o 2) trabaja, para darle a la IA solo
-    # las herramientas de esa pantalla y que agregue al carrito correcto
+    # las herramientas de esa pantalla y que agregue a la caja correcto
     pantalla = datos.get("pantalla")
     services.CARRITO_ACTIVO.set(carrito.numero_de_carrito_valido(datos.get("carrito")))
 
@@ -160,6 +160,12 @@ def explicar(request, tipo):
         return JsonResponse({"respuesta": "Primero completa los datos de tu negocio."})
 
     datos = services.datos_para_explicar(negocio, tipo)
+
+    # sin ningún producto con historia suficiente no hay nada que explicar (y no se gasta una llamada a la IA)
+    if tipo == "pronostico" and not any(p["se_espera_la_proxima_semana"] is not None for p in datos["productos"]):
+        return JsonResponse({
+            "respuesta": "Todavía no hay suficientes días de ventas para pronosticar. En cuanto tengas más historial, aquí te explico lo que viene.",
+        })
     huella = hashlib.sha256(json.dumps(datos, sort_keys=True, default=str).encode()).hexdigest()
     hoy = timezone.localdate()
 

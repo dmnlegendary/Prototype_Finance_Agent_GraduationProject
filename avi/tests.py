@@ -465,6 +465,21 @@ class FuncionesDeFinanzasDelAsistenteTests(TestCase):
         self.assertEqual(gasto.tipo, "FIJO")
         self.assertEqual(gasto.categoria.nombre, "Luz")
 
+    def test_el_gasto_lleva_el_mes_que_dice_el_tendero(self):
+        resultado = self.ejecutar("registrar_gasto", concepto="Luz", monto=450, tipo="FIJO", mes=9, anio=2026)
+        self.assertTrue(resultado["ok"])
+        self.assertIn("09/2026", resultado["mensaje"])
+        self.assertEqual(GastoOperativo.objects.get().periodo.isoformat(), "2026-09-01")
+
+    def test_sin_mes_el_gasto_es_de_este_mes(self):
+        self.ejecutar("registrar_gasto", concepto="Luz", monto=450, tipo="FIJO")
+        self.assertEqual(GastoOperativo.objects.get().periodo, timezone.localdate().replace(day=1))
+
+    def test_un_mes_que_no_existe_no_registra_el_gasto(self):
+        resultado = self.ejecutar("registrar_gasto", concepto="Luz", monto=450, tipo="FIJO", mes=13)
+        self.assertFalse(resultado["ok"])
+        self.assertEqual(GastoOperativo.objects.count(), 0)
+
     def test_un_gasto_sin_monto_valido_no_se_registra(self):
         self.assertFalse(self.ejecutar("registrar_gasto", concepto="Luz", monto=0, tipo="FIJO")["ok"])
         self.assertEqual(GastoOperativo.objects.count(), 0)
@@ -498,8 +513,8 @@ class ContextoDelAsistenteTests(TestCase):
         self.assertIn("1 en rojo", contexto)
 
         services.agregar_al_carrito(negocio, "coca")
-        self.assertIn("Carrito 1: 1 Coca 600", services.contexto_negocio(negocio))
-        self.assertIn("Carrito 2: vacío", services.contexto_negocio(negocio))
+        self.assertIn("Caja 1: 1 Coca 600", services.contexto_negocio(negocio))
+        self.assertIn("Caja 2: vacía", services.contexto_negocio(negocio))
 
 
 @override_settings(OPENAI_API_KEY="llave-de-prueba", GEMINI_API_KEY="llave-de-prueba")
@@ -658,6 +673,7 @@ class ProveedoresYBusquedaDelAsistenteTests(TestCase):
 class ReglaDeOroDelAsistenteTests(TestCase):
     def setUp(self):
         _, self.negocio = crear_negocio()
+        Categoria.objects.get_or_create(nombre="Bebidas")
         self.coca = crear_producto(self.negocio, nombre="Coca 600", cantidad="3", costo="15")
 
     def ejecutar(self, funcion, **argumentos):
@@ -712,12 +728,13 @@ class ReglaDeOroDelAsistenteTests(TestCase):
         self.assertTrue(resultado["sin_existencias"])
 
     def test_dar_de_alta_con_piezas_registra_la_compra(self):
-        self.ejecutar("dar_de_alta_producto", nombre="Pepsi", precio_venta=18, costo=13, cantidad_actual=10)
+        self.ejecutar("dar_de_alta_producto", nombre="Pepsi", precio_venta=18, costo=13, cantidad_actual=10, categoria="bebidas")
         self.assertEqual(GastoOperativo.objects.get().monto, Decimal("130.00"))
 
     def test_dar_de_alta_un_producto_a_granel(self):
         resultado = self.ejecutar(
             "dar_de_alta_producto", nombre="Azúcar", precio_venta=30, costo=24, cantidad_actual=2.5, a_granel=True,
+            categoria="bebidas",
         )
         self.assertTrue(resultado["ok"])
         self.assertTrue(Producto.objects.get(nombre="Azúcar").a_granel)
@@ -759,7 +776,7 @@ class HerramientasPorPantallaTests(SimpleTestCase):
     def nombres(self, pantalla):
         return {f["name"] for f in services.funciones_de(pantalla)}
 
-    def test_cada_pantalla_recibe_solo_sus_herramientas(self):
+    def test_cada_pantalla_recibe_solo_sus_acciones(self):
         ventas = self.nombres("ventas")
         self.assertIn("cobrar_carrito", ventas)
         self.assertNotIn("registrar_gasto", ventas)
@@ -768,6 +785,14 @@ class HerramientasPorPantallaTests(SimpleTestCase):
         self.assertIn("dar_de_alta_producto", self.nombres("inventario"))
         self.assertNotIn("cobrar_carrito", self.nombres("inventario"))
         self.assertIn("registrar_gasto", self.nombres("finanzas"))
+
+    def test_las_consultas_cruzadas_se_pueden_hacer_desde_cualquier_pantalla(self):
+        consultas = {"consultar_alertas_stock", "consultar_gastos_mes", "consultar_resumen_financiero", "consultar_inventario", "consultar_punto_equilibrio"}
+        for pantalla in ("ventas", "inventario", "finanzas"):
+            self.assertTrue(consultas <= self.nombres(pantalla), pantalla)
+
+    def test_ninguna_accion_viene_en_todas_las_pantallas_por_ser_comun(self):
+        self.assertFalse(services.HERRAMIENTAS_COMUNES & services.ACCIONES)
 
     def test_hay_herramientas_comunes_en_todas_las_pantallas(self):
         for pantalla in ("ventas", "inventario", "finanzas"):
@@ -780,7 +805,7 @@ class HerramientasPorPantallaTests(SimpleTestCase):
     def test_mandar_solo_las_de_la_pantalla_baja_el_tamano_de_la_peticion(self):
         completo = len(json.dumps(services.tools_openai()))
         ventas = len(json.dumps(services.tools_openai("ventas")))
-        self.assertLess(ventas, completo * 0.6)
+        self.assertLess(ventas, completo * 0.85)
 
     def test_toda_funcion_declarada_esta_en_el_despachador_y_en_alguna_pantalla(self):
         en_pantallas = set(services.HERRAMIENTAS_COMUNES)
@@ -789,3 +814,93 @@ class HerramientasPorPantallaTests(SimpleTestCase):
         for funcion in services.FUNCIONES:
             self.assertIn(funcion["name"], services.DESPACHADOR)
             self.assertIn(funcion["name"], en_pantallas)
+
+
+class ReglasDelAsistenteTests(TestCase):
+    def setUp(self):
+        _, self.negocio = crear_negocio()
+        Categoria.objects.get_or_create(nombre="Bebidas")
+
+    def ejecutar(self, funcion, **argumentos):
+        return services.ejecutar_funcion(funcion, argumentos, self.negocio)
+
+    def test_el_prompt_tiene_el_mensaje_estandar_para_temas_fuera_de_la_tienda(self):
+        from .clients import SYSTEM_PROMPT
+        self.assertIn("Solo puedo ayudarte con las ventas, el inventario y las finanzas de tu tienda", SYSTEM_PROMPT)
+
+    def test_dar_de_alta_sin_categoria_la_pide(self):
+        resultado = self.ejecutar("dar_de_alta_producto", nombre="Pepsi", precio_venta=18, costo=13)
+        self.assertFalse(resultado["ok"])
+        self.assertIn("categoría", resultado["mensaje"])
+        self.assertFalse(Producto.objects.filter(nombre="Pepsi").exists())
+
+    def test_la_categoria_es_obligatoria_en_la_herramienta(self):
+        herramienta = next(f for f in services.FUNCIONES if f["name"] == "dar_de_alta_producto")
+        self.assertIn("categoria", herramienta["parameters"]["required"])
+
+    def test_el_minimo_que_se_propone_es_5(self):
+        self.ejecutar("dar_de_alta_producto", nombre="Pepsi", precio_venta=18, costo=13, categoria="bebidas")
+        self.assertEqual(Producto.objects.get(nombre="Pepsi").cantidad_minima, Decimal("5"))
+
+    def test_el_alta_con_el_asistente_deja_su_entrada_en_el_kardex(self):
+        from inventario.models import MovimientoInventario
+        self.ejecutar("dar_de_alta_producto", nombre="Pepsi", precio_venta=18, costo=13, cantidad_actual=10, categoria="bebidas")
+        self.assertEqual(MovimientoInventario.objects.get().tipo, "ENTRADA")
+
+    def test_ajustar_existencias_con_el_asistente_deja_un_ajuste_en_el_kardex(self):
+        from inventario.models import MovimientoInventario
+        crear_producto(self.negocio, nombre="Coca 600", cantidad="10")
+        self.ejecutar("ajustar_existencias", nombre_producto="coca", cantidad=4, modo="establecer")
+        movimiento = MovimientoInventario.objects.get()
+        self.assertEqual((movimiento.tipo, movimiento.cantidad), ("AJUSTE", Decimal("-6")))
+
+    def test_sugerir_precio_usa_el_margen_que_el_tendero_ya_escogio(self):
+        crear_producto(self.negocio, nombre="Coca 600", costo="15")
+        self.negocio.guardar_preferencias(margen_deseado="40")
+        resultado = self.ejecutar("sugerir_precio", nombre_producto="coca")
+        self.assertEqual(resultado["margen_deseado"], 40.0)
+        self.assertEqual(resultado["precio_sugerido"], 25.0)
+
+    def test_si_el_usuario_dice_el_margen_se_usa_ese(self):
+        crear_producto(self.negocio, nombre="Coca 600", costo="15")
+        self.negocio.guardar_preferencias(margen_deseado="40")
+        resultado = self.ejecutar("sugerir_precio", nombre_producto="coca", margen_deseado=25)
+        self.assertEqual(resultado["margen_deseado"], 25.0)
+
+
+class PrecioNoMenorAlCostoDelAsistenteTests(TestCase):
+    def setUp(self):
+        _, self.negocio = crear_negocio()
+        Categoria.objects.create(nombre="Bebidas")
+        self.producto = crear_producto(self.negocio, nombre="Coca 600", costo="15", precio="25")
+
+    def ejecutar(self, funcion, **argumentos):
+        return services.ejecutar_funcion(funcion, argumentos, self.negocio)
+
+    def test_no_da_de_alta_un_producto_que_se_vende_por_debajo_de_su_costo(self):
+        resultado = self.ejecutar(
+            "dar_de_alta_producto", nombre="Pepsi 600", precio_venta=10, costo=13, cantidad_actual=5, categoria="bebidas",
+        )
+        self.assertFalse(resultado["ok"])
+        self.assertIn("no puede ser menor", resultado["mensaje"])
+        self.assertFalse(Producto.objects.filter(nombre="Pepsi 600").exists())
+
+    def test_no_baja_el_precio_por_debajo_del_costo(self):
+        resultado = self.ejecutar("modificar_producto", nombre_producto="coca", precio_venta=10)
+        self.assertFalse(resultado["ok"])
+        self.producto.refresh_from_db()
+        self.assertEqual(self.producto.precio_venta, Decimal("25"))
+
+    def test_no_sube_el_costo_por_encima_del_precio(self):
+        resultado = self.ejecutar("modificar_producto", nombre_producto="coca", costo=40)
+        self.assertFalse(resultado["ok"])
+
+    def test_al_dar_de_alta_le_pone_un_icono_segun_el_nombre(self):
+        self.ejecutar("dar_de_alta_producto", nombre="Sprite 600", precio_venta=19, costo=12, cantidad_actual=5, categoria="bebidas")
+        self.assertEqual(Producto.objects.get(nombre="Sprite 600").icono, "🥤")
+
+    def test_la_categoria_de_gasto_no_se_duplica_por_las_mayusculas(self):
+        from finanzas.models import CategoriaGasto
+        CategoriaGasto.objects.create(negocio=self.negocio, nombre="Luz", tipo="FIJO")
+        self.ejecutar("registrar_gasto", tipo="FIJO", concepto="Luz de octubre", monto=450, categoria="luz")
+        self.assertEqual(CategoriaGasto.objects.filter(negocio=self.negocio).count(), 1)

@@ -33,7 +33,7 @@ class LecturaDelCsvTests(SimpleTestCase):
         self.assertIn("No se cargó nada", errores[0])
 
     def test_acepta_otros_nombres_de_las_columnas_sin_acentos_ni_mayusculas(self):
-        archivo = "Producto;Cantidad;Precio de compra;Precio de venta\nCoca;5;13,5;18\n".encode("utf-8")
+        archivo = "Producto;Cantidad;Precio de compra;Precio de venta\nCoca;5;13,5;180\n".encode("utf-8")
         filas, errores = importacion.leer_csv(archivo)
         self.assertEqual(errores, [])
         self.assertEqual(filas[0]["precio_compra"], "135")  # la coma se toma como separador de miles

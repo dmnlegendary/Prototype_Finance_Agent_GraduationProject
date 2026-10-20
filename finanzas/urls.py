@@ -14,6 +14,9 @@ urlpatterns = [
     path("precios/", views.sugerir_precios, name="sugerir_precios"),
     path("precios/<int:pk>/aceptar/", views.aceptar_precio_sugerido, name="aceptar_precio_sugerido"),
     path("pronostico/", views.pronostico_ventas, name="pronostico_ventas"),
+    path("pronostico/base/", views.pronostico_base, name="pronostico_base"),
+    path("pronostico/modelo/<str:clave>/", views.pronostico_modelo, name="pronostico_modelo"),
     path("reportes/", views.reportes_financieros, name="reportes_financieros"),
+    path("reportes/ventas/", views.reporte_ventas, name="reporte_ventas"),
     path("reportes/baja-rotacion/", views.baja_rotacion, name="baja_rotacion"),
 ]

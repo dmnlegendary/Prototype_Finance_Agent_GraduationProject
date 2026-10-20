@@ -7,6 +7,9 @@
       Quedan {{ p.cantidad_actual|floatformat:"-3" }} {{ p.unidad }} (mínimo: {{ p.cantidad_minima|floatformat:"-3" }}, ideal: {{ p.stock_ideal_efectivo|floatformat:"-3" }}).
       {% if p.proveedor %}Proveedor: {{ p.proveedor.nombre }}.{% endif %}
     </div>
+    <div class="alert-meta">
+      {% if p.dias_de_cobertura is not None %}Vende unas {{ p.vendidas_por_semana|floatformat:"-1" }} {{ p.unidad }} por semana: lo que queda le alcanza para unos {{ p.dias_de_cobertura }} días.{% else %}Sin ventas en las últimas 4 semanas.{% endif %}
+    </div>
     <div class="alert-meta">Categoría: {{ p.categoria.nombre|default:"Sin categoría" }}</div>
   </div>
   <span class="alert-priority nivel-{{ p.nivel_stock }}">

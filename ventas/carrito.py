@@ -1,5 +1,5 @@
 """
-Las operaciones del carrito (agregar, cambiar cantidad, quitar, cobrar, cancelar).
+Las operaciones de la caja (agregar, cambiar cantidad, quitar, cobrar, cancelar).
 Las usan la pantalla de ventas (ventas/views.py), el asistente (avi/services.py) y la
 sincronización sin internet (core/sync.py), así todos aplican las mismas reglas:
 
@@ -7,7 +7,7 @@ sincronización sin internet (core/sync.py), así todos aplican las mismas regla
   * Los productos por pieza solo se venden en cantidades enteras; los de granel
     aceptan decimales (kilos, por ejemplo 0.250).
   * El precio y el costo se guardan en el renglón al momento de agregarlo.
-  * Hay dos carritos por tienda, para que dos personas cobren a la vez sin chocar.
+  * Hay dos cajas por tienda, para que dos personas cobren a la vez sin chocar.
 """
 from decimal import Decimal
 
@@ -21,7 +21,7 @@ from .models import MAXIMO_DE_CARRITOS, ItemVenta, Venta
 
 
 def numero_de_carrito_valido(valor):
-    """Regresa 1 o 2 (o el número que sea) si el valor es un carrito que existe; si no, 1."""
+    """Regresa 1 o 2 (o el número que sea) si el valor es una caja que existe; si no, 1."""
     try:
         numero = int(valor)
     except (TypeError, ValueError):
@@ -47,7 +47,7 @@ def venta_en_curso(negocio, carrito=1, usuario=None):
                     )
                 break
             except IntegrityError:
-                # otro dispositivo creó el carrito o tomó el mismo folio al mismo tiempo
+                # otro dispositivo creó la caja o tomó el mismo folio al mismo tiempo
                 venta = Venta.objects.filter(negocio=negocio, estado=Venta.Estado.EN_CURSO, carrito=carrito).first()
                 if venta is not None:
                     break
@@ -62,7 +62,7 @@ def venta_abierta(negocio, carrito=1):
 
 
 def agregar_producto(venta, producto, cantidad=1):
-    """Agrega `cantidad` del producto al carrito (si ya estaba, se suma).
+    """Agrega `cantidad` del producto a la caja (si ya estaba, se suma).
     Lanza SinExistencias o CantidadInvalida. Regresa el renglón."""
     cantidad = validar_cantidad(producto, cantidad)
 

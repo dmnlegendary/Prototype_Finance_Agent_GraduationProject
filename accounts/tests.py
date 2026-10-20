@@ -123,6 +123,22 @@ class DatosDelNegocioTests(TestCase):
         datos.update(cambios)
         return datos
 
+    def test_la_tienda_nueva_arranca_con_proveedores_y_categorias_de_gastos(self):
+        from finanzas.models import CategoriaGasto
+        from inventario.models import Proveedor
+        self.client.post(reverse("accounts:datos_negocio"), self.datos())
+        negocio = self.usuario.negocio
+        self.assertGreaterEqual(Proveedor.objects.filter(negocio=negocio).count(), 20)
+        self.assertEqual(CategoriaGasto.objects.get(negocio=negocio, nombre="Luz").tipo, "FIJO")
+        self.assertEqual(CategoriaGasto.objects.get(negocio=negocio, nombre="Bolsas y empaques").tipo, "VARIABLE")
+
+    def test_al_editar_los_datos_de_la_tienda_no_se_duplican_proveedores(self):
+        from inventario.models import Proveedor
+        self.client.post(reverse("accounts:datos_negocio"), self.datos())
+        antes = Proveedor.objects.count()
+        self.client.post(reverse("accounts:datos_negocio"), self.datos(nombre_tienda="Otro nombre"))
+        self.assertEqual(Proveedor.objects.count(), antes)
+
     def test_con_una_alcaldia_de_la_lista_el_ticket_dice_cdmx(self):
         self.client.post(reverse("accounts:datos_negocio"), self.datos())
         self.assertEqual(self.usuario.negocio.ubicacion, "Tlalpan, CDMX")
@@ -216,3 +232,52 @@ class ProductosPrecargadosTests(TestCase):
         )
         # con 24 piezas y mínimo 0 no hay alerta
         self.assertEqual(conteo_alertas(self.negocio)["total"], 0)
+
+
+class VideoDeBienvenidaTests(TestCase):
+    """RF-S05: el video de presentación se muestra solo la primera vez que alguien entra."""
+
+    def setUp(self):
+        self.usuario, self.negocio = crear_negocio()
+        self.client.force_login(self.usuario)
+
+    def test_sin_enlace_configurado_no_se_muestra_nada(self):
+        from django.test import override_settings
+        with override_settings(VIDEO_INTRODUCTORIO_URL=""):
+            self.assertNotContains(self.client.get(reverse("ventas:punto_de_venta")), "modal-video-bienvenida")
+
+    def test_la_primera_vez_se_muestra_el_video(self):
+        from django.test import override_settings
+        with override_settings(VIDEO_INTRODUCTORIO_URL="https://www.youtube.com/embed/abc123"):
+            respuesta = self.client.get(reverse("ventas:punto_de_venta"))
+        self.assertContains(respuesta, "modal-video-bienvenida")
+        self.assertContains(respuesta, "https://www.youtube.com/embed/abc123")
+
+    def test_despues_de_verlo_ya_no_vuelve_a_salir(self):
+        from django.test import override_settings
+        self.assertEqual(self.client.post(reverse("accounts:video_visto")).status_code, 200)
+        self.usuario.refresh_from_db()
+        self.assertTrue(self.usuario.video_visto)
+        with override_settings(VIDEO_INTRODUCTORIO_URL="https://www.youtube.com/embed/abc123"):
+            self.assertNotContains(self.client.get(reverse("ventas:punto_de_venta")), "modal-video-bienvenida")
+
+    def test_marcar_el_video_como_visto_pide_post_y_sesion(self):
+        self.assertEqual(self.client.get(reverse("accounts:video_visto")).status_code, 405)
+        self.client.logout()
+        self.assertEqual(self.client.post(reverse("accounts:video_visto")).status_code, 302)
+
+
+class PreferenciasDelNegocioTests(TestCase):
+    def test_las_preferencias_se_guardan_y_se_leen(self):
+        _, negocio = crear_negocio()
+        self.assertEqual(negocio.preferencia("margen_deseado", 30), 30)
+        negocio.guardar_preferencias(margen_deseado="35")
+        negocio.refresh_from_db()
+        self.assertEqual(negocio.preferencia("margen_deseado"), "35")
+
+    def test_guardar_lo_mismo_no_escribe_otra_vez(self):
+        _, negocio = crear_negocio()
+        negocio.guardar_preferencias(meses_reportes=3)
+        antes = Negocio.objects.get(pk=negocio.pk).actualizado_en
+        negocio.guardar_preferencias(meses_reportes=3)
+        self.assertEqual(Negocio.objects.get(pk=negocio.pk).actualizado_en, antes)

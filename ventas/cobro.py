@@ -6,9 +6,16 @@ que todos hagan exactamente lo mismo.
 from django.db import transaction
 
 from inventario.compras import texto_numero
-from inventario.models import Producto
+from inventario.models import MovimientoInventario, Producto
+from inventario.movimientos import registrar_movimiento
 
 from .models import Venta
+
+
+class VentaYaCobrada(Exception):
+    """La venta ya no está en curso: otra petición (por ejemplo, un doble clic con internet lento) la cobró primero."""
+
+    mensaje = "Esa venta ya se cobró. Revisa el historial antes de volver a cobrar."
 
 
 class SinExistencias(Exception):
@@ -45,7 +52,7 @@ def verificar_existencias(producto, cantidad_total):
 def cobrar_venta(venta):
     """Descuenta el inventario y marca la venta como cobrada, todo junto.
 
-    Si algún producto ya no alcanza (por ejemplo, el otro carrito vendió la última
+    Si algún producto ya no alcanza (por ejemplo, la otra caja vendió la última
     pieza) lanza SinExistencias y no se mueve nada.
 
     Regresa la lista de productos que con esta venta quedaron en amarillo, naranja o
@@ -53,6 +60,11 @@ def cobrar_venta(venta):
     productos_que_empeoraron = []
 
     with transaction.atomic():
+        # se bloquea la venta para que dos cobros al mismo tiempo no la registren dos veces
+        estado_actual = Venta.objects.select_for_update().values_list("estado", flat=True).get(pk=venta.pk)
+        if estado_actual != Venta.Estado.EN_CURSO:
+            raise VentaYaCobrada()
+
         items = list(venta.items.select_related("producto"))
         # se bloquean los productos (en bases de datos que lo permiten) para que dos
         # cobros al mismo tiempo no vendan la misma última pieza
@@ -70,6 +82,13 @@ def cobrar_venta(venta):
             if not producto.pendiente_validacion:
                 producto.cantidad_actual = producto.cantidad_actual - item.cantidad
                 producto.save(update_fields=["cantidad_actual", "actualizado_en"])
+                movimiento = registrar_movimiento(
+                    producto, -item.cantidad, MovimientoInventario.Tipo.VENTA,
+                    motivo=f"Venta folio {venta.folio}", venta=venta, usuario=venta.cajero,
+                )
+                # el renglón se queda con el costo de las piezas que de verdad salieron (lotes más viejos primero)
+                item.costo_unitario = movimiento.costo_unitario
+                item.save(update_fields=["costo_unitario", "actualizado_en"])
             if producto.nivel_stock not in ("ok", nivel_antes):
                 productos_que_empeoraron.append(producto)
 

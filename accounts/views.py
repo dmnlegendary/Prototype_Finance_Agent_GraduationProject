@@ -6,11 +6,15 @@ from django.contrib.auth import logout as auth_logout
 from django.contrib.auth import login as auth_login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, LogoutView
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
+from django.views.decorators.http import require_POST
 
 from core import cache_negocio
-from inventario.compras import a_decimal, registrar_compra
-from inventario.models import Categoria, Producto, ProductoCatalogo
+from inventario.datos_base import preparar_negocio
+from inventario.compras import a_decimal, mensaje_si_vende_bajo_el_costo, registrar_compra
+from inventario.models import MINIMO_POR_DEFECTO, Categoria, Producto, ProductoCatalogo
+from inventario.movimientos import registrar_entradas_iniciales
 from ventas.models import ItemVenta
 
 from .forms import EliminarCuentaForm, LoginForm, NegocioForm, RegistroForm
@@ -41,9 +45,13 @@ def datos_negocio(request):
     if request.method == "POST":
         form = NegocioForm(request.POST, instance=negocio)
         if form.is_valid():
+            era_nueva = negocio is None
             negocio = form.save(commit=False)
             negocio.usuario = request.user
             negocio.save()
+            if era_nueva:
+                # la tienda nueva arranca con sus proveedores comunes y sus categorías de gastos
+                preparar_negocio(negocio)
             return redirect("accounts:productos_precargados")
     else:
         form = NegocioForm(instance=negocio)
@@ -75,14 +83,19 @@ def productos_precargados(request):
                 errores.append(f'"{item.nombre}": escribe cuánto te costó cada pieza.')
             elif precio is None or precio <= 0:
                 errores.append(f'"{item.nombre}": escribe en cuánto lo vendes.')
+            elif mensaje_si_vende_bajo_el_costo(costo, precio):
+                errores.append(f'"{item.nombre}": no puedes venderlo en menos de lo que te cuesta (${costo:.2f}).')
             else:
                 nuevos.append(Producto(
                     negocio=negocio, nombre=item.nombre, categoria=item.categoria, icono=item.icono,
-                    costo=costo, precio_venta=precio, cantidad_actual=piezas, catalogo_origen=item,
+                    costo=costo, precio_venta=precio, cantidad_actual=piezas, cantidad_minima=MINIMO_POR_DEFECTO, catalogo_origen=item,
                 ))
 
         if not errores:
-            Producto.objects.bulk_create(nuevos)
+            creados = Producto.objects.bulk_create(nuevos)
+            if any(p.pk is None for p in creados):  # por si la base de datos no regresa los id
+                creados = list(Producto.objects.filter(negocio=negocio, catalogo_origen__in=catalogo_items))
+            registrar_entradas_iniciales(creados, "Inventario inicial")
             # las piezas con las que arranca cada producto son mercancía que se compró
             registrar_compra(negocio, "Compra de mercancía (inventario inicial)", sum((p.cantidad_actual * p.costo for p in nuevos), Decimal("0")))
             # bulk_create no avisa a las señales, así que se limpia el cache a mano
@@ -137,3 +150,13 @@ class TiendaLoginView(LoginView):
 
 class TiendaLogoutView(LogoutView):
     next_page = "accounts:login"
+
+
+@login_required
+@require_POST
+def video_visto(request):
+    """El tendero ya vio (o cerró) el video de bienvenida: no se le vuelve a mostrar."""
+    if not request.user.video_visto:
+        request.user.video_visto = True
+        request.user.save(update_fields=["video_visto"])
+    return JsonResponse({"ok": True})

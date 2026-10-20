@@ -2,14 +2,16 @@ from decimal import Decimal
 
 from django import forms
 
-from .models import Producto, Proveedor
+from .compras import mensaje_si_vende_bajo_el_costo
+from .datos_base import icono_para
+from .models import MINIMO_POR_DEFECTO, Producto, Proveedor
 
 
 class ProductoForm(forms.ModelForm):
     class Meta:
         model = Producto
         fields = [
-            "nombre", "descripcion", "costo", "precio_venta",
+            "nombre", "descripcion", "icono", "costo", "precio_venta",
             "cantidad_actual", "cantidad_minima", "stock_ideal", "categoria", "proveedor",
             "a_granel", "codigo_barras",
         ]
@@ -22,6 +24,7 @@ class ProductoForm(forms.ModelForm):
             "cantidad_minima": forms.NumberInput(attrs={"step": "any", "placeholder": "0"}),
             "stock_ideal": forms.NumberInput(attrs={"step": "any", "placeholder": "0"}),
             "categoria": forms.RadioSelect(),
+            "icono": forms.HiddenInput(),
             "codigo_barras": forms.TextInput(attrs={"placeholder": "Escanéalo con tu lector o escríbelo", "autocomplete": "off"}),
         }
 
@@ -31,9 +34,19 @@ class ProductoForm(forms.ModelForm):
         if negocio is not None:
             self.fields["proveedor"].queryset = Proveedor.objects.filter(negocio=negocio)
         self.fields["proveedor"].required = False
-        self.fields["categoria"].required = False
+        # todo producto lleva una categoría y una descripción breve (así lo piden los requisitos)
+        self.fields["categoria"].required = True
+        self.fields["categoria"].error_messages["required"] = "Elige una categoría para el producto."
+        self.fields["descripcion"].required = True
+        self.fields["descripcion"].error_messages["required"] = "Escribe una descripción breve (por ejemplo, el tamaño o la marca)."
+        if not self.instance.pk:
+            self.fields["cantidad_minima"].initial = MINIMO_POR_DEFECTO  # se propone resurtir al llegar a 5
         self.fields["stock_ideal"].required = False
+        self.fields["stock_ideal"].help_text = (
+            "Se calcula solo: es el promedio de lo que tienes cada vez que resurtes. Déjalo en 0 y el sistema lo irá aprendiendo."
+        )
         self.fields["codigo_barras"].required = False
+        self.fields["icono"].required = False
 
     def clean_stock_ideal(self):
         # si lo dejan vacío se toma como 0 (el sistema usa 4 veces el mínimo)
@@ -51,6 +64,13 @@ class ProductoForm(forms.ModelForm):
 
     def clean(self):
         datos = super().clean()
+        aviso = mensaje_si_vende_bajo_el_costo(datos.get("costo"), datos.get("precio_venta"))
+        if aviso:
+            self.add_error("precio_venta", aviso)
+
+        # sin ícono elegido, se le pone uno según su nombre o su categoría
+        if (datos.get("icono") or "").strip() in ("", "📦") and datos.get("nombre"):
+            datos["icono"] = icono_para(datos["nombre"], datos.get("categoria"))
         minima = datos.get("cantidad_minima")
         ideal = datos.get("stock_ideal")
         if minima is not None and ideal and ideal < minima:

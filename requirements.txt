@@ -8,3 +8,4 @@ statsmodels>=0.14,<1.0  # ARIMA and Holt-Winters sales forecasting
 
 # The linear-regression baseline is implemented with Python's standard library.
 
+cryptography>=42

@@ -11,11 +11,24 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Carga las llaves del archivo .env (en la raíz del proyecto, junto a manage.py)
 load_dotenv(BASE_DIR / ".env")
 
-SECRET_KEY = "django-insecure-cambiar-esta-llave-antes-de-subir-a-produccion"
+# En producción la llave y el modo debug se ponen en el .env (ver .env.example)
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-cambiar-esta-llave-antes-de-subir-a-produccion")
 
-DEBUG = True
+DEBUG = os.environ.get("DJANGO_DEBUG", "True") == "True"
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+# Direcciones desde las que se puede abrir el sistema (separadas por comas en el .env)
+ALLOWED_HOSTS = [host.strip() for host in os.environ.get("ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if host.strip()]
+CSRF_TRUSTED_ORIGINS = [origen.strip() for origen in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if origen.strip()]
+
+# HTTPS: con USAR_HTTPS=True en el .env todo viaja cifrado (la contraseña y la sesión nunca van en claro).
+# Se activa cuando el sistema se publica detrás de un certificado (por ejemplo, en Azure).
+USAR_HTTPS = os.environ.get("USAR_HTTPS", "False") == "True"
+if USAR_HTTPS:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 
 INSTALLED_APPS = [
@@ -157,3 +170,11 @@ LOGOUT_REDIRECT_URL = "accounts:login"
 #   Linux/Mac: export OPENAI_API_KEY=sk-...
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+
+
+# Video de presentación que se muestra la primera vez que alguien entra (puede ser un enlace de YouTube,
+# de Vimeo o un archivo de video). Si se deja vacío, no se muestra nada.
+VIDEO_INTRODUCTORIO_URL = os.environ.get("VIDEO_INTRODUCTORIO_URL", "")
+
+# Días de historia que necesita un producto para poder pronosticar sus ventas
+PRONOSTICO_MINIMO_DIAS = int(os.environ.get("PRONOSTICO_MINIMO_DIAS", "30"))

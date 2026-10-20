@@ -18,6 +18,27 @@
 
 {% include "partials/ayuda.html" %}
 
+{% if video_bienvenida %}
+<!-- Video de bienvenida: solo la primera vez que entra -->
+<div class="modal-backdrop" id="modal-video-bienvenida">
+  <div class="form-card" style="max-width:720px;">
+    <div class="panel-header">
+      <h3><i class="bi bi-play-circle-fill"></i> Conoce marIA en un minuto</h3>
+      <button type="button" class="panel-close" onclick="cerrarVideoBienvenida()"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      <div style="position:relative;padding-top:56.25%;">
+        <iframe id="videoBienvenida" data-src="{{ video_bienvenida }}" title="Video de bienvenida" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>
+      </div>
+    </div>
+    <div class="panel-footer">
+      <button type="button" class="btn-success" onclick="cerrarVideoBienvenida()">Empezar a usar marIA</button>
+    </div>
+  </div>
+</div>
+<form id="formVideoVisto" method="post" action="{% url 'accounts:video_visto' %}" style="display:none;">{% csrf_token %}</form>
+{% endif %}
+
 <!-- Modal de la IA: resumen de ayer al entrar, y explicación del dashboard / reportes -->
 <div class="modal-backdrop" id="modal-resumen-avi">
   <div class="form-card" style="max-width:480px;">

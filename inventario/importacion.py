@@ -22,7 +22,9 @@ from core import cache_negocio
 
 from . import busqueda
 from .compras import CantidadInvalida, a_decimal, agregar_existencias, registrar_compra
-from .models import Categoria, HistorialModificacionProducto, Producto
+from .datos_base import icono_para
+from .models import Categoria, HistorialModificacionProducto, MovimientoInventario, Producto
+from .movimientos import registrar_movimiento
 
 COLUMNAS_OBLIGATORIAS = ["producto", "cantidad", "precio_compra", "precio_venta"]
 COLUMNAS_OPCIONALES = ["categoria", "codigo_barras", "a_granel"]
@@ -124,6 +126,8 @@ def leer_csv(contenido):
             problemas.append("el precio de compra no es un número válido")
         if venta is None or venta <= 0:
             problemas.append("el precio de venta debe ser un número mayor a cero")
+        elif compra is not None and venta < compra:
+            problemas.append("el precio de venta es menor al de compra")
 
         llave = busqueda.normalizar(nombre)
         if nombre and llave in vistos:
@@ -259,6 +263,9 @@ def _actualizar(producto, fila, cantidad, compra, venta):
         producto.activo = True
         producto.pendiente_validacion = False
         producto.a_granel = fila["a_granel"]
+        if producto.categoria_id is None:
+            # un producto validado ya lleva categoría: si no la tenía, va en "Otros"
+            producto.categoria, _ = Categoria.objects.get_or_create(nombre="Otros", defaults={"icono": "📦"})
         # las ventas que se hicieron sin saber el costo se completan con este precio de compra
         producto.items_venta.filter(costo_unitario=0).update(costo_unitario=compra)
 
@@ -288,6 +295,9 @@ def _crear(negocio, fila, cantidad, compra, venta, categorias):
         if categoria is None:
             categoria = Categoria.objects.create(nombre=nombre_categoria[:60])
             categorias[busqueda.normalizar(nombre_categoria)] = categoria
+    if categoria is None:
+        # todo producto lleva una categoría válida: si el archivo no la trae, va en "Otros"
+        categoria, _ = Categoria.objects.get_or_create(nombre="Otros", defaults={"icono": "📦"})
 
     codigo = fila["codigo_barras"]
     if codigo and Producto.objects.filter(negocio=negocio, codigo_barras=codigo).exists():
@@ -296,7 +306,10 @@ def _crear(negocio, fila, cantidad, compra, venta, categorias):
     a_granel = fila["a_granel"]
     if not a_granel:
         cantidad = cantidad.to_integral_value()  # por pieza: solo enteros
-    return Producto.objects.create(
+    nuevo = Producto.objects.create(
         negocio=negocio, nombre=fila["producto"], costo=compra, precio_venta=venta,
         cantidad_actual=cantidad, categoria=categoria, a_granel=a_granel, codigo_barras=codigo,
+        icono=icono_para(fila["producto"], categoria),
     )
+    registrar_movimiento(nuevo, nuevo.cantidad_actual, MovimientoInventario.Tipo.ENTRADA, motivo="Importación de CSV")
+    return nuevo

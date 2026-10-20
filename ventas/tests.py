@@ -47,6 +47,13 @@ class FlujoDeVentaTests(ApiDeVentasBase):
         self.assertEqual(respuesta.status_code, 200)
         self.assertEqual(respuesta.context["estado_inicial"]["carrito"], 1)
 
+    def test_en_pantalla_se_les_dice_cajas_y_no_carritos(self):
+        respuesta = self.client.get(reverse("ventas:punto_de_venta"))
+        self.assertContains(respuesta, "Caja 1")
+        self.assertContains(respuesta, "Caja 2")
+        self.assertNotContains(respuesta, "Carrito 1")
+        self.assertNotContains(respuesta, "al carrito")
+
     def test_total_de_la_venta_se_guarda_con_dos_decimales(self):
         venta = Venta.objects.create(negocio=self.negocio, folio=1)
         ItemVenta.objects.create(
@@ -365,3 +372,34 @@ class CobroDirectoTests(TestCase):
         venta.refresh_from_db()
         self.assertEqual(producto.cantidad_actual, Decimal("2"))
         self.assertEqual(venta.estado, Venta.Estado.EN_CURSO)
+
+
+class CobroDuplicadoTests(TestCase):
+    """Un doble clic con internet lento no debe registrar la misma venta dos veces."""
+
+    def setUp(self):
+        self.usuario, self.negocio = crear_negocio()
+        self.client.force_login(self.usuario)
+        self.producto = crear_producto(self.negocio, cantidad="10")
+        self.venta = carrito.venta_en_curso(self.negocio, 1, self.usuario)
+        ItemVenta.objects.create(venta=self.venta, producto=self.producto, cantidad=Decimal("2"), precio_unitario=Decimal("25"))
+
+    def test_cobrar_dos_veces_la_misma_venta_solo_descuenta_una_vez(self):
+        from .cobro import VentaYaCobrada
+        cobrar_venta(self.venta)
+        with self.assertRaises(VentaYaCobrada):
+            cobrar_venta(self.venta)
+        self.producto.refresh_from_db()
+        self.assertEqual(self.producto.cantidad_actual, Decimal("8"))
+        self.assertEqual(Venta.objects.filter(estado=Venta.Estado.COBRADA).count(), 1)
+
+    def test_el_segundo_cobro_por_la_api_se_rechaza_con_un_aviso(self):
+        # la primera petición cobra el carrito; la segunda llega con una venta que ya no está en curso
+        from unittest.mock import patch
+        self.client.post(reverse("ventas:api_cobrar", args=[1]), data="{}", content_type="application/json")
+        with patch("ventas.views.carrito.venta_en_curso", return_value=self.venta):
+            respuesta = self.client.post(reverse("ventas:api_cobrar", args=[1]), data="{}", content_type="application/json")
+        self.assertEqual(respuesta.status_code, 409)
+        self.assertEqual(respuesta.json()["error"], "ya_cobrada")
+        self.producto.refresh_from_db()
+        self.assertEqual(self.producto.cantidad_actual, Decimal("8"))

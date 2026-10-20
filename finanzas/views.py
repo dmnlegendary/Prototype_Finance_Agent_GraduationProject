@@ -1,18 +1,18 @@
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Avg, Q, Sum
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.template.loader import render_to_string
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
-from inventario.compras import registrar_compra
+from inventario.compras import mensaje_si_vende_bajo_el_costo, registrar_compra
 from inventario.models import HistorialModificacionProducto, Producto
 from ventas.models import ItemVenta, Venta
 
@@ -21,6 +21,7 @@ from .forms import GastoOperativoForm
 from .models import CategoriaGasto, GastoOperativo
 
 MARGEN_DESEADO_POR_DEFECTO = Decimal("30")
+UTILIDAD_DESEADA_POR_DEFECTO = Decimal("10")
 
 
 def _negocio_o_none(request):
@@ -79,7 +80,7 @@ def inicio(request):
         "compras_mes": mes["compras"],
         # ventas sin precio de compra: mientras existan, la utilidad se ve más alta de lo real
         "renglones_sin_costo": calculos.renglones_sin_costo(negocio, inicio_mes, manana),
-        "num_gastos_mes": GastoOperativo.objects.filter(negocio=negocio, fecha__gte=inicio_mes).count(),
+        "num_gastos_mes": GastoOperativo.objects.filter(negocio=negocio, periodo__gte=inicio_mes).count(),
         "num_productos_precios": Producto.objects.filter(negocio=negocio, activo=True, costo__gt=0).count(),
     })
 
@@ -146,6 +147,11 @@ def completar_no_encontrado(request, pk):
         messages.warning(request, "Escribe un precio de compra válido (mayor a cero).")
         return redirect("finanzas:registrar_gastos")
 
+    aviso = mensaje_si_vende_bajo_el_costo(costo, producto.precio_venta)
+    if aviso:
+        messages.warning(request, f'"{producto.nombre}": ' + aviso)
+        return redirect("finanzas:registrar_gastos")
+
     producto.costo = costo
     producto.save(update_fields=["costo", "actualizado_en"])
     # las ventas que se hicieron sin saber el costo se completan con este precio de compra
@@ -170,8 +176,11 @@ def categoria_gasto_alta(request):
     if request.method == "POST":
         nombre = request.POST.get("nombre", "").strip()
         if nombre:
-            _, creada = CategoriaGasto.objects.get_or_create(negocio=negocio, nombre=nombre)
+            tipo = request.POST.get("tipo", "")
+            tipo = tipo if tipo in (GastoOperativo.Tipo.FIJO, GastoOperativo.Tipo.VARIABLE) else ""
+            creada = not CategoriaGasto.objects.filter(negocio=negocio, nombre__iexact=nombre).exists()
             if creada:
+                CategoriaGasto.objects.create(negocio=negocio, nombre=nombre[:60], tipo=tipo)
                 messages.success(request, f'Categoría "{nombre}" agregada.')
             else:
                 messages.info(request, f'Ya existía una categoría "{nombre}".')
@@ -185,7 +194,7 @@ def historial_gastos(request):
     if negocio is None:
         return redirect("accounts:datos_negocio")
 
-    gastos = GastoOperativo.objects.filter(negocio=negocio).order_by("-fecha", "-id")
+    gastos = GastoOperativo.objects.filter(negocio=negocio).order_by("-periodo", "-fecha", "-id")
     pagina = Paginator(gastos, 25).get_page(request.GET.get("page"))
     return render(request, "finanzas/historial_gastos.html", {"activo": "gastos", "gastos": pagina, "pagina": pagina})
 
@@ -221,6 +230,17 @@ def punto_equilibrio(request):
     return render(request, "finanzas/punto_equilibrio.html", contexto)
 
 
+def _leer_utilidad(valor):
+    """Utilidad deseada en % (entre 0 y 50); si viene mal, la de por defecto."""
+    try:
+        utilidad = Decimal(str(valor).replace(",", "."))
+        if not utilidad.is_finite() or utilidad < 0 or utilidad > 50:
+            return UTILIDAD_DESEADA_POR_DEFECTO
+        return utilidad.quantize(Decimal("0.1"))
+    except InvalidOperation:
+        return UTILIDAD_DESEADA_POR_DEFECTO
+
+
 def _leer_margen(valor):
     """Margen deseado en % (entre 1 y 90); si viene mal, el de por defecto."""
     try:
@@ -238,34 +258,49 @@ def sugerir_precios(request):
     if negocio is None:
         return redirect("accounts:datos_negocio")
 
-    margen = _leer_margen(request.GET.get("margen", MARGEN_DESEADO_POR_DEFECTO))
+    hoy = timezone.localdate()
+    gastos = calculos.gastos_sobre_ventas(negocio, hoy)
+
+    # dos formas de escoger el margen: el tendero lo escribe, o se calcula para cubrir sus gastos
+    # lo que el tendero escogió la última vez se recuerda: aparece ya puesto cuando regresa
+    modo = request.GET.get("modo") or negocio.preferencia("modo_precios", "manual")
+    modo = modo if modo in ("manual", "gastos") else "manual"
+    utilidad = _leer_utilidad(request.GET.get("utilidad", negocio.preferencia("utilidad_extra", UTILIDAD_DESEADA_POR_DEFECTO)))
+    margen_escrito = _leer_margen(request.GET.get("margen", negocio.preferencia("margen_deseado", MARGEN_DESEADO_POR_DEFECTO)))
+    if modo == "gastos" and gastos["porcentaje"] is None:
+        # sin ventas no hay forma de saber qué parte se va en gastos
+        modo = "manual"
+        messages.info(request, "Todavía no hay ventas para calcular tus gastos sobre ventas; escribe el margen a mano.")
+
+    if modo == "gastos":
+        margen = calculos.margen_que_cubre_gastos(gastos["porcentaje"], utilidad)
+    else:
+        margen = margen_escrito
+    if "modo" in request.GET:  # el tendero apretó "Calcular": se guarda lo que escogió
+        negocio.guardar_preferencias(modo_precios=modo, margen_deseado=str(margen_escrito), utilidad_extra=str(utilidad))
 
     productos = Producto.objects.filter(negocio=negocio, activo=True, costo__gt=0).select_related("categoria")
     filas = []
     for producto in productos:
         sugerido = calculos.precio_sugerido(producto.costo, margen)
-        filas.append({"producto": producto, "sugerido": sugerido, "diferencia": sugerido - producto.precio_venta})
+        filas.append({
+            "producto": producto, "sugerido": sugerido, "diferencia": sugerido - producto.precio_venta,
+            "ganancia": sugerido - producto.costo,
+        })
     # primero los que más deberían subir de precio
     filas.sort(key=lambda fila: fila["diferencia"], reverse=True)
     pagina = Paginator(filas, 15).get_page(request.GET.get("page"))
 
-    # referencia: qué tanto de cada peso vendido se va en gastos operativos
-    hoy = timezone.localdate()
-    desde = calculos.primer_dia_del_mes(hoy)
-    for _ in range(3):
-        desde = calculos.mes_anterior(desde)
-    hasta = hoy + timedelta(days=1)
-    ingresos = calculos.ingresos_periodo(negocio, desde, hasta)
-    gastos_sobre_ventas = None
-    if ingresos:
-        gastos_sobre_ventas = calculos.redondear(calculos.gastos_periodo(negocio, desde, hasta) / ingresos * 100, calculos.DECIMA)
-
     return render(request, "finanzas/sugerir_precios.html", {
         "activo": "precios",
+        "modo": modo,
         "margen": margen,
+        "utilidad": utilidad,
         "pagina": pagina,
         "total_productos": len(filas),
-        "gastos_sobre_ventas": gastos_sobre_ventas,
+        "gastos": gastos,
+        "gastos_sobre_ventas": gastos["porcentaje"],
+        "margen_ya_cubre": gastos["porcentaje"] is not None and margen < gastos["porcentaje"],
     })
 
 
@@ -280,7 +315,9 @@ def aceptar_precio_sugerido(request, pk):
     margen = _leer_margen(request.POST.get("margen", MARGEN_DESEADO_POR_DEFECTO))
     pagina = request.POST.get("page", "1")
     pagina = pagina if pagina.isdigit() else "1"
-    destino = f"{reverse('finanzas:sugerir_precios')}?margen={margen}&page={pagina}"
+    modo = "gastos" if request.POST.get("modo") == "gastos" else "manual"
+    utilidad = _leer_utilidad(request.POST.get("utilidad", UTILIDAD_DESEADA_POR_DEFECTO))
+    destino = f"{reverse('finanzas:sugerir_precios')}?modo={modo}&margen={margen}&utilidad={utilidad}&page={pagina}"
 
     try:
         nuevo_precio = Decimal(request.POST.get("precio", "").replace(",", "."))
@@ -296,7 +333,10 @@ def aceptar_precio_sugerido(request, pk):
     producto.save(update_fields=["precio_venta", "actualizado_en"])
     HistorialModificacionProducto.objects.create(
         producto=producto, usuario=request.user,
-        motivo=f"Precio sugerido aceptado: de ${precio_anterior} a ${nuevo_precio} (margen deseado {margen}%)",
+        motivo=(
+            f"Precio sugerido aceptado: de ${precio_anterior} a ${nuevo_precio} "
+            f"({'margen para cubrir gastos' if modo == 'gastos' else 'margen deseado'} {margen}%)"
+        ),
     )
     messages.success(request, f'El precio de "{producto.nombre}" ahora es ${nuevo_precio}.')
     return redirect(destino)
@@ -308,17 +348,138 @@ def pronostico_ventas(request):
     if negocio is None:
         return redirect("accounts:datos_negocio")
 
-    generar = request.GET.get("generar") == "1"
-    datos = calculos.pronostico_ventas_negocio(negocio) if generar else None
-    return render(request, "finanzas/pronostico_ventas.html", {
-        "activo": "pronostico",
-        "pronostico": datos,
+    # el cálculo se pide por partes desde la pantalla (ver pronostico_base y pronostico_modelo)
+    return render(request, "finanzas/pronostico_ventas.html", {"activo": "pronostico"})
+
+
+@login_required
+@require_GET
+def pronostico_base(request):
+    """Los productos y sus ventas, sin correr ningún modelo todavía (sale en un instante)."""
+    negocio = _negocio_o_none(request)
+    if negocio is None:
+        return JsonResponse({"estado": "sin_ventas"}, status=404)
+
+    base = calculos.series_de_los_mas_vendidos(negocio)
+    if base["estado"] == "sin_ventas":
+        return JsonResponse({"estado": "sin_ventas"})
+    return JsonResponse({
+        "estado": "ok",
+        "ultima_semana": base["ultima_semana"].strftime("%d/%m/%Y"),
+        "semana_pronostico": base["semana_pronostico"].strftime("%d/%m/%Y"),
+        "minimo_de_dias": base["minimo_de_dias"],
+        "umbrales": {nivel: float(limite) for limite, nivel in calculos.NIVELES_DE_CONFIANZA},
+        "productos": [
+            {clave: producto[clave] for clave in (
+                "producto_id", "nombre", "unidades_historicas", "ultima_semana_real", "promedio_semanal",
+                "suficiente", "dias_de_historia", "atipico_corregido",
+            )}
+            for producto in base["productos"]
+        ],
     })
+
+
+@login_required
+@require_GET
+def pronostico_modelo(request, clave):
+    """Lo que dice un solo modelo (lineal, holt_winters o arima) de cada producto."""
+    negocio = _negocio_o_none(request)
+    if negocio is None or clave not in {modelo["clave"] for modelo in calculos.MODELOS_PRONOSTICO}:
+        raise Http404("Ese modelo no existe.")
+    return JsonResponse({"clave": clave, "resultados": calculos.pronostico_de_un_modelo(negocio, clave)})
 
 
 MESES_ABREVIADOS = [
     "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
 ]
+
+
+def _mes_del_filtro(texto):
+    """'2026-09' -> primer día de ese mes; None si no es un mes válido."""
+    try:
+        anio, mes = texto.split("-")
+        return date(int(anio), int(mes), 1)
+    except (ValueError, AttributeError):
+        return None
+
+
+MAXIMO_DE_MESES_EN_REPORTE = 24
+
+
+def _meses_del_reporte(request, negocio, hoy):
+    """Los meses del reporte, del más viejo al más nuevo: un rango escrito por el tendero (desde y hasta),
+    o los últimos 1, 3, 6 o 12 meses. Lo último que escogió se recuerda para la próxima vez."""
+    mes_actual = calculos.primer_dia_del_mes(hoy)
+    desde = _mes_del_filtro(request.GET.get("desde", ""))
+    hasta = _mes_del_filtro(request.GET.get("hasta", ""))
+
+    if desde and hasta:
+        if desde > hasta:
+            desde, hasta = hasta, desde
+        hasta = min(hasta, mes_actual)
+        desde = min(desde, hasta)
+        meses = []
+        cursor = hasta
+        while cursor >= desde and len(meses) < MAXIMO_DE_MESES_EN_REPORTE:
+            meses.append(cursor)
+            cursor = calculos.mes_anterior(cursor)
+        meses.reverse()
+        return meses, None
+
+    pedido = request.GET.get("periodo", "")
+    if pedido in ("1", "3", "6", "12"):
+        periodo = int(pedido)
+        negocio.guardar_preferencias(meses_reportes=periodo)
+    else:
+        periodo = negocio.preferencia("meses_reportes", 6)
+        if periodo not in (1, 3, 6, 12):
+            periodo = 6
+
+    meses = []
+    cursor = mes_actual
+    for _ in range(periodo):
+        meses.append(cursor)
+        cursor = calculos.mes_anterior(cursor)
+    meses.reverse()
+    return meses, periodo
+
+
+def _sugerencias_del_reporte(datos_meses, meses, total, gasto_inusual):
+    """Alertas y sugerencias concretas a partir de los números del periodo."""
+    sugerencias = []
+    nombre = lambda mes: f"{MESES_ABREVIADOS[mes.month - 1]} {mes.year}"
+
+    if gasto_inusual:
+        sugerencias.append({
+            "icono": "bi-lightbulb-fill",
+            "texto": f'El gasto "{gasto_inusual.concepto}" de ${gasto_inusual.monto} fue mucho más alto de lo normal en este periodo. Vale la pena revisarlo.',
+        })
+
+    perdidas = [nombre(mes) for mes, m in zip(meses, datos_meses) if m["ingresos"] and m["utilidad_neta"] < 0]
+    if perdidas:
+        sugerencias.append({
+            "icono": "bi-exclamation-triangle-fill", "alerta": True,
+            "texto": "En " + ", ".join(perdidas) + " tus gastos y el costo de lo vendido fueron mayores que lo que vendiste: ese mes perdiste dinero.",
+            "enlace": ("finanzas:sugerir_precios", "Revisar mis precios"),
+        })
+
+    if len(datos_meses) >= 2:
+        anterior, ultimo = datos_meses[-2]["gastos"], datos_meses[-1]["gastos"]
+        if anterior > 0 and ultimo > anterior * Decimal("1.2"):
+            subio = round((ultimo - anterior) / anterior * 100)
+            sugerencias.append({
+                "icono": "bi-graph-up-arrow",
+                "texto": f"Tus gastos de {nombre(meses[-1])} subieron {subio}% contra {nombre(meses[-2])} (de ${anterior} a ${ultimo}).",
+                "enlace": ("finanzas:historial_gastos", "Ver mis gastos"),
+            })
+
+    if total["margen_operativo"] is not None and total["margen_operativo"] < Decimal("10") and total["ingresos"]:
+        sugerencias.append({
+            "icono": "bi-tag-fill",
+            "texto": f"Tu margen operativo es de {total['margen_operativo']}%: de cada $100 que vendes te quedan menos de $10 antes de impuestos.",
+            "enlace": ("finanzas:sugerir_precios", "Sugerir precios para cubrir mis gastos"),
+        })
+    return sugerencias
 
 
 @login_required
@@ -327,23 +488,17 @@ def reportes_financieros(request):
     if negocio is None:
         return redirect("accounts:datos_negocio")
 
-    periodo_meses = 3 if request.GET.get("periodo") == "3" else 6
-
     hoy = timezone.localdate()
-    meses = []
-    cursor = calculos.primer_dia_del_mes(hoy)
-    for _ in range(periodo_meses):
-        meses.append(cursor)
-        cursor = calculos.mes_anterior(cursor)
-    meses.reverse()
+    meses, periodo_meses = _meses_del_reporte(request, negocio, hoy)
 
     # la misma tasa de ISR para todo el reporte (depende de los ingresos del último año)
     tasa_isr = calculos.tasa_isr_del_negocio(negocio, hoy)
 
     # todos los meses se calculan juntos (4 consultas en total, no 4 por mes)
     datos_meses = calculos.resumen_por_meses(negocio, meses, tasa_isr)
+    muchos_anios = meses[0].year != meses[-1].year
     for mes, resumen in zip(meses, datos_meses):
-        resumen["etiqueta"] = MESES_ABREVIADOS[mes.month - 1]
+        resumen["etiqueta"] = MESES_ABREVIADOS[mes.month - 1] + (f" {str(mes.year)[2:]}" if muchos_anios else "")
 
     total = calculos.resumen_desde_sumas(
         sum((m["ingresos"] for m in datos_meses), Decimal("0")),
@@ -357,12 +512,14 @@ def reportes_financieros(request):
     # normalizadas contra el valor más alto del periodo
     n = len(datos_meses)
     paso = 320 / n
+    ancho_barra = max(min(round(paso / 2 - 1), 10), 3)
     max_barra = max([m["ingresos"] for m in datos_meses] + [m["gastos"] + m["compras"] for m in datos_meses] + [Decimal("1")])
     max_utilidad = max([abs(m["utilidad_neta"]) for m in datos_meses] + [Decimal("1")])
     for i, m in enumerate(datos_meses):
         centro = paso * i + paso / 2
-        m["x_ingresos"] = round(centro - 10)
-        m["x_egresos"] = round(centro + 2)
+        m["ancho"] = ancho_barra
+        m["x_ingresos"] = round(centro - ancho_barra)
+        m["x_egresos"] = round(centro + 1)
         m["x_texto"] = round(centro)
         m["h_ingresos"] = max(round(float(m["ingresos"] / max_barra) * 100), 2)
         # la barra de egresos incluye lo que se gastó en comprar mercancía (es dinero que salió)
@@ -370,12 +527,13 @@ def reportes_financieros(request):
         m["y_ingresos"] = 135 - m["h_ingresos"]
         m["y_egresos"] = 135 - m["h_egresos"]
         m["y_punto"] = round(90 - float(m["utilidad_neta"] / max_utilidad) * 50)
+        m["con_etiqueta"] = n <= 12 or i % 2 == 0  # con muchos meses se muestra una etiqueta sí y otra no
 
     puntos_linea = " ".join(f"{m['x_texto']},{m['y_punto']}" for m in datos_meses)
 
     # el gasto operativo más grande del periodo, si es claramente mayor al promedio
     gastos_del_periodo = GastoOperativo.objects.filter(
-        negocio=negocio, fecha__gte=meses[0],
+        negocio=negocio, periodo__gte=meses[0], periodo__lt=calculos.mes_siguiente(meses[-1]),
     ).exclude(tipo=GastoOperativo.Tipo.MERCANCIA)
     gasto_inusual = None
     promedio_gasto = gastos_del_periodo.aggregate(promedio=Avg("monto"))["promedio"]
@@ -384,15 +542,21 @@ def reportes_financieros(request):
         if mayor and mayor.monto > promedio_gasto * 2:
             gasto_inusual = mayor
 
+    hasta_fecha = min(hoy + timedelta(days=1), calculos.mes_siguiente(meses[-1]))
     return render(request, "finanzas/reportes_financieros.html", {
         "activo": "reportes",
         "periodo_meses": periodo_meses,
+        "opciones_de_periodo": (1, 3, 6, 12),
+        "desde_mes": meses[0].strftime("%Y-%m"),
+        "hasta_mes": meses[-1].strftime("%Y-%m"),
+        "mes_actual": calculos.primer_dia_del_mes(hoy).strftime("%Y-%m"),
         "datos_meses": datos_meses,
         "puntos_linea": puntos_linea,
         "total": total,
         "es_resico": negocio.regimen_resico,
         "gasto_inusual": gasto_inusual,
-        "renglones_sin_costo": calculos.renglones_sin_costo(negocio, meses[0], hoy + timedelta(days=1)),
+        "sugerencias": _sugerencias_del_reporte(datos_meses, meses, total, gasto_inusual),
+        "renglones_sin_costo": calculos.renglones_sin_costo(negocio, meses[0], hasta_fecha),
         "desde_baja_rotacion": meses[0].isoformat(),
     })
 
@@ -419,3 +583,54 @@ def baja_rotacion(request):
     pagina = Paginator(sin_ventas, 10).get_page(pagina_pedida if pagina_pedida.isdigit() else 1)
     html = render_to_string("finanzas/_baja_rotacion.html", {"productos": list(pagina.object_list)}, request)
     return JsonResponse({"html": html, "hay_mas": pagina.has_next(), "siguiente": pagina.number + 1, "total": pagina.paginator.count})
+
+
+def _fecha_o_none(texto):
+    try:
+        return date.fromisoformat(texto)
+    except (ValueError, TypeError):
+        return None
+
+
+@login_required
+def reporte_ventas(request):
+    """Reporte de ventas con filtro por fechas: lo vendido, lo ganado y los productos que más se mueven."""
+    negocio = _negocio_o_none(request)
+    if negocio is None:
+        return redirect("accounts:datos_negocio")
+
+    hoy = timezone.localdate()
+    dias = request.GET.get("dias", "")
+    desde = _fecha_o_none(request.GET.get("desde", ""))
+    hasta = _fecha_o_none(request.GET.get("hasta", ""))
+    if dias in ("7", "30", "90"):
+        desde, hasta = hoy - timedelta(days=int(dias) - 1), hoy
+    if not desde or not hasta:
+        desde, hasta, dias = hoy - timedelta(days=29), hoy, "30"
+    if desde > hasta:
+        desde, hasta = hasta, desde
+    hasta = min(hasta, hoy)
+    desde = min(desde, hasta)
+
+    reporte = calculos.reporte_de_ventas(negocio, desde, hasta)
+
+    # barras de las ventas de cada día dentro de un viewBox de 320x160
+    por_dia = reporte["por_dia"]
+    if por_dia:
+        maximo = max(dia["total"] for dia in por_dia) or Decimal("1")
+        paso = 320 / len(por_dia)
+        ancho = max(min(round(paso - 2), 24), 2)
+        for i, dia in enumerate(por_dia):
+            altura = max(round(float(dia["total"] / maximo) * 110), 2)
+            dia.update(x=round(paso * i + (paso - ancho) / 2), alto=altura, y=135 - altura, ancho=ancho)
+            dia["etiqueta"] = dia["dia"].strftime("%d/%m")
+            dia["con_etiqueta"] = len(por_dia) <= 10 or i % max(len(por_dia) // 8, 1) == 0
+
+    return render(request, "finanzas/reporte_ventas.html", {
+        "activo": "reporte_ventas",
+        "reporte": reporte,
+        "desde": desde.isoformat(),
+        "hasta": hasta.isoformat(),
+        "hoy": hoy.isoformat(),
+        "dias": dias,
+    })

@@ -43,6 +43,7 @@ function actualizarUnidades(formulario) {
 document.addEventListener('DOMContentLoaded', function () {
   const costoInput = document.getElementById('id_alta_costo');
   const precioInput = document.getElementById('id_alta_precio_venta');
+  document.querySelectorAll('.selector-icono').forEach(marcarIcono);
   if (costoInput && precioInput) {
     costoInput.addEventListener('input', calcMargen);
     precioInput.addEventListener('input', calcMargen);
@@ -98,6 +99,22 @@ function verMasProductos() {
     });
 }
 
+// ---- Ícono del producto: se elige de una lista y queda en un campo oculto ----
+function marcarIcono(selector) {
+  const campo = selector.querySelector('input');
+  selector.querySelectorAll('.icono-opcion').forEach(function (boton) {
+    boton.classList.toggle('activo', !!campo.value && boton.dataset.icono === campo.value);
+  });
+}
+
+function elegirIcono(boton) {
+  const selector = boton.closest('.selector-icono');
+  const campo = selector.querySelector('input');
+  // tocar el que ya estaba elegido lo quita (el sistema pone uno según el nombre)
+  campo.value = campo.value === boton.dataset.icono ? '' : boton.dataset.icono;
+  marcarIcono(selector);
+}
+
 // ---- Editar producto: un solo formulario que se llena con los datos del producto ----
 function abrirEdicion(pk, conErrores) {
   const form = document.getElementById('formEditar');
@@ -106,6 +123,7 @@ function abrirEdicion(pk, conErrores) {
   if (conErrores) {
     // el servidor ya regresó el formulario con lo que el usuario escribió y sus errores
     actualizarUnidades(form);
+    form.querySelectorAll('.selector-icono').forEach(marcarIcono);
     openModal('editar');
     return;
   }
@@ -113,12 +131,13 @@ function abrirEdicion(pk, conErrores) {
   fetch(form.dataset.urlDatos.replace('/0/', '/' + pk + '/'))
     .then(function (r) { return r.json(); })
     .then(function (p) {
-      ['nombre', 'descripcion', 'costo', 'precio_venta', 'cantidad_actual', 'cantidad_minima', 'stock_ideal', 'codigo_barras']
+      ['nombre', 'descripcion', 'icono', 'costo', 'precio_venta', 'cantidad_actual', 'cantidad_minima', 'stock_ideal', 'codigo_barras']
         .forEach(function (campo) {
           const el = document.getElementById('id_editar_' + campo);
           if (el) el.value = p[campo] === null ? '' : p[campo];
         });
       form.querySelector('input[name=a_granel]').checked = p.a_granel;
+      form.querySelectorAll('.selector-icono').forEach(marcarIcono);
       form.querySelectorAll('input[name=categoria]').forEach(function (radio) {
         radio.checked = String(radio.value) === String(p.categoria);
       });
@@ -191,6 +210,7 @@ function abrirResurtir(boton) {
   document.getElementById('resurtirUnidad').textContent = granel ? 'kilos' : 'piezas';
   document.getElementById('resurtirCantidad').value = '';
   document.getElementById('resurtirCosto').value = boton.dataset.costo;
+  document.getElementById('resurtirPrecio').value = boton.dataset.precio;
   document.getElementById('resurtirError').style.display = 'none';
   openModal('resurtir');
   document.getElementById('resurtirCantidad').focus();
@@ -202,9 +222,17 @@ function guardarResurtir(evento) {
   const error = document.getElementById('resurtirError');
   const cantidad = document.getElementById('resurtirCantidad').value;
   const costo = document.getElementById('resurtirCosto').value;
+  const precio = document.getElementById('resurtirPrecio').value;
+
+  // el precio de venta nunca puede quedar por debajo de lo que cuesta (también se revisa en el servidor)
+  if (costo && precio && Number(precio) < Number(costo)) {
+    error.textContent = 'El precio de venta ($' + Number(precio).toFixed(2) + ') no puede ser menor al precio de compra ($' + Number(costo).toFixed(2) + '). Súbelo o revisa el costo.';
+    error.style.display = 'block';
+    return false;
+  }
 
   if (window.Sinconexion && !window.Sinconexion.enLinea()) {
-    window.Sinconexion.encolar('resurtir', { producto_id: Number(form.dataset.pk), cantidad: cantidad, costo: costo })
+    window.Sinconexion.encolar('resurtir', { producto_id: Number(form.dataset.pk), cantidad: cantidad, costo: costo, precio_venta: precio })
       .then(function () {
         closeModal('resurtir');
         showToast('Sin internet: la mercancía se guardó en este dispositivo y se actualizará cuando regrese la conexión.', 'info');
@@ -215,7 +243,7 @@ function guardarResurtir(evento) {
   fetch(form.dataset.urlModelo.replace('/0/', '/' + form.dataset.pk + '/'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': tokenCsrf() },
-    body: JSON.stringify({ cantidad: cantidad, costo: costo }),
+    body: JSON.stringify({ cantidad: cantidad, costo: costo, precio_venta: precio }),
   })
     .then(function (r) { return r.json().then(function (datos) { return { ok: r.ok, datos: datos }; }); })
     .then(function (resultado) {

@@ -13,9 +13,10 @@ from decimal import Decimal
 from django.db import transaction
 from django.utils import timezone
 
-from inventario.compras import CantidadInvalida, a_decimal, agregar_existencias, registrar_compra, validar_cantidad
+from inventario.compras import CantidadInvalida, a_decimal, agregar_existencias, registrar_alta, validar_cantidad
 from inventario.forms import ProductoForm
-from inventario.models import Producto
+from inventario.models import MovimientoInventario, Producto
+from inventario.movimientos import registrar_movimiento
 from ventas import carrito
 from ventas.models import ItemVenta, Venta
 
@@ -72,20 +73,28 @@ def _venta(negocio, usuario, datos):
     )
     faltantes = []
     for producto, cantidad, precio in lineas:
-        ItemVenta.objects.create(
+        item = ItemVenta.objects.create(
             venta=venta, producto=producto, cantidad=cantidad, precio_unitario=precio, costo_unitario=producto.costo,
         )
         if not producto.pendiente_validacion:
             # la venta ya ocurrió: no se puede rechazar, pero el inventario nunca queda en negativo
             if cantidad > producto.cantidad_actual:
                 faltantes.append(producto.nombre)
+            antes = producto.cantidad_actual
             producto.cantidad_actual = max(producto.cantidad_actual - cantidad, Decimal("0"))
             producto.save(update_fields=["cantidad_actual", "actualizado_en"])
+            movimiento = registrar_movimiento(
+                producto, producto.cantidad_actual - antes, MovimientoInventario.Tipo.VENTA,
+                motivo=f"Venta folio {venta.folio} (hecha sin internet)", venta=venta, usuario=usuario,
+            )
+            if movimiento is not None:
+                item.costo_unitario = movimiento.costo_unitario
+                item.save(update_fields=["costo_unitario", "actualizado_en"])
     venta.recalcular_total()
     # la venta se hizo antes, así que se queda con la fecha en que realmente ocurrió
     Venta.objects.filter(pk=venta.pk).update(creado_en=_fecha(datos.get("fecha")))
 
-    # si los productos venían de un carrito que estaba abierto en el servidor, se vacía para no duplicarlos
+    # si los productos venían de una caja que estaba abierto en el servidor, se vacía para no duplicarlos
     if datos.get("limpiar_carrito"):
         abierta = Venta.objects.filter(negocio=negocio, estado=Venta.Estado.EN_CURSO, carrito=numero).first()
         if abierta is not None:
@@ -106,7 +115,7 @@ def _alta_producto(negocio, usuario, datos):
     producto = form.save(commit=False)
     producto.negocio = negocio
     producto.save()
-    registrar_compra(negocio, f"Compra de mercancía: {producto.nombre}", producto.cantidad_actual * producto.costo)
+    registrar_alta(producto, usuario)
     return f'Producto "{producto.nombre}" dado de alta.'
 
 
@@ -115,7 +124,7 @@ def _resurtir(negocio, usuario, datos):
     if producto is None:
         raise ErrorDeSincronizacion("El producto que se quería resurtir ya no existe.")
     try:
-        agregar_existencias(producto, datos.get("cantidad"), costo=datos.get("costo"))
+        agregar_existencias(producto, datos.get("cantidad"), costo=datos.get("costo"), precio_venta=datos.get("precio_venta"))
     except CantidadInvalida as error:
         raise ErrorDeSincronizacion(str(error))
     return f'Mercancía agregada a "{producto.nombre}".'

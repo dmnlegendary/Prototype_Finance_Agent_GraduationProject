@@ -196,7 +196,7 @@ function enviarMensajeAvi(event) {
 }
 
 function refrescarVistaActual() {
-  // el punto de venta se dibuja con JS: se vuelve a pedir el carrito al servidor
+  // el punto de venta se dibuja con JS: se vuelve a pedir la caja al servidor
   if (window.refrescarPOS) { window.refrescarPOS(); return; }
   // trae la página actual y solo reemplaza el contenido del módulo (carrito,
   // catálogo, gastos…) sin tocar el panel del chat ni perder la conversación
@@ -265,44 +265,87 @@ function mostrarResumenAvi() {
 // Explicación del dashboard ('dashboard') o de los reportes financieros ('reportes')
 function explicarConAvi(tipo) {
   mostrarModalAvi(
-    tipo === 'reportes' ? 'Tus reportes, explicados' : 'Tu negocio, explicado',
+    tipo === 'reportes' ? 'Tus reportes, explicados' : (tipo === 'pronostico' ? 'Tu pronóstico, explicado' : 'Tu negocio, explicado'),
     '/avi/explicar/' + tipo + '/',
-    'Revisando tus números…',
+    tipo === 'pronostico' ? 'Revisando tu pronóstico…' : 'Revisando tus números…',
     'No pude explicarte tus números. Intenta de nuevo.',
     false
   );
 }
 
-function activarMicrofono() {
-  const Reconocimiento = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const boton = event ? event.currentTarget : null;
+// Dictado como un micrófono de radio: se empieza a escuchar al presionar el botón y se deja de
+// escuchar al soltarlo. Mientras se mantiene presionado el texto va apareciendo en el chat.
+const MIC = { reconocimiento: null, activo: false, inicio: 0, base: '' };
 
+function empezarADictar(boton) {
+  if (MIC.activo) return;
+  const Reconocimiento = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Reconocimiento) {
     showToast('Tu navegador no soporta dictado por voz.', 'info');
     return;
   }
 
   const input = document.getElementById('aviTexto');
+  MIC.activo = true;
+  MIC.inicio = Date.now();
+  MIC.base = input.value.trim() ? input.value.trim() + ' ' : '';
+
   const reconocimiento = new Reconocimiento();
   reconocimiento.lang = 'es-MX';
-  reconocimiento.interimResults = false;
+  reconocimiento.continuous = true;      // no se corta solo cuando haces una pausa
+  reconocimiento.interimResults = true;  // se va viendo lo que entiende mientras hablas
   reconocimiento.maxAlternatives = 1;
 
-  if (boton) boton.classList.add('escuchando');
-
   reconocimiento.onresult = function (evento) {
-    input.value = evento.results[0][0].transcript;
-    input.focus();
+    let texto = '';
+    for (let i = 0; i < evento.results.length; i++) texto += evento.results[i][0].transcript;
+    input.value = MIC.base + texto.trim();
   };
-  reconocimiento.onerror = function () {
-    showToast('No te escuché bien, intenta otra vez.', 'info');
+  reconocimiento.onerror = function (evento) {
+    if (evento.error === 'not-allowed' || evento.error === 'service-not-allowed') {
+      showToast('Permite el uso del micrófono en tu navegador para poder dictar.', 'alerta');
+    } else if (evento.error !== 'no-speech' && evento.error !== 'aborted') {
+      showToast('No te escuché bien, intenta otra vez.', 'info');
+    }
   };
   reconocimiento.onend = function () {
-    if (boton) boton.classList.remove('escuchando');
+    MIC.activo = false;
+    boton.classList.remove('escuchando');
+    input.focus();
   };
 
-  reconocimiento.start();
+  MIC.reconocimiento = reconocimiento;
+  boton.classList.add('escuchando');
+  try { reconocimiento.start(); } catch (e) { MIC.activo = false; boton.classList.remove('escuchando'); }
 }
+
+function pararDeDictar() {
+  if (!MIC.activo || !MIC.reconocimiento) return;
+  if (Date.now() - MIC.inicio < 400) showToast('Mantén presionado el micrófono mientras hablas y suéltalo al terminar.', 'info');
+  MIC.reconocimiento.stop();  // al parar, el navegador entrega lo último que entendió
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  const boton = document.querySelector('.avi-mic-btn');
+  if (!boton) return;
+
+  boton.addEventListener('pointerdown', function (evento) {
+    evento.preventDefault();
+    try { boton.setPointerCapture(evento.pointerId); } catch (e) {}  // para que el soltar se detecte aunque el dedo se salga del botón
+    empezarADictar(boton);
+  });
+  boton.addEventListener('pointerup', pararDeDictar);
+  boton.addEventListener('pointercancel', pararDeDictar);
+  boton.addEventListener('contextmenu', function (evento) { evento.preventDefault(); });  // el toque largo no abre menú
+  // con teclado: mantener la barra espaciadora
+  boton.addEventListener('keydown', function (evento) {
+    if (evento.key === ' ' && !evento.repeat) { evento.preventDefault(); empezarADictar(boton); }
+  });
+  boton.addEventListener('keyup', function (evento) {
+    if (evento.key === ' ') pararDeDictar();
+  });
+});
+
 
 document.addEventListener('DOMContentLoaded', function () {
   document.querySelectorAll('form[data-validar]').forEach(function (form) {
@@ -386,3 +429,24 @@ document.addEventListener('DOMContentLoaded', function () {
   } catch (e) {}
   if (aviso) showToast(aviso, 'success');
 });
+
+// Video de bienvenida (RF-S05): se abre solo la primera vez y se marca como visto al cerrarlo
+document.addEventListener('DOMContentLoaded', function () {
+  const video = document.getElementById('videoBienvenida');
+  if (!video) return;
+  video.src = video.dataset.src;
+  openModal('video-bienvenida');
+});
+
+function cerrarVideoBienvenida() {
+  const video = document.getElementById('videoBienvenida');
+  if (video) video.src = '';  // así el video deja de sonar
+  closeModal('video-bienvenida');
+  const formulario = document.getElementById('formVideoVisto');
+  if (formulario) {
+    fetch(formulario.action, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': formulario.querySelector('input[name=csrfmiddlewaretoken]').value },
+    }).catch(function () {});
+  }
+}

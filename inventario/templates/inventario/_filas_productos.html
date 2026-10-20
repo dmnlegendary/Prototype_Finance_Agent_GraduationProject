@@ -12,11 +12,11 @@
   <td class="right">${{ producto.costo }} / ${{ producto.precio_venta }}{% if producto.a_granel %} por kg{% endif %}</td>
   <td style="display:flex; gap:6px; flex-wrap:wrap;">
     {% if not producto.pendiente_validacion %}
-    <button type="button" class="btn-edit-row btn-resurtir" data-pk="{{ producto.pk }}" data-nombre="{{ producto.nombre }}" data-granel="{{ producto.a_granel|yesno:'1,0' }}" data-costo="{{ producto.costo }}" onclick="abrirResurtir(this)">Resurtir</button>
+    <button type="button" class="btn-edit-row btn-resurtir" data-pk="{{ producto.pk }}" data-nombre="{{ producto.nombre }}" data-granel="{{ producto.a_granel|yesno:'1,0' }}" data-costo="{{ producto.costo }}" data-precio="{{ producto.precio_venta }}" onclick="abrirResurtir(this)">Resurtir</button>
     {% endif %}
     <button type="button" class="btn-edit-row" onclick="abrirEdicion({{ producto.pk }})">{% if producto.pendiente_validacion %}Completar{% else %}Editar{% endif %}</button>
     {% if not producto.pendiente_validacion %}
-    <form method="post" action="{% url 'inventario:producto_eliminar' producto.pk %}" onsubmit="return confirm('{% if producto.con_ventas %}Este producto ya tiene ventas registradas. Se dará de baja pero no se perderá su historial. ¿Continuar?{% else %}¿Dar de baja {{ producto.nombre|escapejs }}?{% endif %}');">
+    <form method="post" action="{% url 'inventario:producto_eliminar' producto.pk %}" onsubmit="return confirm('{% if producto.con_ventas %}Este producto ya tiene ventas registradas. Se dará de baja pero no se perderá su historial. ¿Continuar?{% else %}¿Dar de baja {{ producto.nombre|escapejs }}?{% endif %}') && confirm('Segunda confirmación: {{ producto.nombre|escapejs }} dejará de aparecer en tu catálogo y en las ventas. ¿Seguro que quieres darlo de baja?');">
       {% csrf_token %}
       <button type="submit" class="btn-edit-row btn-danger-row">Baja</button>
     </form>

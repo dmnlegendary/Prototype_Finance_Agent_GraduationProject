@@ -1,0 +1,92 @@
+{% extends "base_app.html" %}
+{% load static %}
+
+{% block app_extra_head %}
+<link rel="stylesheet" href="{% static 'inventario/css/inventario.css' %}">
+{% endblock %}
+
+{% block app_content %}
+<div class="layout">
+  <div class="main-content">
+    <div class="state active" style="padding:16px; gap:12px; overflow-y:auto;">
+
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+        <h2 style="font-size:16px;"><i class="bi bi-journal-text"></i> Movimientos de inventario</h2>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <a href="{% url 'inventario:movimientos_exportar' %}?{{ filtros_url }}" class="btn-ghost" style="text-decoration:none;" data-sin-loader><i class="bi bi-download"></i> Descargar CSV</a>
+          <a href="{% url 'inventario:panel' %}" class="btn-ghost" style="text-decoration:none;">← Volver al inventario</a>
+        </div>
+      </div>
+      <p style="font-size:13px; color:var(--text-muted); margin:0;">
+        Cada vez que cambian las existencias de un producto (una venta, mercancía que llegó o un ajuste) queda aquí con su motivo.
+        Los movimientos no se editan ni se borran.
+      </p>
+
+      <form method="get" class="search-filter-row" style="padding:0; gap:8px;">
+        <div class="search-inv" style="border-radius:var(--radius-full);">
+          <i class="bi bi-search"></i>
+          <input type="text" name="q" value="{{ q }}" placeholder="Producto…" autocomplete="off"/>
+        </div>
+        <select class="filter-select" name="tipo" style="border-radius:var(--radius-full); min-width:150px;">
+          <option value="">Todos los tipos</option>
+          {% for valor, texto in tipos %}
+          <option value="{{ valor }}" {% if tipo == valor %}selected{% endif %}>{{ texto }}</option>
+          {% endfor %}
+        </select>
+        <input type="date" name="desde" value="{{ desde }}" class="filter-select" style="min-width:140px; border-radius:var(--radius-full);" title="Desde">
+        <input type="date" name="hasta" value="{{ hasta }}" class="filter-select" style="min-width:140px; border-radius:var(--radius-full);" title="Hasta">
+        <button type="submit" class="btn-action btn-alta" style="flex:none; min-width:100px;">Filtrar</button>
+      </form>
+
+      <div class="catalog-wrap" style="padding:0; flex:none;">
+        <div class="catalog-card">
+          <div class="catalog-scroll">
+            <table class="catalog-table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Producto</th>
+                  <th>Tipo</th>
+                  <th class="right">Cambio</th>
+                  <th class="right">Quedaron</th>
+                  <th class="right">Costo c/u</th>
+                  <th>Motivo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for m in pagina.object_list %}
+                <tr>
+                  <td>{{ m.creado_en|date:"d/m/Y H:i" }}</td>
+                  <td>{{ m.producto.nombre }}</td>
+                  <td><span class="badge-cat">{{ m.get_tipo_display }}</span></td>
+                  <td class="right" style="font-weight:700; color:{% if m.cantidad > 0 %}var(--inv-600){% else %}var(--color-danger){% endif %};">
+                    {% if m.cantidad > 0 %}+{% endif %}{{ m.cantidad|floatformat:"-3" }}
+                  </td>
+                  <td class="right">{{ m.existencia_resultante|floatformat:"-3" }}</td>
+                  <td class="right">{% if m.costo_unitario is not None %}${{ m.costo_unitario|floatformat:2 }}{% else %}—{% endif %}</td>
+                  <td>{{ m.motivo|default:"—" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="7" style="text-align:center; color:var(--text-faint); padding:24px;">
+                    No hay movimientos con ese filtro.
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% if pagina.paginator.num_pages > 1 %}
+          <div class="paginacion">
+            {% if pagina.has_previous %}<a href="?{{ filtros_url }}&page={{ pagina.previous_page_number }}" data-sin-loader>&larr; Anterior</a>{% endif %}
+            <span>Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+            {% if pagina.has_next %}<a href="?{{ filtros_url }}&page={{ pagina.next_page_number }}" data-sin-loader>Siguiente &rarr;</a>{% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -13,6 +13,7 @@ urlpatterns = [
     path("login/", views.TiendaLoginView.as_view(), name="login"),
     path("logout/", views.TiendaLogoutView.as_view(), name="logout"),
     path("eliminar-cuenta/", views.eliminar_cuenta, name="eliminar_cuenta"),
+    path("video-visto/", views.video_visto, name="video_visto"),
 
     path(
         "password-reset/",

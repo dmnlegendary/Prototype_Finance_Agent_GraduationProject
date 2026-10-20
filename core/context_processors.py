@@ -1,3 +1,5 @@
+from django.conf import settings
+
 from inventario.alertas import conteo_alertas, nivel_mas_urgente
 
 
@@ -17,4 +19,6 @@ def negocio_activo(request):
         "negocio": negocio,
         "alertas_conteo": conteo,
         "alertas_nivel": nivel_mas_urgente(conteo),
+        # el video de presentación se muestra solo la primera vez que entra, y solo si ya hay un enlace
+        "video_bienvenida": settings.VIDEO_INTRODUCTORIO_URL if not usuario.video_visto else "",
     }

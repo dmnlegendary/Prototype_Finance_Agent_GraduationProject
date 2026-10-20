@@ -12,11 +12,21 @@
       <i class="bi bi-robot"></i> Explícame mis reportes
     </button>
     <div class="fin-period-toggle">
-      <a href="?periodo=3" class="{% if periodo_meses == 3 %}active{% endif %}" data-sin-loader>3 meses</a>
-      <a href="?periodo=6" class="{% if periodo_meses == 6 %}active{% endif %}" data-sin-loader>6 meses</a>
+      {% for n in opciones_de_periodo %}
+      <a href="?periodo={{ n }}" class="{% if periodo_meses == n %}active{% endif %}" data-sin-loader>{{ n }} {% if n == 1 %}mes{% else %}meses{% endif %}</a>
+      {% endfor %}
     </div>
   </div>
 </div>
+
+<form method="get" class="fin-filtro-margen" style="margin:-4px 0 4px;">
+  <label for="desde">O escoge del mes</label>
+  <input type="month" id="desde" name="desde" value="{{ desde_mes }}" max="{{ mes_actual }}" style="width:auto;">
+  <label for="hasta">al mes</label>
+  <input type="month" id="hasta" name="hasta" value="{{ hasta_mes }}" max="{{ mes_actual }}" style="width:auto;">
+  <button type="submit" class="fin-btn-primary" style="width:auto;padding:8px 16px;">Ver</button>
+  <a href="{% url 'finanzas:reporte_ventas' %}" class="btn-ghost" style="text-decoration:none;" data-sin-loader><i class="bi bi-receipt-cutoff"></i> Reporte de ventas</a>
+</form>
 
 {% if renglones_sin_costo %}
 <div class="fin-callout alerta">
@@ -77,9 +87,9 @@
     <h3>Ingresos vs Egresos</h3>
     <svg viewBox="0 0 320 160" width="100%" height="160">
       {% for m in datos_meses %}
-      <rect x="{{ m.x_ingresos }}" y="{{ m.y_ingresos }}" width="10" height="{{ m.h_ingresos }}" fill="var(--color-primary)"/>
-      <rect x="{{ m.x_egresos }}" y="{{ m.y_egresos }}" width="10" height="{{ m.h_egresos }}" fill="var(--color-danger)"/>
-      <text x="{{ m.x_texto }}" y="152" font-size="10" fill="var(--text-muted)" text-anchor="middle">{{ m.etiqueta }}</text>
+      <rect x="{{ m.x_ingresos }}" y="{{ m.y_ingresos }}" width="{{ m.ancho }}" height="{{ m.h_ingresos }}" fill="var(--color-primary)"/>
+      <rect x="{{ m.x_egresos }}" y="{{ m.y_egresos }}" width="{{ m.ancho }}" height="{{ m.h_egresos }}" fill="var(--color-danger)"/>
+      {% if m.con_etiqueta %}<text x="{{ m.x_texto }}" y="152" font-size="9" fill="var(--text-muted)" text-anchor="middle">{{ m.etiqueta }}</text>{% endif %}
       {% endfor %}
     </svg>
     <div style="display:flex;gap:14px;font-size:12px;color:var(--text-muted);margin-top:6px;">
@@ -95,7 +105,7 @@
       <polyline points="{{ puntos_linea }}" fill="none" stroke="var(--color-success)" stroke-width="3"/>
       {% for m in datos_meses %}
       <circle cx="{{ m.x_texto }}" cy="{{ m.y_punto }}" r="4" fill="var(--color-success)"/>
-      <text x="{{ m.x_texto }}" y="152" font-size="10" fill="var(--text-muted)" text-anchor="middle">{{ m.etiqueta }}</text>
+      {% if m.con_etiqueta %}<text x="{{ m.x_texto }}" y="152" font-size="9" fill="var(--text-muted)" text-anchor="middle">{{ m.etiqueta }}</text>{% endif %}
       {% endfor %}
     </svg>
   </div>
@@ -103,13 +113,17 @@
 
 <div class="fin-card">
   <h3><i class="bi bi-robot"></i> Alertas y sugerencias</h3>
-  {% if gasto_inusual %}
+  {% for s in sugerencias %}
   <div class="fin-result-item">
     <span>
-      <i class="bi bi-lightbulb-fill" style="color:var(--color-orange);"></i>
-      El gasto "<strong>{{ gasto_inusual.concepto }}</strong>" de ${{ gasto_inusual.monto }} fue mucho más alto de lo normal este periodo. Vale la pena revisarlo.
+      <i class="bi {{ s.icono }}" style="color:{% if s.alerta %}var(--color-danger){% else %}var(--color-orange){% endif %};"></i>
+      {{ s.texto }}
+      {% if s.enlace %}<a href="{% url s.enlace.0 %}" data-sin-loader><strong>{{ s.enlace.1 }}</strong></a>{% endif %}
     </span>
   </div>
+  {% endfor %}
+  {% if not sugerencias %}
+  <div class="fin-result-item"><span><i class="bi bi-check-circle-fill" style="color:var(--color-success);"></i> Por ahora no hay alertas en este periodo.</span></div>
   {% endif %}
   <div id="listaBajaRotacion" data-url="{% url 'finanzas:baja_rotacion' %}" data-desde="{{ desde_baja_rotacion }}" data-siguiente="1"></div>
   <button type="button" class="btn-ghost" id="btnBajaRotacion" onclick="verBajaRotacion()" style="margin-top:8px;"><i class="bi bi-box-seam"></i> Ver productos que no se han vendido en este periodo</button>

@@ -1,0 +1,8 @@
+<div class="form-group">
+  <label>Ícono del producto <span style="font-weight:400;color:var(--text-faint);">(opcional)</span></label>
+  <div class="selector-icono">
+    {{ campo }}
+    {% for icono in iconos %}<button type="button" class="icono-opcion" data-icono="{{ icono }}" onclick="elegirIcono(this)">{{ icono }}</button>{% endfor %}
+  </div>
+  <span style="font-size:11px;color:var(--text-faint);">Si no eliges uno, el sistema le pone el que mejor le queda según su nombre.</span>
+</div>

@@ -1,0 +1,109 @@
+{% extends "finanzas/_base_finanzas.html" %}
+{% load humanize %}
+
+{% block fin_content %}
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+  <div>
+    <div class="fin-title"><i class="bi bi-receipt-cutoff"></i> Reporte de Ventas</div>
+    <p class="fin-subtitle">Lo que vendiste, lo que ganaste y los productos que más se mueven en las fechas que elijas.</p>
+  </div>
+  <div class="fin-period-toggle">
+    <a href="?dias=7" class="{% if dias == '7' %}active{% endif %}" data-sin-loader>7 días</a>
+    <a href="?dias=30" class="{% if dias == '30' %}active{% endif %}" data-sin-loader>30 días</a>
+    <a href="?dias=90" class="{% if dias == '90' %}active{% endif %}" data-sin-loader>90 días</a>
+  </div>
+</div>
+
+<form method="get" class="fin-filtro-margen" style="margin:-4px 0 4px;">
+  <label for="desde">Del</label>
+  <input type="date" id="desde" name="desde" value="{{ desde }}" max="{{ hoy }}" style="width:auto;">
+  <label for="hasta">al</label>
+  <input type="date" id="hasta" name="hasta" value="{{ hasta }}" max="{{ hoy }}" style="width:auto;">
+  <button type="submit" class="fin-btn-primary" style="width:auto;padding:8px 16px;">Ver</button>
+  <a href="{% url 'finanzas:reportes_financieros' %}" class="btn-ghost" style="text-decoration:none;" data-sin-loader><i class="bi bi-bar-chart-fill"></i> Reportes financieros</a>
+</form>
+
+{% if reporte.renglones_sin_costo %}
+<div class="fin-callout alerta">
+  <i class="bi bi-exclamation-triangle-fill"></i>
+  <strong>Ojo con la ganancia:</strong> {{ reporte.renglones_sin_costo }} renglones vendidos no tienen precio de compra, así que la ganancia se ve más alta de lo que es.
+  <a href="{% url 'finanzas:registrar_gastos' %}" data-sin-loader>Completa los precios de compra</a>.
+</div>
+{% endif %}
+
+<div class="fin-stat-grid">
+  <div class="fin-stat-card">
+    <div class="fin-stat-label">Vendiste</div>
+    <div class="fin-stat-value" style="color:var(--color-primary);">${{ reporte.ingresos|floatformat:2|intcomma }}</div>
+  </div>
+  <div class="fin-stat-card">
+    <div class="fin-stat-label">Ganaste (antes de gastos)</div>
+    <div class="fin-stat-value" style="color:var(--color-success);">${{ reporte.ganancia|floatformat:2|intcomma }}</div>
+    <div class="fin-stat-delta neutral">{% if reporte.margen_bruto is not None %}{{ reporte.margen_bruto }}% de lo vendido{% else %}sin ventas{% endif %}</div>
+  </div>
+  <div class="fin-stat-card">
+    <div class="fin-stat-label">Ventas (tickets)</div>
+    <div class="fin-stat-value">{{ reporte.tickets|intcomma }}</div>
+  </div>
+  <div class="fin-stat-card">
+    <div class="fin-stat-label">Ticket promedio</div>
+    <div class="fin-stat-value">{% if reporte.ticket_promedio is not None %}${{ reporte.ticket_promedio|floatformat:2|intcomma }}{% else %}—{% endif %}</div>
+  </div>
+</div>
+
+{% if reporte.tickets %}
+<div class="fin-card">
+  <h3>Ventas de cada día</h3>
+  <svg viewBox="0 0 320 160" width="100%" height="160">
+    {% for d in reporte.por_dia %}
+    <rect x="{{ d.x }}" y="{{ d.y }}" width="{{ d.ancho }}" height="{{ d.alto }}" fill="var(--color-primary)"><title>{{ d.etiqueta }}: ${{ d.total|floatformat:2 }}</title></rect>
+    {% if d.con_etiqueta %}<text x="{{ d.x|add:0 }}" y="152" font-size="8" fill="var(--text-muted)">{{ d.etiqueta }}</text>{% endif %}
+    {% endfor %}
+  </svg>
+</div>
+
+<div class="fin-grid-2">
+  <div class="fin-card">
+    <h3>Los que más se vendieron</h3>
+    <table class="fin-table">
+      <thead><tr><th>Producto</th><th style="text-align:right;">Unidades</th><th style="text-align:right;">Vendido</th></tr></thead>
+      <tbody>
+        {% for p in reporte.mas_vendidos %}
+        <tr><td>{{ p.nombre }}</td><td style="text-align:right;">{{ p.unidades|floatformat:"-3" }}</td><td style="text-align:right;">${{ p.ventas|floatformat:2|intcomma }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="fin-card">
+    <h3>Los que más ganancia dejaron</h3>
+    <table class="fin-table">
+      <thead><tr><th>Producto</th><th style="text-align:right;">Vendido</th><th style="text-align:right;">Ganancia</th></tr></thead>
+      <tbody>
+        {% for p in reporte.mas_ganancia %}
+        <tr><td>{{ p.nombre }}</td><td style="text-align:right;">${{ p.ventas|floatformat:2|intcomma }}</td><td style="text-align:right;">${{ p.ganancia|floatformat:2|intcomma }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="fin-card">
+  <h3>Por categoría</h3>
+  <table class="fin-table">
+    <thead><tr><th>Categoría</th><th style="text-align:right;">Vendido</th><th style="text-align:right;">Ganancia</th></tr></thead>
+    <tbody>
+      {% for c in reporte.por_categoria %}
+      <tr><td>{{ c.nombre }}</td><td style="text-align:right;">${{ c.ventas|floatformat:2|intcomma }}</td><td style="text-align:right;">${{ c.ganancia|floatformat:2|intcomma }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="fin-subtitle" style="margin-top:10px;">
+    La ganancia es lo que vendiste menos lo que te costó la mercancía que vendiste. Todavía no restes tus gastos del negocio (renta, luz…): eso lo ves en los reportes financieros.
+  </p>
+</div>
+{% else %}
+<div class="fin-card">
+  <p class="fin-subtitle" style="margin:0;">No hay ventas cobradas en estas fechas.</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -5,4 +5,5 @@
   <a href="{% url 'finanzas:sugerir_precios' %}" class="fin-tab{% if activo == 'precios' %} active{% endif %}" data-sin-loader><i class="bi bi-tag-fill"></i> Sugerir precios</a>
   <a href="{% url 'finanzas:pronostico_ventas' %}" class="fin-tab{% if activo == 'pronostico' %} active{% endif %}" data-sin-loader><i class="bi bi-magic"></i> Pronóstico de ventas</a>
   <a href="{% url 'finanzas:reportes_financieros' %}" class="fin-tab{% if activo == 'reportes' %} active{% endif %}" data-sin-loader><i class="bi bi-bar-chart-fill"></i> Reportes financieros</a>
+  <a href="{% url 'finanzas:reporte_ventas' %}" class="fin-tab{% if activo == 'reporte_ventas' %} active{% endif %}" data-sin-loader><i class="bi bi-receipt-cutoff"></i> Reporte de ventas</a>
 </div>

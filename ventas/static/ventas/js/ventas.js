@@ -4,10 +4,11 @@
 // (ver static/js/sinconexion.js).
 
 const POS = {
-  carrito: 1,          // el carrito en el que trabaja esta pantalla (1 o 2)
-  estado: null,        // el carrito tal como lo regresó el servidor (o el local si no hay internet)
-  sinInternet: false,  // true mientras se trabaja con el carrito local
+  carrito: 1,          // la caja en la que trabaja esta pantalla (1 o 2)
+  estado: null,        // la caja tal como lo regresó el servidor (o el local si no hay internet)
+  sinInternet: false,  // true mientras se trabaja con la caja local
   local: { 1: nuevoLocal(), 2: nuevoLocal() },
+  ultimo: {},          // la última copia que mandó el servidor de cada caja, para no perderla si se va el internet
   catalogo: [],        // copia del catálogo (para buscar sin internet)
   resultados: [],      // lo que muestra el buscador
   resaltado: -1,
@@ -16,7 +17,7 @@ const POS = {
 };
 
 function nuevoLocal() {
-  return { renglones: [], copiadoDelServidor: false };
+  return { renglones: [], copiadoDelServidor: false, modificado: false };
 }
 
 function raiz() { return document.getElementById('posRaiz'); }
@@ -45,11 +46,16 @@ async function llamar(ruta, metodo, cuerpo) {
   return { estado: respuesta.status, ok: respuesta.ok && !datos.sesion, datos: datos };
 }
 
-// ------------------------------------------------------------------ dibujar el carrito
+// ------------------------------------------------------------------ dibujar la caja
 
 
 function pintar(estado) {
   POS.estado = estado;
+  // lo que viene del servidor trae folio; el estado local (sin internet) no
+  if (estado.folio) {
+    POS.ultimo[estado.carrito] = estado;
+    try { localStorage.setItem('cajas_ultimas', JSON.stringify(POS.ultimo)); } catch (e) {}
+  }
   const cuerpo = document.getElementById('cuerpoCarrito');
   cuerpo.innerHTML = '';
 
@@ -66,7 +72,7 @@ function pintar(estado) {
 
   if (vacio) {
     const fila = document.createElement('tr');
-    fila.innerHTML = '<td colspan="5" style="text-align:center;color:var(--text-faint);padding:24px;"><i class="bi bi-cart3"></i> Carrito vacío. Busca un producto o escanea su código.</td>';
+    fila.innerHTML = '<td colspan="5" style="text-align:center;color:var(--text-faint);padding:24px;"><i class="bi bi-cart3"></i> Caja vacía. Busca un producto o escanea su código.</td>';
     cuerpo.appendChild(fila);
   }
 
@@ -131,10 +137,10 @@ function pintar(estado) {
     const quitarBoton = document.createElement('button');
     quitarBoton.type = 'button';
     quitarBoton.className = 'btn-eliminar-item';
-    quitarBoton.title = 'Quitar del carrito';
+    quitarBoton.title = 'Quitar de la caja';
     quitarBoton.innerHTML = '<i class="bi bi-trash3"></i>';
     quitarBoton.addEventListener('click', function () {
-      if (confirm('¿Quitar ' + r.nombre + ' del carrito?')) quitar(r);
+      if (confirm('¿Quitar ' + r.nombre + ' de la caja?')) quitar(r);
     });
     celdaQuitar.appendChild(quitarBoton);
     fila.appendChild(celdaQuitar);
@@ -142,7 +148,7 @@ function pintar(estado) {
     cuerpo.appendChild(fila);
   });
 
-  // pestañas de los carritos: cuál está activo y cuántos productos tiene cada uno
+  // pestañas de las cajas: cuál está activa y cuántos productos tiene cada una
   document.querySelectorAll('.carrito-tab').forEach(function (tab) {
     tab.classList.toggle('activo', Number(tab.dataset.carrito) === POS.carrito);
   });
@@ -215,10 +221,17 @@ async function cancelarVenta() {
   await accion(rutaDe('urlCancelar', POS.carrito), 'POST', {});
 }
 
+// el botón se deshabilita al primer clic: si el internet está lento, un segundo clic no debe cobrar dos veces
+let cobrando = false;
+
 async function cobrarVenta() {
+  if (cobrando) return;
   if (!POS.estado || !POS.estado.renglones.length) return;
   if (modoSinInternet()) return cobrarLocal();
 
+  cobrando = true;
+  const boton = document.getElementById("btnCobrar");
+  if (boton) boton.disabled = true;
   try {
     const r = await llamar(rutaDe('urlCobrar', POS.carrito), 'POST', {});
     if (r.ok && r.datos.ok) {
@@ -233,6 +246,9 @@ async function cobrarVenta() {
     }
   } catch (e) {
     if (e.red) { caidaDeRed(); } else { throw e; }
+  } finally {
+    cobrando = false;
+    if (boton) boton.disabled = !(POS.estado && POS.estado.renglones.length);
   }
 }
 
@@ -438,6 +454,7 @@ function pedirResurtir(datos, reintento) {
   document.getElementById('sinExistenciasUnidad').textContent = p.a_granel ? 'kilos' : 'piezas';
   document.getElementById('sinExistenciasCantidad').value = '';
   document.getElementById('sinExistenciasCosto').value = p.costo && Number(p.costo) > 0 ? p.costo : '';
+  document.getElementById('sinExistenciasPrecio').value = p.precio_venta || '';
   document.getElementById('sinExistenciasError').style.display = 'none';
   openModal('sin-existencias');
   document.getElementById('sinExistenciasCantidad').focus();
@@ -456,13 +473,21 @@ async function guardarSinExistencias(evento) {
   const error = document.getElementById('sinExistenciasError');
   const cantidad = document.getElementById('sinExistenciasCantidad').value;
   const costo = document.getElementById('sinExistenciasCosto').value;
+  const precio = document.getElementById('sinExistenciasPrecio').value;
   const productoId = pendiente.datos.producto.id;
 
+  // el precio de venta nunca puede quedar por debajo de lo que cuesta (también se revisa en el servidor)
+  if (costo && precio && Number(precio) < Number(costo)) {
+    error.textContent = 'El precio de venta no puede ser menor al precio de compra. Súbelo o revisa el costo.';
+    error.style.display = 'block';
+    return false;
+  }
+
   if (modoSinInternet()) {
-    resurtirLocal(productoId, cantidad, costo);
+    resurtirLocal(productoId, cantidad, costo, precio);
   } else {
     try {
-      const r = await llamar(rutaDe('urlResurtir', productoId), 'POST', { cantidad: cantidad, costo: costo });
+      const r = await llamar(rutaDe('urlResurtir', productoId), 'POST', { cantidad: cantidad, costo: costo, precio_venta: precio });
       if (!r.ok || !r.datos.ok) {
         error.textContent = r.datos.mensaje || 'No se pudo agregar la mercancía.';
         error.style.display = 'block';
@@ -471,7 +496,7 @@ async function guardarSinExistencias(evento) {
     } catch (e) {
       if (e.red) {
         caidaDeRed();
-        resurtirLocal(productoId, cantidad, costo);
+        resurtirLocal(productoId, cantidad, costo, precio);
       } else {
         throw e;
       }
@@ -563,27 +588,46 @@ function caidaDeRed() {
   if (POS.sinInternet) return;
   POS.sinInternet = true;
   if (window.Sinconexion) window.Sinconexion.marcarCaido();
-  // lo que se veía en el carrito se conserva para poder terminar la venta
-  if (POS.estado) {
-    POS.local[POS.carrito] = {
+  // lo que se veía en las cajas se conserva para poder terminar la venta (de las dos, no solo la activa)
+  if (POS.estado && POS.estado.folio) POS.ultimo[POS.estado.carrito] = POS.estado;
+  Object.keys(POS.ultimo).forEach(function (n) {
+    const copia = POS.ultimo[n];
+    POS.local[n] = {
       copiadoDelServidor: true,
-      renglones: POS.estado.renglones.map(function (r) {
+      modificado: false,
+      renglones: copia.renglones.map(function (r) {
         return {
           id: 'p' + r.producto_id, producto_id: r.producto_id, nombre: r.nombre, icono: r.icono, a_granel: r.a_granel,
           cantidad: parseFloat(r.cantidad), precio_unitario: parseFloat(r.precio_unitario), disponible: r.disponible,
         };
       }),
     };
-  }
+  });
   avisar('Se perdió la conexión. Puedes seguir vendiendo: se actualizará el sistema una vez que haya internet.', 'alerta');
   pintar(estadoLocal());
+}
+
+// guarda la copia de la caja que no se está viendo, por si el internet se va mientras tiene productos
+async function guardarCopiaDeLaOtraCaja() {
+  for (const n of [1, 2]) {
+    if (n === POS.carrito || POS.ultimo[n]) continue;
+    try {
+      const r = await llamar(rutaDe('urlCarrito', n));
+      if (r.datos.ok) POS.ultimo[n] = r.datos;
+    } catch (e) {}
+  }
 }
 
 function intentarVolverAEnLinea() {
   if (!POS.sinInternet) return;
   if (window.Sinconexion && !window.Sinconexion.enLinea()) return;
-  const hayLocal = Object.keys(POS.local).some(function (n) { return POS.local[n].renglones.length; });
-  if (hayLocal) return;  // primero se termina la venta que se estaba haciendo
+  // si se cambió algo sin internet, primero se termina esa venta; si solo es la copia de lo que ya estaba en el servidor, se descarta
+  const hayLocal = Object.keys(POS.local).some(function (n) {
+    const local = POS.local[n];
+    return local.renglones.length && (local.modificado || !local.copiadoDelServidor);
+  });
+  if (hayLocal) return;
+  Object.keys(POS.local).forEach(function (n) { POS.local[n] = nuevoLocal(); });
   POS.sinInternet = false;
   cargarCarrito(POS.carrito);
   refrescarCatalogo();
@@ -613,11 +657,12 @@ function agregarLocal(productoId, cantidad) {
     const falta = {
       error: 'sin_existencias',
       mensaje: disponible <= 0 ? 'No hay existencias de "' + p.nombre + '".' : 'De "' + p.nombre + '" solo hay ' + disponible + ' y pides ' + nueva + '.',
-      producto: { id: p.id, nombre: p.nombre, a_granel: p.a_granel, costo: '' },
+      producto: { id: p.id, nombre: p.nombre, a_granel: p.a_granel, costo: '', precio_venta: p.precio_venta },
     };
     pedirResurtir(falta, function () { return agregarLocal(productoId, cantidad); });
     return false;
   }
+  local.modificado = true;
   if (existente) {
     existente.cantidad = Math.round(nueva * 1000) / 1000;
   } else {
@@ -644,12 +689,13 @@ function cambiarCantidadLocal(renglon, cantidad) {
     if (nueva > disponible + 1e-9) {
       pedirResurtir({
         error: 'sin_existencias', mensaje: 'De "' + p.nombre + '" solo hay ' + disponible + ' y pides ' + nueva + '.',
-        producto: { id: p.id, nombre: p.nombre, a_granel: p.a_granel, costo: '' },
+        producto: { id: p.id, nombre: p.nombre, a_granel: p.a_granel, costo: '', precio_venta: p.precio_venta },
       }, function () { return cambiarCantidadLocal(renglon, cantidad); });
       pintar(estadoLocal());
       return false;
     }
   }
+  local.modificado = true;
   r.cantidad = Math.round(nueva * 1000) / 1000;
   pintar(estadoLocal());
   return true;
@@ -657,12 +703,14 @@ function cambiarCantidadLocal(renglon, cantidad) {
 
 function quitarLocal(renglon) {
   const local = POS.local[POS.carrito];
+  local.modificado = true;
   local.renglones = local.renglones.filter(function (x) { return x.id !== renglon.id; });
   pintar(estadoLocal());
 }
 
 function noEncontradoLocal(nombre, precio) {
   const local = POS.local[POS.carrito];
+  local.modificado = true;
   const id = 'ne-' + nombre.toLowerCase();
   const existente = local.renglones.find(function (r) { return r.id === id; });
   if (existente) {
@@ -676,10 +724,14 @@ function noEncontradoLocal(nombre, precio) {
   pintar(estadoLocal());
 }
 
-function resurtirLocal(productoId, cantidad, costo) {
+function resurtirLocal(productoId, cantidad, costo, precio) {
   const p = producto(productoId);
-  if (p) { p.stock = Number(p.stock) + Number(cantidad); guardarCatalogoLocal(); }
-  window.Sinconexion.encolar('resurtir', { producto_id: Number(productoId), cantidad: cantidad, costo: costo });
+  if (p) {
+    p.stock = Number(p.stock) + Number(cantidad);
+    if (precio) p.precio_venta = precio;
+    guardarCatalogoLocal();
+  }
+  window.Sinconexion.encolar('resurtir', { producto_id: Number(productoId), cantidad: cantidad, costo: costo, precio_venta: precio });
 }
 
 async function cobrarLocal() {
@@ -805,14 +857,25 @@ document.addEventListener('DOMContentLoaded', async function () {
   POS.carrito = preferido;
   window.carritoActivo = POS.carrito;
 
-  if (preferido === inicial.carrito) { pintar(inicial); } else { cargarCarrito(preferido); }
+  if (modoSinInternet()) {
+    // sin internet se pinta después, con la copia local
+  } else if (preferido === inicial.carrito) { pintar(inicial); } else { cargarCarrito(preferido); }
 
-  // para el chat: si la IA cambia el carrito, se vuelve a pedir al servidor
+  // para el chat: si la IA cambia la caja, se vuelve a pedir al servidor
   window.refrescarPOS = function () { cargarCarrito(POS.carrito); };
 
   await refrescarCatalogo();
-  document.addEventListener('sinconexion:cambio', intentarVolverAEnLinea);
-  if (modoSinInternet()) { POS.sinInternet = true; pintar(estadoLocal()); }
+  document.addEventListener('sinconexion:cambio', function () {
+    // si el internet se va con productos en la caja, se guardan en el dispositivo en ese momento
+    if (modoSinInternet() && !POS.sinInternet) { caidaDeRed(); } else { intentarVolverAEnLinea(); }
+  });
+  if (modoSinInternet()) {
+    // la página pudo salir del caché del dispositivo, así que se usa lo último que se vio con internet, no su estado inicial
+    try { POS.ultimo = JSON.parse(localStorage.getItem('cajas_ultimas') || '{}'); } catch (e) { POS.ultimo = {}; }
+    caidaDeRed();
+  } else {
+    guardarCopiaDeLaOtraCaja();
+  }
 
   const entrada = document.getElementById('buscarProducto');
   entrada.focus();

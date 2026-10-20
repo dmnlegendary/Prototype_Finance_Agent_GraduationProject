@@ -22,6 +22,7 @@ NOMBRES = [
     "resumen_financiero",
     "punto_equilibrio",
     "contexto_ia",
+    "pronostico",
 ]
 
 

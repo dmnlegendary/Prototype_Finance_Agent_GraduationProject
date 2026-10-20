@@ -1,60 +1,75 @@
 {% extends "finanzas/_base_finanzas.html" %}
-
+{% load static %}
 
 {% block fin_content %}
 <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
   <div class="fin-title"><i class="bi bi-graph-up-arrow"></i> Pronóstico de Ventas</div>
   <span class="badge-ia-local"><i class="bi bi-cpu-fill"></i> Modelos estadísticos locales</span>
 </div>
-<p class="fin-subtitle">Compara tres métodos con las ventas cobradas. Los datos se consultan mediante Django y funcionan con SQLite o PostgreSQL.</p>
+<p class="fin-subtitle">Cuántas piezas vas a vender la próxima semana de tus productos más vendidos, comparando tres métodos con tus ventas cobradas.</p>
+
+<div class="fin-callout alerta">
+  <i class="bi bi-exclamation-triangle-fill"></i> <strong>Es una estimación de apoyo.</strong>
+  Un pronóstico no es una promesa de ventas: puede fallar por cosas que el sistema no sabe (una fiesta, la lluvia, un cambio de precio).
+  La decisión de cuánto comprar siempre es tuya.
+</div>
 
 <div class="fin-callout">
   <i class="bi bi-info-circle-fill"></i> Se toman los 10 productos con más unidades vendidas y las últimas 26 semanas disponibles.
-  El error MAE se calcula con una prueba sobre las últimas semanas; Holt-Winters usa un ciclo estacional de 4 semanas.
-  El pronóstico corresponde a la semana posterior al último registro, no necesariamente a la semana actual.
+  Un producto necesita al menos <strong id="minimoDias">30</strong> días de historia; si tiene menos, se muestra "Datos insuficientes".
+  Si un solo día se vendió la mitad o más de todo lo del producto (una venta muy rara), ese día se ajusta para que no engañe al modelo.
+  El error (MAE) se calcula con una prueba sobre las últimas semanas y Holt-Winters usa un ciclo de 4 semanas.
 </div>
 
-<div class="fin-card">
-  <h3>Comparación semanal</h3>
-  <form method="get">
-    <button type="submit" name="generar" value="1" class="fin-btn-primary">
-      <i class="bi bi-play-fill"></i> Calcular pronóstico y probar modelos
-    </button>
-  </form>
+<div class="fin-card" id="tarjetaPronostico"
+     data-url-base="{% url 'finanzas:pronostico_base' %}"
+     data-url-modelo="{% url 'finanzas:pronostico_modelo' 'CLAVE' %}">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+    <h3 style="margin:0;">Comparación semanal</h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button type="button" class="fin-btn-primary" id="btnRecalcular" style="width:auto;padding:9px 16px;" disabled>
+        <i class="bi bi-arrow-repeat"></i> Volver a calcular
+      </button>
+      <button type="button" class="btn-avi-explica" id="btnExplicarPronostico" style="margin-bottom:0;" onclick="explicarConAvi('pronostico')" disabled>
+        <i class="bi bi-stars"></i> Explícame mi pronóstico
+      </button>
+    </div>
+  </div>
 
-  {% if pronostico.estado == "sin_ventas" %}
-  <p class="fin-pronostico-vacio">Aún no hay ventas cobradas para generar un pronóstico.</p>
-  {% elif pronostico.estado == "ok" %}
-  <p class="fin-pronostico-periodo">
-    Historial hasta {{ pronostico.ultima_semana|date:"d/m/Y" }} · Pronóstico para la semana del {{ pronostico.semana_pronostico|date:"d/m/Y" }}
-  </p>
-  <div class="fin-tabla-scroll">
+  <div id="estadoPronostico" class="fin-pronostico-estado" role="status" aria-live="polite">Preparando tus ventas…</div>
+  <div class="fin-progreso"><div class="fin-progreso-barra" id="barraPronostico" style="width:0%;"></div></div>
+
+  <p class="fin-pronostico-periodo" id="periodoPronostico" style="display:none;"></p>
+  <p class="fin-pronostico-vacio" id="vacioPronostico" style="display:none;">Aún no hay ventas cobradas para generar un pronóstico.</p>
+
+  <div class="fin-tabla-scroll" id="tablaPronostico" style="display:none;">
     <table class="fin-pronostico-tabla">
       <thead>
         <tr>
           <th>Producto</th>
-          <th>Unidades históricas</th>
+          <th>Última semana<br><small>unid. vendidas</small></th>
+          <th>Próxima semana<br><small>unid. estimadas</small></th>
+          <th>Cambio</th>
+          <th>Confianza</th>
+          <th>Menor error</th>
           <th>ARIMA<br><small>unid. / MAE</small></th>
           <th>Regresión lineal<br><small>unid. / MAE</small></th>
           <th>Holt-Winters<br><small>unid. / MAE</small></th>
-          <th>Menor error</th>
         </tr>
       </thead>
-      <tbody>
-        {% for producto in pronostico.productos %}
-        <tr>
-          <th scope="row">{{ producto.nombre }}</th>
-          <td>{{ producto.unidades_historicas|floatformat:0 }}</td>
-          <td>{% if producto.modelos.arima.disponible %}{{ producto.modelos.arima.pronostico }} / {{ producto.modelos.arima.mae|default_if_none:"s/d" }}{% else %}s/d{% endif %}</td>
-          <td>{% if producto.modelos.lineal.disponible %}{{ producto.modelos.lineal.pronostico }} / {{ producto.modelos.lineal.mae|default_if_none:"s/d" }}{% else %}s/d{% endif %}</td>
-          <td>{% if producto.modelos.holt_winters.disponible %}{{ producto.modelos.holt_winters.pronostico }} / {{ producto.modelos.holt_winters.mae|default_if_none:"s/d" }}{% else %}s/d{% endif %}</td>
-          <td>{% if producto.mejor_modelo %}{{ producto.mejor_modelo }} · {{ producto.mejor_pronostico }} uds{% else %}Datos insuficientes{% endif %}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
+      <tbody id="cuerpoPronostico"></tbody>
     </table>
   </div>
-  <p class="fin-pronostico-nota">MAE: error absoluto medio en unidades por semana; menor es mejor. “s/d” indica que no se pudo ajustar el modelo con esa serie.</p>
-  {% endif %}
+  <p class="fin-pronostico-nota" id="notaPronostico" style="display:none;">
+    MAE: error absoluto medio en unidades por semana; menor es mejor. "s/d" indica que no se pudo ajustar el modelo con esa serie.
+    La confianza compara ese error con lo que el producto vende normalmente en una semana:
+    <strong>alta</strong> si se equivoca menos de 25 %, <strong>media</strong> hasta 50 % y <strong>baja</strong> si se equivoca más.
+    Un asterisco (*) marca un producto en el que se ajustó un día de venta muy rara.
+  </p>
 </div>
+{% endblock %}
+
+{% block app_extra_scripts %}
+{{ block.super }}
+<script src="{% static 'finanzas/js/pronostico.js' %}"></script>
 {% endblock %}

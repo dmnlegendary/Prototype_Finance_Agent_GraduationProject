@@ -66,6 +66,7 @@ class ExplicacionIA(ModeloBase):
     class Tipo(models.TextChoices):
         DASHBOARD = "dashboard", "Dashboard"
         REPORTES = "reportes", "Reportes financieros"
+        PRONOSTICO = "pronostico", "Pronóstico de ventas"
 
     negocio = models.ForeignKey(
         "accounts.Negocio", on_delete=models.CASCADE, related_name="explicaciones_avi",

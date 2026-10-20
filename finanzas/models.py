@@ -1,6 +1,12 @@
 from django.db import models
+from django.utils import timezone
 
 from core.models import ModeloBase
+
+
+def mes_actual():
+    """Primer día del mes de hoy (el periodo que se propone al registrar un gasto)."""
+    return timezone.localdate().replace(day=1)
 
 
 class CategoriaGasto(ModeloBase):
@@ -8,6 +14,8 @@ class CategoriaGasto(ModeloBase):
 
     negocio = models.ForeignKey("accounts.Negocio", on_delete=models.CASCADE, related_name="categorias_gasto")
     nombre = models.CharField(max_length=60)
+    # si es un gasto que normalmente se paga siempre o que cambia según el mes; con esto se propone el tipo al elegirla
+    tipo = models.CharField(max_length=10, blank=True, default="")
 
     class Meta:
         verbose_name = "Categoría de gasto"
@@ -40,12 +48,16 @@ class GastoOperativo(ModeloBase):
     monto = models.DecimalField(max_digits=10, decimal_places=2)
     nota = models.CharField(max_length=255, blank=True)
     fecha = models.DateField(auto_now_add=True)
+    # el mes al que pertenece el gasto (por ejemplo, la luz de septiembre que se paga en octubre).
+    # Se guarda como el primer día de ese mes y es el que cuentan los reportes.
+    periodo = models.DateField("Mes al que corresponde", default=mes_actual)
 
     class Meta:
         verbose_name = "Gasto operativo"
-        ordering = ["-fecha"]
+        ordering = ["-periodo", "-fecha"]
         indexes = [
             models.Index(fields=["negocio", "fecha"], name="gasto_negocio_fecha_idx"),
+            models.Index(fields=["negocio", "periodo"], name="gasto_negocio_periodo_idx"),
         ]
         constraints = [
             models.CheckConstraint(

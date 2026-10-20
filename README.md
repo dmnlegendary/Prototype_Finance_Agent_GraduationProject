@@ -9,7 +9,7 @@ resolver dudas del negocio.
 
 ## Módulos
 
-- **Ventas y carrito**: punto de venta, alta al carrito, cobro.
+- **Ventas y caja**: punto de venta, alta a la caja, cobro.
 - **Inventario y alertas**: catálogo de productos, proveedores, aviso de stock bajo.
 - **Agente financiero**: gastos operativos y (a futuro) pronóstico de ventas.
 - **Orquestador AVI**: conecta con el LLM para el chat del asistente. El modelo se elige solo: primero consulta a Gemini y, si no contesta, usa ChatGPT (basta con tener una de las dos llaves).
@@ -60,7 +60,7 @@ Instala las dependencias usando siempre `python -m pip` (no solo `pip`) — si t
 python -m pip install -r requirements.txt
 ```
 
-Guarda las llaves de la IA (ChatGPT y Gemini) con un solo comando. Las escribe en el archivo `.env`, que nunca se sube a git:
+Las llaves de la IA (ChatGPT y Gemini) se guardan cifradas en la base de datos con un solo comando. Como usa una tabla, hay que correrlo después de `python manage.py migrate` (más abajo):
 
 ```bash
 python manage.py configurar_ia
@@ -101,7 +101,7 @@ Si el stock ideal se deja en 0, el sistema usa 4 veces el mínimo. Las alertas a
 
 ## Asistente (AVI)
 
-Todo lo que se puede hacer a mano en el sistema se puede pedir por el chat (escrito o con el micrófono): agregar o quitar productos del carrito, cambiar cantidades, cobrar, cancelar la venta, dar de alta o modificar productos, sumar piezas al inventario, dar de baja, crear categorías y proveedores, registrar gastos, ver ventas, alertas, finanzas, punto de equilibrio y precios sugeridos. La lista completa está en `avi/services.py` (`FUNCIONES`).
+Todo lo que se puede hacer a mano en el sistema se puede pedir por el chat (escrito o con el micrófono): agregar o quitar productos de la caja, cambiar cantidades, cobrar, cancelar la venta, dar de alta o modificar productos, sumar piezas al inventario, dar de baja, crear categorías y proveedores, registrar gastos, ver ventas, alertas, finanzas, punto de equilibrio y precios sugeridos. La lista completa está en `avi/services.py` (`FUNCIONES`).
 
 Para responder rápido:
 
@@ -122,9 +122,24 @@ Escuela Superior de Cómputo (ESCOM) — Instituto Politécnico Nacional.
 - **Precio y costo congelados en cada venta.** Si cambias el precio o el costo de un producto, las ventas de antes no cambian.
 - **Regla de oro:** no se vende más de lo que hay. Si falta, el sistema pregunta cuántas piezas (o kilos) agregar y a qué precio de compra, y sigue con la venta.
 - **Productos a granel:** se venden por gramos (el precio y las existencias son por kilo).
-- **Dos carritos** por tienda, cantidad escrita con el teclado y búsqueda tolerante (sin acentos, sin importar el orden, con errores de dedo).
+- **Dos cajas** por tienda, cantidad escrita con el teclado y búsqueda tolerante (sin acentos, sin importar el orden, con errores de dedo).
 - **Código de barras:** un lector USB o Bluetooth "escribe" el código en el buscador de ventas y da Enter; también se puede capturar en el alta y la edición del producto.
 - **Importar CSV desde la pantalla de inventario**, con revisión y confirmación antes de guardar (columnas obligatorias: `producto, cantidad, precio_compra, precio_venta`).
 - **Sin internet:** se puede cobrar, dar de alta productos y registrar mercancía. Todo se guarda en el dispositivo y se sincroniza solo al regresar la conexión (ver `static/js/sinconexion.js`, `static/sw.js` y `core/sync.py`).
 - **Pantallas ligeras:** inventario y alertas cargan 20 renglones y el resto con "Ver más"; los reportes usan pocas consultas.
 - **El asistente solo recibe las herramientas de la pantalla en la que estás**, para gastar menos.
+- **Gastos con mes:** cada gasto lleva el mes al que corresponde (la luz de septiembre pagada en octubre cuenta en septiembre).
+- **Sugerir precios para cubrir tus gastos:** el margen se puede calcular con lo que se va en gastos sobre ventas más una ganancia extra.
+- **Alertas con ritmo de venta:** dentro de cada color va primero lo que se acaba antes, y cada alerta dice cuánto vende el producto por semana.
+- **Kardex de inventario:** cada entrada, venta, merma o ajuste deja un movimiento con la existencia que quedó; se consulta en `/inventario/movimientos/` y se exporta a CSV.
+- **Reportes financieros configurables:** de 1, 3, 6 o 12 meses o un rango de meses, con sugerencias, más un reporte de ventas por periodo.
+- **Pronóstico por partes y con confianza:** carga primero la base y luego cada modelo; con poco historial avisa el nivel de confianza, y el botón "Explícame mi pronóstico" hace otra llamada a la IA.
+- **Llaves de la IA cifradas** en la base de datos (usan la `SECRET_KEY`, así que en un servidor hay que fijar `DJANGO_SECRET_KEY` en el `.env`); `python manage.py configurar_ia --ver` muestra cuáles hay, tapadas.
+- **Video de bienvenida** la primera vez que entra cada usuario, y preferencias del negocio (como el margen de ganancia) que el asistente recuerda.
+- **Listo para publicar:** `DJANGO_DEBUG`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, `USAR_HTTPS` y el correo SMTP se configuran desde el `.env` (ver `.env.example`).
+- **Costo por lotes (PEPS):** cada compra abre un lote con su propio costo y las ventas gastan primero el más viejo; si la coca costó 15 ayer y 17 hoy, las de ayer se venden con costo de 15. El kardex guarda el costo de cada movimiento.
+- **Cajas en lugar de carritos:** en pantalla y en el asistente se les dice «caja 1» y «caja 2». Si se apaga el wifi con productos en la caja, se conservan y se pueden cobrar sin internet.
+- **Listo para vender:** `python manage.py seed_catalogo --negocios` carga 20 categorías de productos, un catálogo de 186 productos con ícono y precio sugerido, y les agrega a las tiendas 24 proveedores comunes y 19 categorías de gastos (fijos o variables). Las tiendas nuevas los reciben solas al registrarse.
+- **Reglas de negocio:** el precio de venta nunca puede ser menor al de compra (alta, edición, resurtido, CSV y asistente), y el stock ideal es el promedio de lo que había después de cada carga de mercancía.
+- **Íconos de productos:** se eligen de una lista o se asignan solos según el nombre.
+- **Dictado como radio:** el micrófono del chat se mantiene presionado mientras se habla y se suelta al terminar.

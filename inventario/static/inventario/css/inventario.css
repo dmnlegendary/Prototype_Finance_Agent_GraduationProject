@@ -348,3 +348,30 @@
 .opciones-decision { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; font-size: 12px; }
 .opciones-decision label, .marcar-todos { display: flex; align-items: center; gap: 6px; cursor: pointer; }
 .marcar-todos { font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+.btn-movimientos { background: var(--inv-500); }
+.btn-movimientos:hover { background: var(--inv-600); }
+
+/* selector de ícono del producto (alta y edición) */
+.selector-icono {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-height: 104px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  background: var(--bg-white);
+}
+.icono-opcion {
+  width: 34px;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.icono-opcion:hover { background: var(--bg-muted); }
+.icono-opcion.activo { border-color: var(--color-primary); background: var(--color-primary-bg); }

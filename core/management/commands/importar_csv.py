@@ -31,6 +31,7 @@ from django.utils import timezone
 
 from core import cache_negocio
 from inventario.models import Categoria, Producto
+from inventario.movimientos import registrar_entradas_iniciales
 from ventas.models import ItemVenta, Venta
 
 TAMANO_PAQUETE = 1000
@@ -218,7 +219,10 @@ class Command(BaseCommand):
                 stock_ideal=stock_ideal,
             ))
 
-        Producto.objects.bulk_create(productos, batch_size=TAMANO_PAQUETE)
+        creados = Producto.objects.bulk_create(productos, batch_size=TAMANO_PAQUETE)
+        if creados and all(p.pk for p in creados):
+            # las piezas con las que llegan los productos quedan en el kardex
+            registrar_entradas_iniciales(creados, "Carga de archivo CSV")
         self.stdout.write(f"Productos importados: {len(productos)} (omitidos por datos malos o repetidos: {omitidos})")
 
     # ---------------------------------------------------------- ventas
@@ -311,7 +315,7 @@ class Command(BaseCommand):
         tickets_fuera_rango = 0
         ultimo_folio = Venta.objects.filter(negocio=negocio).order_by("-folio").values_list("folio", flat=True).first() or 0
         for ticket in tickets.values():
-            total = sum((c * p for _, c, p in ticket["items"]), Decimal("0")).quantize(CENTAVOS, rounding=ROUND_HALF_UP)
+            total = sum((c * p for _, c, p, _costo in ticket["items"]), Decimal("0")).quantize(CENTAVOS, rounding=ROUND_HALF_UP)
             if total > MAXIMO_DECIMAL:
                 tickets_fuera_rango += 1
                 continue

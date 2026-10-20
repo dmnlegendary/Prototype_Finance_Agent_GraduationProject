@@ -42,9 +42,9 @@
   </div>
 
   <div class="carrito-tabs" id="carritoTabs">
-    {% for n in carritos %}
+    {% for n in cajas %}
     <button type="button" class="carrito-tab" data-carrito="{{ n }}" onclick="elegirCarrito({{ n }})">
-      <i class="bi bi-cart3"></i> Carrito {{ n }} <span class="carrito-contador" id="contadorCarrito{{ n }}">0</span>
+      <i class="bi bi-cart3"></i> Caja {{ n }} <span class="carrito-contador" id="contadorCarrito{{ n }}">0</span>
     </button>
     {% endfor %}
   </div>
@@ -68,7 +68,7 @@
           </tr>
         </thead>
         <tbody id="cuerpoCarrito">
-          <tr><td colspan="5" style="text-align:center;color:var(--text-faint);padding:24px;">Cargando carrito…</td></tr>
+          <tr><td colspan="5" style="text-align:center;color:var(--text-faint);padding:24px;">Cargando caja…</td></tr>
         </tbody>
       </table>
     </div>
@@ -110,7 +110,7 @@
         <input type="number" id="noEncontradoPrecio" step="0.01" min="0.01" placeholder="0.00" required>
       </div>
       <div class="panel-footer" style="padding:0;border-top:none;">
-        <button type="submit" class="btn-success">Agregar al carrito</button>
+        <button type="submit" class="btn-success">Agregar a la caja</button>
         <button type="button" class="btn-ghost" onclick="closeModal('no-encontrado')">Cancelar</button>
       </div>
     </form>
@@ -133,6 +133,11 @@
       <div class="form-group">
         <label>Precio de compra de cada una ($)</label>
         <input type="number" id="sinExistenciasCosto" step="0.01" min="0">
+      </div>
+      <div class="form-group">
+        <label>Precio de venta (4096</label>
+        <input type="number" id="sinExistenciasPrecio" step="0.01" min="0.01">
+        <span style="font-size:11px;color:var(--text-faint);">No puede ser menor al precio de compra.</span>
       </div>
       <p style="font-size:11px;color:var(--text-faint);margin:0;">Se registra como compra de mercancía en tus gastos y se sigue con la venta.</p>
       <div id="sinExistenciasError" style="display:none;color:var(--color-danger);font-size:12px;"></div>

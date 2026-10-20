@@ -10,7 +10,7 @@ también lo puede pedir por el chat. Para agregar una función nueva:
   4. si modifica datos, agrégala al conjunto ACCIONES
 """
 from contextvars import ContextVar
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.core.exceptions import ValidationError
@@ -22,11 +22,15 @@ from core import cache_negocio
 from finanzas import calculos
 from finanzas.models import CategoriaGasto, GastoOperativo
 from inventario.alertas import conteo_alertas, productos_con_alerta
-from inventario.models import Categoria, HistorialModificacionProducto, Producto, Proveedor
+from inventario.models import MINIMO_POR_DEFECTO, Categoria, HistorialModificacionProducto, MovimientoInventario, Producto, Proveedor
+from inventario.movimientos import registrar_movimiento
 from inventario import busqueda
-from inventario.compras import CantidadInvalida, agregar_existencias, registrar_compra, texto_numero
+from inventario.compras import (
+    CantidadInvalida, agregar_existencias, mensaje_si_vende_bajo_el_costo, registrar_alta, texto_numero,
+)
+from inventario.datos_base import icono_para
 from ventas import carrito
-from ventas.cobro import SinExistencias, cobrar_venta, texto_aviso_stock
+from ventas.cobro import SinExistencias, VentaYaCobrada, cobrar_venta, texto_aviso_stock
 from ventas.models import MAXIMO_DE_CARRITOS, ItemVenta, Venta
 
 from .models import HistorialConversacion
@@ -79,10 +83,10 @@ FUNCIONES = [
     ),
     _funcion(
         "agregar_al_carrito",
-        "Agrega un producto al carrito de la venta que está en curso. En productos a granel la cantidad va "
+        "Agrega un producto a la caja (el usuario también puede decirle carrito) de la venta que está en curso. En productos a granel la cantidad va "
         "en kilos (250 gramos = 0.25). Si no alcanzan las existencias regresa sin_existencias: entonces "
         "pregunta cuánto quiere agregar al inventario y a qué precio de compra, usa ajustar_existencias "
-        "(modo sumar) y vuelve a agregar al carrito.",
+        "(modo sumar) y vuelve a agregar a la caja.",
         {
             "nombre_producto": _texto("Nombre del producto a agregar"),
             "cantidad": _numero("Cantidad a agregar, por default 1"),
@@ -91,20 +95,20 @@ FUNCIONES = [
     ),
     _funcion(
         "quitar_del_carrito",
-        "Quita un producto del carrito por completo.",
-        {"nombre_producto": _texto("Nombre del producto que está en el carrito")},
+        "Quita un producto de la caja por completo.",
+        {"nombre_producto": _texto("Nombre del producto que está en la caja")},
         ["nombre_producto"],
     ),
     _funcion(
         "cambiar_cantidad_carrito",
-        "Cambia la cantidad de un producto que ya está en el carrito (la deja en ese número exacto).",
+        "Cambia la cantidad de un producto que ya está en la caja (la deja en ese número exacto).",
         {
-            "nombre_producto": _texto("Nombre del producto que está en el carrito"),
+            "nombre_producto": _texto("Nombre del producto que está en la caja"),
             "cantidad": _numero("Nueva cantidad total de ese producto"),
         },
         ["nombre_producto", "cantidad"],
     ),
-    _funcion("ver_carrito", "Regresa los productos que hay en el carrito y el total a cobrar."),
+    _funcion("ver_carrito", "Regresa los productos que hay en la caja y el total a cobrar."),
     _funcion(
         "cobrar_carrito",
         "Cobra la venta en curso: descuenta el inventario y genera el ticket. "
@@ -112,13 +116,13 @@ FUNCIONES = [
     ),
     _funcion(
         "cancelar_venta",
-        "Cancela la venta en curso y vacía el carrito. Antes de usarla con confirmar=true "
+        "Cancela la venta en curso y vacía la caja. Antes de usarla con confirmar=true "
         "hay que preguntarle al usuario si está seguro.",
         {"confirmar": {"type": "boolean", "description": "true solo si el usuario ya confirmó que sí quiere cancelar"}},
     ),
     _funcion(
         "agregar_producto_no_encontrado",
-        "Agrega al carrito un producto que no existe en el inventario, solo con nombre y precio, "
+        "Agrega a la caja un producto que no existe en el inventario, solo con nombre y precio, "
         "para poder cobrarlo. Se deja pendiente de validar en el inventario.",
         {
             "nombre": _texto("Nombre del producto"),
@@ -146,13 +150,13 @@ FUNCIONES = [
             "precio_venta": _numero("Precio de venta en pesos"),
             "costo": _numero("Lo que le cuesta al tendero cada pieza (o cada kilo), en pesos"),
             "cantidad_actual": _numero("Piezas que hay ahorita (kilos si es a granel), por default 0"),
-            "cantidad_minima": _numero("Piezas mínimas antes de resurtir, por default 0"),
+            "cantidad_minima": _numero("Piezas mínimas antes de resurtir, por default 5"),
             "stock_ideal": _numero("Piezas que tiene cuando resurte completo, por default 0"),
-            "categoria": _texto("Nombre de una categoría que ya exista (opcional)"),
+            "categoria": _texto("Nombre de una categoría que ya exista (obligatoria; si el usuario no la dijo, pregúntasela)"),
             "a_granel": {"type": "boolean", "description": "true si se vende por peso (el precio y las cantidades son por kilo)"},
             "codigo_barras": _texto("Código de barras (opcional)"),
         },
-        ["nombre", "precio_venta", "costo"],
+        ["nombre", "precio_venta", "costo", "categoria"],
     ),
     _funcion(
         "modificar_producto",
@@ -236,6 +240,8 @@ FUNCIONES = [
             "monto": _numero("Monto del gasto en pesos"),
             "tipo": {"type": "string", "enum": ["FIJO", "VARIABLE"], "description": "Tipo de gasto"},
             "categoria": _texto("Categoría del gasto, como Luz o Internet (opcional)"),
+            "mes": _numero("Número del mes al que corresponde el gasto, de 1 a 12 (opcional; por default el mes actual)"),
+            "anio": _numero("Año del mes al que corresponde el gasto (opcional; por default el año actual)"),
         },
         ["concepto", "monto", "tipo"],
     ),
@@ -258,7 +264,7 @@ FUNCIONES = [
         "Calcula a cuánto conviene vender un producto para ganar el margen que el usuario quiere.",
         {
             "nombre_producto": _texto("Nombre del producto"),
-            "margen_deseado": _numero("Margen de ganancia deseado en porcentaje, por default 30"),
+            "margen_deseado": _numero("Margen de ganancia deseado en porcentaje (si no lo dice, se usa el que ya tiene guardado el usuario o 30)"),
         },
         ["nombre_producto"],
     ),
@@ -267,7 +273,9 @@ FUNCIONES = [
 
 # Para gastar menos en cada mensaje, a la IA solo se le mandan las herramientas de la pantalla
 # en la que está el usuario (más unas pocas de consulta que sirven en todas).
-HERRAMIENTAS_COMUNES = {"buscar_producto", "consultar_ventas_hoy"}
+# Las consultas (que no modifican nada) están disponibles en todas las pantallas, para poder preguntar por
+# cualquier módulo desde donde se esté; las acciones que cambian datos solo vienen las de la pantalla actual.
+HERRAMIENTAS_COMUNES = {funcion["name"] for funcion in FUNCIONES if funcion["name"] not in ACCIONES}
 HERRAMIENTAS_POR_PANTALLA = {
     "ventas": {
         "agregar_al_carrito", "quitar_del_carrito", "cambiar_cantidad_carrito", "ver_carrito", "cobrar_carrito",
@@ -329,8 +337,8 @@ _encontrar = busqueda.encontrar
 buscar_en_catalogo = busqueda.buscar
 PALABRAS_VACIAS = busqueda.PALABRAS_VACIAS
 
-# Número del carrito (1 o 2) en el que está trabajando la persona. La pantalla lo manda con
-# cada mensaje y así el asistente agrega y cobra en el carrito que ella está viendo.
+# Número de la caja (1 o 2) en la que está trabajando la persona. La pantalla lo manda con
+# cada mensaje y así el asistente agrega y cobra en la caja que ella está viendo.
 CARRITO_ACTIVO = ContextVar("carrito_activo", default=1)
 
 
@@ -350,7 +358,7 @@ def _buscar_uno(negocio, nombre):
 
 
 def _venta_actual(negocio):
-    """La venta en curso del carrito activo si ya existe (sin crearla)."""
+    """La venta en curso de la caja activa si ya existe (sin crearla)."""
     return carrito.venta_abierta(negocio, CARRITO_ACTIVO.get())
 
 
@@ -362,7 +370,7 @@ def _item_del_carrito(negocio, nombre):
     """(venta, item, None) o (None, None, respuesta_para_la_IA)."""
     venta = _venta_actual(negocio)
     if venta is None or not venta.items.exists():
-        return None, None, {"ok": False, "mensaje": "El carrito está vacío."}
+        return None, None, {"ok": False, "mensaje": "La caja está vacía."}
 
     palabras = _normalizar(nombre).split()
     items = [
@@ -370,12 +378,12 @@ def _item_del_carrito(negocio, nombre):
         if all(palabra in _normalizar(item.producto.nombre) for palabra in palabras)
     ]
     if not items:
-        return None, None, {"ok": False, "mensaje": f'No tengo "{nombre}" en el carrito.'}
+        return None, None, {"ok": False, "mensaje": f'No tengo "{nombre}" en la caja.'}
     if len(items) > 1:
         nombres = ", ".join(item.producto.nombre for item in items)
         return None, None, {
             "ok": False, "ambiguo": True,
-            "mensaje": f'En el carrito hay varios parecidos a "{nombre}": {nombres}. ¿Cuál?',
+            "mensaje": f'En la caja hay varios parecidos a "{nombre}": {nombres}. ¿Cuál?',
         }
     return venta, items[0], None
 
@@ -443,7 +451,7 @@ def agregar_al_carrito(negocio, nombre_producto, cantidad=1):
 
     return {
         "ok": True,
-        "mensaje": f'Agregué {texto_numero(cantidad)} {producto.unidad} de "{producto.nombre}" al carrito.',
+        "mensaje": f'Agregué {texto_numero(cantidad)} {producto.unidad} de "{producto.nombre}" a la caja.',
         "total_carrito": float(venta.total),
     }
 
@@ -455,7 +463,7 @@ def quitar_del_carrito(negocio, nombre_producto):
 
     nombre = item.producto.nombre
     carrito.quitar(item)
-    return {"ok": True, "mensaje": f'Quité "{nombre}" del carrito.', "total_carrito": float(venta.total)}
+    return {"ok": True, "mensaje": f'Quité "{nombre}" de la caja.', "total_carrito": float(venta.total)}
 
 
 def cambiar_cantidad_carrito(negocio, nombre_producto, cantidad):
@@ -478,16 +486,16 @@ def cambiar_cantidad_carrito(negocio, nombre_producto, cantidad):
 
     venta.refresh_from_db()
     if cantidad == 0:
-        mensaje = f'Quité "{nombre}" del carrito.'
+        mensaje = f'Quité "{nombre}" de la caja.'
     else:
-        mensaje = f'Ahora hay {texto_numero(cantidad)} {unidad} de "{nombre}" en el carrito.'
+        mensaje = f'Ahora hay {texto_numero(cantidad)} {unidad} de "{nombre}" en la caja.'
     return {"ok": True, "mensaje": mensaje, "total_carrito": float(venta.total)}
 
 
 def ver_carrito(negocio):
     venta = _venta_actual(negocio)
     if venta is None or not venta.items.exists():
-        return {"productos": [], "total": 0, "mensaje_vacio": "El carrito está vacío.", "carrito": CARRITO_ACTIVO.get()}
+        return {"productos": [], "total": 0, "mensaje_vacio": "La caja está vacía.", "carrito": CARRITO_ACTIVO.get()}
     return {
         "carrito": CARRITO_ACTIVO.get(),
         "productos": [
@@ -504,12 +512,14 @@ def ver_carrito(negocio):
 def cobrar_carrito(negocio):
     venta = _venta_actual(negocio)
     if venta is None or not venta.items.exists():
-        return {"ok": False, "mensaje": "El carrito está vacío, no hay nada que cobrar."}
+        return {"ok": False, "mensaje": "La caja está vacía, no hay nada que cobrar."}
 
     try:
         avisos = [texto_aviso_stock(producto) for producto in cobrar_venta(venta)]
     except SinExistencias as sin_existencias:
         return _respuesta_sin_existencias(sin_existencias)
+    except VentaYaCobrada as ya_cobrada:
+        return {"ok": False, "mensaje": ya_cobrada.mensaje}
 
     mensaje = f"Listo, cobré la venta #{venta.folio:04d} por ${venta.total:.2f}."
     if avisos:
@@ -545,7 +555,7 @@ def agregar_producto_no_encontrado(negocio, nombre, precio):
     return {
         "ok": True,
         "mensaje": (
-            f'Agregué "{nombre}" al carrito a ${_dinero(precio):.2f}. Quedó pendiente de validar; '
+            f'Agregué "{nombre}" a la caja a ${_dinero(precio):.2f}. Quedó pendiente de validar; '
             "en Finanzas > Registrar gastos puedes ponerle su precio de compra."
         ),
         "total_carrito": float(venta.total),
@@ -602,12 +612,12 @@ def consultar_alertas_stock(negocio):
 
 
 def dar_de_alta_producto(negocio, nombre, precio_venta, costo, cantidad_actual=0,
-                         cantidad_minima=0, stock_ideal=0, categoria="", a_granel=False, codigo_barras=""):
+                         cantidad_minima=5, stock_ideal=0, categoria="", a_granel=False, codigo_barras=""):
     nombre = str(nombre).strip()
     precio = _decimal(precio_venta)
     costo = _decimal(costo)
     actual = _decimal(cantidad_actual, Decimal("0"))
-    minima = _decimal(cantidad_minima, Decimal("0"))
+    minima = _decimal(cantidad_minima, MINIMO_POR_DEFECTO)
     ideal = _decimal(stock_ideal, Decimal("0"))
     codigo = str(codigo_barras or "").strip()
     a_granel = bool(a_granel)
@@ -618,6 +628,9 @@ def dar_de_alta_producto(negocio, nombre, precio_venta, costo, cantidad_actual=0
         return {"ok": False, "mensaje": "¿A qué precio lo vas a vender?" + (" (por kilo)" if a_granel else "")}
     if costo is None or costo < 0:
         return {"ok": False, "mensaje": "¿Cuánto te cuesta a ti cada pieza? Lo necesito para calcular tu ganancia."}
+    aviso = mensaje_si_vende_bajo_el_costo(costo, precio)
+    if aviso:
+        return {"ok": False, "mensaje": aviso}
     if actual < 0 or minima < 0 or ideal < 0:
         return {"ok": False, "mensaje": "Las cantidades no pueden ser negativas."}
     if not a_granel and any(x != x.to_integral_value() for x in (actual, minima, ideal)):
@@ -630,19 +643,19 @@ def dar_de_alta_producto(negocio, nombre, precio_venta, costo, cantidad_actual=0
     if codigo and Producto.objects.filter(negocio=negocio, codigo_barras=codigo).exists():
         return {"ok": False, "mensaje": f"Ya hay un producto con el código de barras {codigo}."}
 
-    categoria_producto = None
-    if categoria:
-        categoria_producto, error = _buscar_categoria(categoria)
-        if error:
-            return error
+    if not str(categoria or "").strip():
+        return {"ok": False, "mensaje": "¿En qué categoría va el producto? Todo producto lleva una (por ejemplo Bebidas o Botanas)."}
+    categoria_producto, error = _buscar_categoria(categoria)
+    if error:
+        return error
 
     producto = Producto.objects.create(
         negocio=negocio, nombre=nombre, costo=_dinero(costo), precio_venta=_dinero(precio),
         cantidad_actual=actual, cantidad_minima=minima, stock_ideal=ideal, categoria=categoria_producto,
-        a_granel=a_granel, codigo_barras=codigo,
+        a_granel=a_granel, codigo_barras=codigo, icono=icono_para(nombre, categoria_producto),
     )
     # las piezas con las que arranca el producto son mercancía que se compró
-    registrar_compra(negocio, f"Compra de mercancía: {producto.nombre}", actual * producto.costo)
+    registrar_alta(producto, negocio.usuario)
     return {
         "ok": True,
         "mensaje": (
@@ -690,6 +703,10 @@ def modificar_producto(negocio, nombre_producto, nuevo_nombre=None, precio_venta
 
     if not cambios:
         return {"ok": False, "mensaje": "No me dijiste qué quieres cambiar de ese producto."}
+    if precio_venta is not None or costo is not None:
+        aviso = mensaje_si_vende_bajo_el_costo(producto.costo, producto.precio_venta)
+        if aviso:
+            return {"ok": False, "mensaje": aviso}
     if producto.stock_ideal and producto.stock_ideal < producto.cantidad_minima:
         return {"ok": False, "mensaje": "El stock ideal no puede ser menor que la cantidad mínima."}
 
@@ -731,6 +748,10 @@ def ajustar_existencias(negocio, nombre_producto, cantidad, modo, costo=None):
             return {"ok": False, "mensaje": f'"{producto.nombre}" se vende por pieza: la cantidad debe ser un número entero.'}
         producto.cantidad_actual = nueva
         producto.save(update_fields=["cantidad_actual", "actualizado_en"])
+        registrar_movimiento(
+            producto, nueva - anterior, MovimientoInventario.Tipo.AJUSTE,
+            motivo=f"Ajuste de existencias con el asistente ({modo} {texto_numero(cantidad)})", usuario=negocio.usuario,
+        )
         HistorialModificacionProducto.objects.create(
             producto=producto, usuario=negocio.usuario,
             motivo=f"Ajuste de existencias con el asistente ({modo} {texto_numero(cantidad)})",
@@ -874,7 +895,7 @@ def consultar_proveedores(negocio):
 
 # ----------------------------------------------------------- finanzas
 
-def registrar_gasto(negocio, concepto, monto, tipo, categoria=None):
+def registrar_gasto(negocio, concepto, monto, tipo, categoria=None, mes=None, anio=None):
     concepto = str(concepto).strip()
     monto = _decimal(monto)
     tipo = str(tipo).upper()
@@ -887,19 +908,32 @@ def registrar_gasto(negocio, concepto, monto, tipo, categoria=None):
 
     categoria_gasto = None
     if categoria and str(categoria).strip():
-        categoria_gasto, _ = CategoriaGasto.objects.get_or_create(negocio=negocio, nombre=str(categoria).strip())
+        nombre_categoria = str(categoria).strip()
+        # si ya existe con otras mayúsculas (por ejemplo "luz" y "Luz") se usa esa y no se duplica
+        categoria_gasto = CategoriaGasto.objects.filter(negocio=negocio, nombre__iexact=nombre_categoria).first()
+        if categoria_gasto is None:
+            categoria_gasto = CategoriaGasto.objects.create(negocio=negocio, nombre=nombre_categoria[:60], tipo=tipo)
+
+    periodo = calculos.primer_dia_del_mes(timezone.localdate())
+    if mes not in (None, ""):
+        try:
+            numero_mes = int(float(mes))
+            numero_anio = int(float(anio)) if anio not in (None, "") else periodo.year
+            periodo = date(numero_anio, numero_mes, 1)
+        except (ValueError, TypeError, OverflowError):
+            return {"ok": False, "mensaje": "No entendí a qué mes corresponde el gasto. Dime el mes y el año, por ejemplo septiembre de 2026."}
 
     gasto = GastoOperativo.objects.create(
-        negocio=negocio, concepto=concepto, monto=_dinero(monto), tipo=tipo, categoria=categoria_gasto,
+        negocio=negocio, concepto=concepto, monto=_dinero(monto), tipo=tipo, categoria=categoria_gasto, periodo=periodo,
     )
-    return {"ok": True, "mensaje": f'Registré el gasto "{gasto.concepto}" por ${gasto.monto:.2f}.'}
+    return {"ok": True, "mensaje": f'Registré el gasto "{gasto.concepto}" por ${gasto.monto:.2f} (mes: {periodo.strftime("%m/%Y")}).'}
 
 
 def consultar_gastos_mes(negocio):
     hoy = timezone.localdate()
     inicio = calculos.primer_dia_del_mes(hoy)
     fin = calculos.mes_siguiente(inicio)
-    ultimos = GastoOperativo.objects.filter(negocio=negocio, fecha__gte=inicio, fecha__lt=fin).order_by("-fecha", "-id")[:5]
+    ultimos = GastoOperativo.objects.filter(negocio=negocio, periodo__gte=inicio, periodo__lt=fin).order_by("-fecha", "-id")[:5]
     return {
         "total_fijos": float(calculos.gastos_periodo(negocio, inicio, fin, tipo=GastoOperativo.Tipo.FIJO)),
         "total_variables": float(calculos.gastos_periodo(negocio, inicio, fin, tipo=GastoOperativo.Tipo.VARIABLE)),
@@ -950,12 +984,13 @@ def consultar_punto_equilibrio(negocio):
     return cache_negocio.obtener(negocio, "punto_equilibrio", armar)
 
 
-def sugerir_precio(negocio, nombre_producto, margen_deseado=30):
+def sugerir_precio(negocio, nombre_producto, margen_deseado=None):
     producto, error = _buscar_uno(negocio, nombre_producto)
     if error:
         return error
 
-    margen = _decimal(margen_deseado, Decimal("30"))
+    # si el usuario no dice el margen, se usa el que escogió la última vez en la pantalla de precios (o 30)
+    margen = _decimal(margen_deseado, _decimal(negocio.preferencia("margen_deseado"), Decimal("30")))
     if margen < 0 or margen >= 100:
         return {"ok": False, "mensaje": "El margen tiene que estar entre 0 y 99 por ciento."}
     if producto.costo <= 0:
@@ -1044,9 +1079,9 @@ def contexto_negocio(negocio):
             renglones = list(venta.items.select_related("producto")[:8]) if venta else []
             if renglones:
                 detalle = ", ".join(f"{texto_numero(r.cantidad)} {r.producto.nombre}" for r in renglones)
-                lineas.append(f"Carrito {numero}: {detalle}. Total: ${venta.total:.2f}.")
+                lineas.append(f"Caja {numero}: {detalle}. Total: ${venta.total:.2f}.")
             else:
-                lineas.append(f"Carrito {numero}: vacío.")
+                lineas.append(f"Caja {numero}: vacía.")
         lineas.append(
             f"Productos por resurtir: {conteo['rojo']} en rojo, {conteo['naranja']} en naranja, "
             f"{conteo['amarillo']} en amarillo."
@@ -1087,7 +1122,7 @@ def datos_resumen_diario(negocio):
         "numero_ventas": ventas_ayer.count(),
         "total_ventas": float(total_ventas),
         "ganancia": float(total_ventas - costo),
-        "total_gastos": float(calculos.gastos_periodo(negocio, ayer, hoy)),
+        "total_gastos": float(calculos.gastos_capturados(negocio, ayer, hoy)),
         "total_antier": float(calculos.ingresos_periodo(negocio, antier, ayer)),
         "mas_vendidos": [f"{fila['producto__nombre']} ({texto_numero(fila['piezas'])} pzas)" for fila in mas_vendidos],
         "alertas": conteo_alertas(negocio),
@@ -1124,6 +1159,21 @@ def datos_para_explicar(negocio, tipo):
     tasa_isr = calculos.tasa_isr_del_negocio(negocio, hoy)
     inicio_mes = calculos.primer_dia_del_mes(hoy)
 
+    if tipo == "pronostico":
+        pronostico = calculos.pronostico_cacheado(negocio)
+        productos = [
+            {
+                "producto": p["nombre"],
+                "vendio_la_ultima_semana": p["ultima_semana_real"],
+                "se_espera_la_proxima_semana": p["mejor_pronostico"],
+                "cambio_porcentual": p["cambio_porcentual"],
+                "confianza": p["confianza"],
+                "tiene_historia_suficiente": p["datos_suficientes"],
+            }
+            for p in pronostico["productos"]
+        ] if pronostico["estado"] == "ok" else []
+        return {"tipo": "pronostico", "semana_pronosticada": str(pronostico.get("semana_pronostico", "")), "productos": productos}
+
     if tipo == "reportes":
         meses = []
         desde = inicio_mes
@@ -1155,6 +1205,14 @@ def datos_para_explicar(negocio, tipo):
 
 def construir_mensaje_explicacion(datos):
     """El prompt para que la IA explique los números de la pantalla."""
+    if datos["tipo"] == "pronostico":
+        return (
+            f"Explícame mi pronóstico de ventas de la próxima semana. Estos son los datos: {datos}. "
+            "Dime en 4 o 5 frases cortas qué productos conviene surtir más, cuáles voy a vender menos y en cuáles "
+            "el pronóstico es poco confiable (confianza baja) o no se pudo calcular por falta de historia. "
+            "Recuérdame que es una estimación de apoyo y que la decisión de cuánto comprar es mía. "
+            "Usa palabras de todos los días, sin fórmulas ni términos técnicos."
+        )
     if datos["tipo"] == "reportes":
         pantalla = "los reportes financieros de mis últimos 3 meses"
     else:

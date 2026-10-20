@@ -1,7 +1,7 @@
 // Service worker de marIA: guarda las pantallas y los archivos estáticos para poder abrir el
 // sistema cuando no hay internet. Los datos (ventas, productos…) NO se guardan aquí: eso lo
 // hace static/js/sinconexion.js en la cola del dispositivo.
-const VERSION = 'maria-v1';
+const VERSION = 'maria-v2';
 
 // pantallas que se pueden abrir sin conexión
 const PANTALLAS = ['/ventas/', '/inventario/', '/finanzas/'];

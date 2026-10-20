@@ -39,6 +39,7 @@
     <button type="button" class="btn-action btn-modificar" onclick="openModal('modificar-picker')"><i class="bi bi-pencil-square"></i> Modificar productos</button>
     <a class="btn-action btn-importar" href="{% url 'inventario:importar' %}" data-sin-loader><i class="bi bi-file-earmark-arrow-up-fill"></i> Importar CSV</a>
     <button type="button" class="btn-action btn-proveedores" onclick="openModal('proveedores')"><i class="bi bi-truck"></i> Proveedores</button>
+    <a class="btn-action btn-movimientos" href="{% url 'inventario:movimientos' %}" data-sin-loader><i class="bi bi-journal-text"></i> Movimientos</a>
   </div>
 
   <form method="get" class="search-filter-row" id="formBuscarInventario">
@@ -117,6 +118,8 @@
         {% if form_alta.nombre.errors %}<span style="color:var(--color-danger);font-size:12px;">{{ form_alta.nombre.errors|join:", " }}</span>{% endif %}
       </div>
 
+      {% include "inventario/_selector_icono.html" with campo=form_alta.icono %}
+
       <div class="form-group">
         <label class="check-granel">{{ form_alta.a_granel }} Se vende a granel (por peso)</label>
         <span style="font-size:11px;color:var(--text-faint);">Frijol, azúcar, etc. El precio y las existencias serán por kilo; al vender se captura en gramos.</span>
@@ -129,8 +132,9 @@
       </div>
 
       <div class="form-group">
-        {{ form_alta.descripcion.label_tag }}
+        <label for="{{ form_alta.descripcion.id_for_label }}">Descripción <span class="campo-requerido">*</span></label>
         {{ form_alta.descripcion }}
+        {% if form_alta.descripcion.errors %}<span style="color:var(--color-danger);font-size:12px;">{{ form_alta.descripcion.errors|join:", " }}</span>{% endif %}
       </div>
 
       <div class="form-row">
@@ -173,13 +177,14 @@
       </div>
 
       <div class="form-group">
-        <label>Categoría</label>
+        <label>Categoría <span class="campo-requerido">*</span></label>
         <div class="cat-pills">
           {% for radio in form_alta.categoria %}
           <label class="cat-pill">{{ radio.tag }} {{ radio.choice_label }}</label>
           {% endfor %}
           <button type="button" class="cat-pill" onclick="abrirNuevaCategoria('alta')"><i class="bi bi-plus-lg"></i> Nueva</button>
         </div>
+        {% if form_alta.categoria.errors %}<span style="color:var(--color-danger);font-size:12px;">{{ form_alta.categoria.errors|join:", " }}</span>{% endif %}
       </div>
 
       <div class="form-group">
@@ -228,6 +233,7 @@
         {{ form_edicion.nombre }}
         {% if form_edicion.nombre.errors %}<span style="color:var(--color-danger);font-size:12px;">{{ form_edicion.nombre.errors|join:", " }}</span>{% endif %}
       </div>
+      {% include "inventario/_selector_icono.html" with campo=form_edicion.icono %}
       <div class="form-group">
         <label class="check-granel">{{ form_edicion.a_granel }} Se vende a granel (por peso)</label>
       </div>
@@ -237,8 +243,9 @@
         {% if form_edicion.codigo_barras.errors %}<span style="color:var(--color-danger);font-size:12px;">{{ form_edicion.codigo_barras.errors|join:", " }}</span>{% endif %}
       </div>
       <div class="form-group">
-        {{ form_edicion.descripcion.label_tag }}
+        <label for="{{ form_edicion.descripcion.id_for_label }}">Descripción <span class="campo-requerido">*</span></label>
         {{ form_edicion.descripcion }}
+        {% if form_edicion.descripcion.errors %}<span style="color:var(--color-danger);font-size:12px;">{{ form_edicion.descripcion.errors|join:", " }}</span>{% endif %}
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -271,12 +278,13 @@
         {% if form_edicion.stock_ideal.errors %}<span style="color:var(--color-danger);font-size:12px;">{{ form_edicion.stock_ideal.errors|join:", " }}</span>{% endif %}
       </div>
       <div class="form-group">
-        <label>Categoría</label>
+        <label>Categoría <span class="campo-requerido">*</span></label>
         <div class="cat-pills">
           {% for radio in form_edicion.categoria %}
           <label class="cat-pill">{{ radio.tag }} {{ radio.choice_label }}</label>
           {% endfor %}
         </div>
+        {% if form_edicion.categoria.errors %}<span style="color:var(--color-danger);font-size:12px;">{{ form_edicion.categoria.errors|join:", " }}</span>{% endif %}
       </div>
       <div class="form-group">
         {{ form_edicion.proveedor.label_tag }}
@@ -285,6 +293,13 @@
       <div class="form-group">
         <label>Motivo del cambio <span class="campo-requerido">*</span></label>
         <input type="text" name="motivo" placeholder="Ej. Ajuste de precio por el proveedor, conteo de inventario…" required maxlength="255">
+      </div>
+      <div class="form-group">
+        <label>Si cambiaste las existencias, ¿por qué fue?</label>
+        <select name="tipo_ajuste">
+          <option value="AJUSTE">Corrección de conteo</option>
+          <option value="MERMA">Merma (se rompió, se echó a perder o se perdió)</option>
+        </select>
       </div>
       <div class="panel-footer" style="padding:0; border-top:none;">
         <button type="submit" class="btn-success">Guardar cambios</button>
@@ -311,6 +326,11 @@
       <div class="form-group">
         <label>Precio de compra de cada una ($)</label>
         <input type="number" id="resurtirCosto" step="0.01" min="0">
+      </div>
+      <div class="form-group">
+        <label>Precio de venta (4096</label>
+        <input type="number" id="resurtirPrecio" step="0.01" min="0.01">
+        <span style="font-size:11px;color:var(--text-faint);">No puede ser menor al precio de compra. Si el proveedor subió el precio, súbelo aquí también.</span>
       </div>
       <p style="font-size:11px;color:var(--text-faint);margin:0;">Esta compra queda registrada en tus gastos como compra de mercancía.</p>
       <div id="resurtirError" style="display:none;color:var(--color-danger);font-size:12px;"></div>

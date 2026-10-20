@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.test import SimpleTestCase, TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -18,7 +18,8 @@ from inventario.models import Categoria, Producto
 from ventas import carrito
 from ventas.models import ItemVenta, Venta
 
-from . import cache_negocio
+from . import cache_negocio, llaves
+from .models import LlaveIA
 from .testing import crear_negocio, crear_producto
 
 
@@ -61,46 +62,97 @@ class CacheDelNegocioTests(TestCase):
         self.assertEqual(cache_negocio.obtener(self.negocio, "ventas_hoy", lambda: "nuevo"), "nuevo")
 
 
-class ConfigurarIaTests(SimpleTestCase):
-    def correr(self, ruta_env, **opciones):
-        with patch("avi.management.commands.configurar_ia.RUTA_ENV", ruta_env):
-            call_command("configurar_ia", stdout=StringIO(), **opciones)
+class ConfigurarIaTests(TestCase):
+    """Las llaves de la IA se guardan cifradas en la base de datos, nunca en texto plano."""
 
-    def test_guarda_las_llaves_sin_borrar_lo_demas(self):
+    def correr(self, **opciones):
+        salida = StringIO()
+        call_command("configurar_ia", stdout=salida, **opciones)
+        return salida.getvalue()
+
+    def test_guarda_las_llaves_y_se_leen_ya_descifradas(self):
+        self.correr(openai="sk-prueba-1234", gemini="AIza-prueba-5678")
+        self.assertEqual(llaves.obtener("openai"), "sk-prueba-1234")
+        self.assertEqual(llaves.obtener("gemini"), "AIza-prueba-5678")
+
+    def test_en_la_base_de_datos_no_queda_el_texto_plano(self):
+        self.correr(openai="sk-prueba-1234")
+        guardada = LlaveIA.objects.get(proveedor="openai")
+        self.assertNotIn("sk-prueba-1234", guardada.valor_cifrado)
+        self.assertNotEqual(guardada.valor_cifrado, "sk-prueba-1234")
+
+    def test_al_guardar_otra_vez_se_reemplaza_la_llave(self):
+        self.correr(openai="sk-vieja")
+        self.correr(openai="sk-nueva")
+        self.assertEqual(LlaveIA.objects.filter(proveedor="openai").count(), 1)
+        self.assertEqual(llaves.obtener("openai"), "sk-nueva")
+
+    def test_no_escribe_el_archivo_env(self):
         with tempfile.TemporaryDirectory() as carpeta:
-            ruta = Path(carpeta) / ".env"
-            ruta.write_text("DB_NAME=maria_db\nOPENAI_API_KEY=\n", encoding="utf-8")
-
-            self.correr(ruta, openai="sk-prueba-1234", gemini="AIza-prueba-5678")
-            lineas = ruta.read_text(encoding="utf-8").splitlines()
-
-        self.assertIn("DB_NAME=maria_db", lineas)
-        self.assertIn("OPENAI_API_KEY=sk-prueba-1234", lineas)
-        self.assertIn("GEMINI_API_KEY=AIza-prueba-5678", lineas)
-        self.assertEqual(sum(1 for linea in lineas if linea.startswith("OPENAI_API_KEY=")), 1)
-
-    def test_crea_el_archivo_si_no_existe(self):
-        with tempfile.TemporaryDirectory() as carpeta:
-            ruta = Path(carpeta) / ".env"
-            self.correr(ruta, gemini="AIza-prueba-5678")
-            self.assertEqual(ruta.read_text(encoding="utf-8").strip(), "GEMINI_API_KEY=AIza-prueba-5678")
+            with override_settings(BASE_DIR=Path(carpeta)):
+                self.correr(gemini="AIza-prueba-5678")
+            self.assertEqual(list(Path(carpeta).iterdir()), [])
 
     def test_lee_las_llaves_de_un_archivo(self):
         with tempfile.TemporaryDirectory() as carpeta:
-            ruta = Path(carpeta) / ".env"
             claves = Path(carpeta) / "claves.txt"
             claves.write_text("# claves del equipo\nOPENAI_API_KEY=sk-del-equipo\nOTRA_COSA=1\n", encoding="utf-8")
-
-            self.correr(ruta, archivo=str(claves))
-            texto = ruta.read_text(encoding="utf-8")
-
-        self.assertIn("OPENAI_API_KEY=sk-del-equipo", texto)
-        self.assertNotIn("OTRA_COSA", texto)
+            self.correr(archivo=str(claves))
+        self.assertEqual(llaves.obtener("openai"), "sk-del-equipo")
+        self.assertEqual(LlaveIA.objects.count(), 1)
 
     def test_un_archivo_que_no_existe_da_error(self):
-        with tempfile.TemporaryDirectory() as carpeta:
-            with self.assertRaises(CommandError):
-                self.correr(Path(carpeta) / ".env", archivo=str(Path(carpeta) / "no_existe.txt"))
+        with self.assertRaises(CommandError):
+            self.correr(archivo="no_existe.txt")
+
+    def test_pasa_a_la_base_de_datos_las_llaves_del_env(self):
+        with override_settings(OPENAI_API_KEY="sk-del-env", GEMINI_API_KEY=""):
+            self.correr(desde_env=True)
+        self.assertEqual(llaves.obtener("openai"), "sk-del-env")
+        self.assertTrue(LlaveIA.objects.filter(proveedor="openai").exists())
+
+    def test_ver_muestra_las_llaves_tapadas(self):
+        self.correr(openai="sk-prueba-1234")
+        with override_settings(GEMINI_API_KEY="AIza-del-env-9999"):
+            texto = self.correr(ver=True)
+        self.assertIn("sk-p...1234", texto)
+        self.assertNotIn("sk-prueba-1234", texto)
+        self.assertIn("base de datos (cifrada)", texto)
+        self.assertIn(".env", texto)
+
+
+class LlavesCifradasTests(TestCase):
+    def test_si_no_hay_llave_en_la_base_se_usa_la_del_env(self):
+        with override_settings(OPENAI_API_KEY="sk-del-env"):
+            self.assertEqual(llaves.obtener("openai"), "sk-del-env")
+            self.assertEqual(llaves.origen("openai"), ".env")
+
+    def test_la_de_la_base_de_datos_gana_sobre_la_del_env(self):
+        llaves.guardar("openai", "sk-de-la-base")
+        with override_settings(OPENAI_API_KEY="sk-del-env"):
+            self.assertEqual(llaves.obtener("openai"), "sk-de-la-base")
+
+    def test_sin_ninguna_llave_regresa_vacio(self):
+        with override_settings(GEMINI_API_KEY=""):
+            self.assertEqual(llaves.obtener("gemini"), "")
+            self.assertEqual(llaves.origen("gemini"), "sin configurar")
+
+    def test_si_cambia_la_secret_key_la_llave_no_se_puede_leer_y_no_truena(self):
+        llaves.guardar("openai", "sk-de-la-base")
+        with override_settings(SECRET_KEY="otra-llave-distinta", OPENAI_API_KEY=""):
+            self.assertEqual(llaves.obtener("openai"), "")
+
+    def test_un_proveedor_desconocido_se_rechaza(self):
+        with self.assertRaises(ValueError):
+            llaves.guardar("otro", "x")
+
+    def test_el_asistente_usa_la_llave_guardada_en_la_base_de_datos(self):
+        from avi.clients import modelos_en_orden
+        with override_settings(OPENAI_API_KEY="", GEMINI_API_KEY=""):
+            self.assertEqual(modelos_en_orden(), [])
+            llaves.guardar("gemini", "AIza-de-la-base")
+            self.assertEqual(modelos_en_orden(), ["gemini"])
+
 
 
 class ImportarCsvTests(TestCase):
@@ -306,6 +358,20 @@ class SincronizacionSinInternetTests(TestCase):
         self.assertTrue(pendiente.pendiente_validacion)
         self.assertEqual(Venta.objects.get().total, Decimal("20.00"))
 
+    def test_una_venta_hecha_sin_internet_deja_su_salida_en_el_kardex(self):
+        from inventario.models import MovimientoInventario
+        self.enviar(self.venta(cantidad=3))
+        movimiento = MovimientoInventario.objects.get()
+        self.assertEqual((movimiento.tipo, movimiento.cantidad, movimiento.existencia_resultante), ("VENTA", Decimal("-3"), Decimal("7")))
+        self.assertIn("sin internet", movimiento.motivo)
+
+    def test_una_venta_hecha_sin_internet_guarda_el_costo_de_la_compra_mas_vieja(self):
+        from inventario.compras import agregar_existencias, registrar_alta
+        registrar_alta(self.coca)
+        agregar_existencias(self.coca, 10, costo="17")
+        self.enviar(self.venta(cantidad=4))
+        self.assertEqual(Venta.objects.get().items.get().costo_unitario, Decimal("15"))
+
     def test_una_pieza_con_decimales_se_rechaza(self):
         resultado = self.enviar(self.venta(cantidad=1.5))[0]
         self.assertTrue(resultado["definitivo"])
@@ -316,7 +382,8 @@ class SincronizacionSinInternetTests(TestCase):
             "uuid": "alta1", "tipo": "alta_producto",
             "datos": {
                 "nombre": "Pepsi 600", "costo": "13", "precio_venta": "18", "cantidad_actual": "12",
-                "cantidad_minima": "4", "a_granel": False, "descripcion": "",
+                "cantidad_minima": "4", "a_granel": False, "descripcion": "Refresco de cola",
+                "categoria": Categoria.objects.get_or_create(nombre="Bebidas")[0].pk,
             },
         })[0]
 

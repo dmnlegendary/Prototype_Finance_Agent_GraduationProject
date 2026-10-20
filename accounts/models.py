@@ -10,6 +10,8 @@ class Usuario(AbstractUser):
     nombre_completo = models.CharField("Nombre completo", max_length=150, blank=True)
     telefono = models.CharField("Teléfono celular", max_length=20, unique=True, null=True, blank=True)
     email = models.EmailField("Correo electrónico", blank=True)
+    # si ya vio (o cerró) el video de bienvenida de la primera vez que entró
+    video_visto = models.BooleanField(default=False)
 
     def __str__(self):
         return self.nombre_completo or self.username
@@ -44,9 +46,21 @@ class Negocio(ModeloBase):
     )
     regimen_resico = models.BooleanField("Régimen RESICO", default=True)
     rfc = models.CharField("RFC", max_length=13, blank=True)
+    # lo que el tendero prefiere y el sistema recuerda entre sesiones (margen de precios, periodo de reportes…)
+    preferencias = models.JSONField(default=dict, blank=True)
 
     def __str__(self):
         return self.nombre_tienda
+
+    def preferencia(self, clave, defecto=None):
+        return self.preferencias.get(clave, defecto)
+
+    def guardar_preferencias(self, **cambios):
+        """Guarda solo si algo cambió, para no escribir en la base de datos en cada visita."""
+        nuevas = {**self.preferencias, **cambios}
+        if nuevas != self.preferencias:
+            self.preferencias = nuevas
+            self.save(update_fields=["preferencias", "actualizado_en"])
 
     @property
     def ubicacion(self):

@@ -1,3 +1,5 @@
+import csv
+import datetime
 import json
 from urllib.parse import urlencode
 
@@ -13,10 +15,12 @@ from django.views.decorators.http import require_GET, require_POST
 from ventas.models import ItemVenta
 
 from . import busqueda, importacion
-from .alertas import conteo_alertas, productos_con_alerta
-from .compras import CantidadInvalida, agregar_existencias, registrar_compra, texto_numero
+from .alertas import conteo_alertas, ordenar_por_urgencia, productos_con_alerta
+from .compras import CantidadInvalida, agregar_existencias, registrar_alta, texto_numero
+from .datos_base import ICONOS
 from .forms import ProductoForm, ProveedorForm
-from .models import Categoria, HistorialModificacionProducto, Producto, Proveedor
+from .models import Categoria, HistorialModificacionProducto, MovimientoInventario, Producto, Proveedor
+from .movimientos import registrar_movimiento
 
 # cuántos renglones se piden cada vez: pocos al abrir la pantalla y más con "Ver más"
 # (así carga rápido aunque haya miles de productos y la conexión sea lenta)
@@ -78,6 +82,7 @@ def _contexto_panel(request, negocio, form_alta=None, form_proveedor=None, form_
         "categoria_id": categoria_id,
         "conteo": conteo_alertas(negocio),
         "form_alta": form_alta,
+        "iconos": ICONOS,
         # el único formulario de edición: se llena con JS al tocar "Editar" (no hay uno por producto)
         "form_edicion": form_edicion or ProductoForm(negocio=negocio, auto_id="id_editar_%s"),
         "proveedores_lista": proveedores_lista,
@@ -136,6 +141,7 @@ def producto_datos(request, pk):
         "proveedor": producto.proveedor_id,
         "a_granel": producto.a_granel,
         "codigo_barras": producto.codigo_barras,
+        "icono": producto.icono,
         "pendiente_validacion": producto.pendiente_validacion,
     })
 
@@ -153,7 +159,7 @@ def producto_alta(request):
             producto.negocio = negocio
             producto.save()
             # las piezas con las que arranca el producto son mercancía que se compró
-            compra = registrar_compra(negocio, f"Compra de mercancía: {producto.nombre}", producto.cantidad_actual * producto.costo)
+            compra = registrar_alta(producto, request.user)
             texto = f'"{producto.nombre}" se dio de alta correctamente.'
             if compra:
                 texto += f" Se registró la compra de mercancía por ${compra.monto}."
@@ -177,6 +183,7 @@ def producto_editar(request, pk):
     producto = get_object_or_404(Producto, pk=pk, negocio=negocio)
 
     if request.method == "POST":
+        cantidad_antes = producto.cantidad_actual  # antes de que el formulario cambie el producto
         form = ProductoForm(request.POST, instance=producto, negocio=negocio, auto_id="id_editar_%s")
         motivo = request.POST.get("motivo", "").strip()
 
@@ -191,6 +198,9 @@ def producto_editar(request, pk):
             HistorialModificacionProducto.objects.create(
                 producto=producto, usuario=request.user, motivo=motivo,
             )
+            # si cambiaron las existencias, el cambio queda en el kardex con su motivo
+            tipo_cambio = MovimientoInventario.Tipo.MERMA if request.POST.get("tipo_ajuste") == "MERMA" else MovimientoInventario.Tipo.AJUSTE
+            registrar_movimiento(producto, producto.cantidad_actual - cantidad_antes, tipo_cambio, motivo=motivo, usuario=request.user)
             if era_pendiente:
                 messages.success(request, f'"{producto.nombre}" se validó y ya aparece en tu catálogo.')
             else:
@@ -225,7 +235,9 @@ def producto_resurtir(request, pk):
         datos = {}
 
     try:
-        monto = agregar_existencias(producto, datos.get("cantidad"), costo=datos.get("costo"))
+        monto = agregar_existencias(
+            producto, datos.get("cantidad"), costo=datos.get("costo"), usuario=request.user, precio_venta=datos.get("precio_venta"),
+        )
     except CantidadInvalida as error:
         return JsonResponse({"ok": False, "mensaje": str(error)}, status=400)
 
@@ -323,7 +335,7 @@ def proveedor_editar(request, pk):
 
 
 def _alertas_filtradas(negocio, q, nivel):
-    lista = productos_con_alerta(negocio)
+    lista = ordenar_por_urgencia(negocio, productos_con_alerta(negocio))
     if nivel in ("rojo", "naranja", "amarillo"):
         lista = [p for p in lista if p.nivel_stock == nivel]
     if q:
@@ -339,7 +351,7 @@ def alertas(request):
         return redirect("accounts:datos_negocio")
 
     # primero se cargan pocas alertas; el resto con "Ver más" (ver alertas_filas)
-    lista = productos_con_alerta(negocio)
+    lista = ordenar_por_urgencia(negocio, productos_con_alerta(negocio))
     conteo = {"rojo": 0, "naranja": 0, "amarillo": 0}
     for producto in lista:
         conteo[producto.nivel_stock] += 1
@@ -481,4 +493,80 @@ def importar_plantilla(request):
     """Un archivo de ejemplo con las columnas correctas."""
     respuesta = HttpResponse(importacion.PLANTILLA, content_type="text/csv; charset=utf-8")
     respuesta["Content-Disposition"] = 'attachment; filename="plantilla_productos.csv"'
+    return respuesta
+
+
+# ------------------------------------------------------- movimientos (kardex)
+
+MOVIMIENTOS_POR_PAGINA = 25
+
+
+def _fecha_del_filtro(texto):
+    try:
+        return datetime.date.fromisoformat(texto)
+    except ValueError:
+        return None
+
+
+def _movimientos_filtrados(negocio, datos):
+    """Los movimientos del negocio, con los filtros de la pantalla (producto, tipo y fechas)."""
+    movimientos = MovimientoInventario.objects.filter(negocio=negocio).select_related("producto", "venta")
+
+    q = datos.get("q", "").strip()
+    if q:
+        ids = [p["id"] for p in busqueda.encontrar(negocio, q)]
+        movimientos = movimientos.filter(Q(producto_id__in=ids) | Q(producto__nombre__icontains=q))
+    tipo = datos.get("tipo", "")
+    if tipo in MovimientoInventario.Tipo.values:
+        movimientos = movimientos.filter(tipo=tipo)
+    desde = _fecha_del_filtro(datos.get("desde", ""))
+    if desde:
+        movimientos = movimientos.filter(creado_en__date__gte=desde)
+    hasta = _fecha_del_filtro(datos.get("hasta", ""))
+    if hasta:
+        movimientos = movimientos.filter(creado_en__date__lte=hasta)
+
+    filtros = {"q": q, "tipo": tipo if tipo in MovimientoInventario.Tipo.values else "",
+               "desde": desde.isoformat() if desde else "", "hasta": hasta.isoformat() if hasta else ""}
+    return movimientos, filtros
+
+
+@login_required
+@require_GET
+def movimientos(request):
+    negocio = _negocio_o_redirect(request)
+    if negocio is None:
+        return redirect("accounts:datos_negocio")
+
+    lista, filtros = _movimientos_filtrados(negocio, request.GET)
+    pagina_pedida = request.GET.get("page", "1")
+    pagina = Paginator(lista, MOVIMIENTOS_POR_PAGINA).get_page(pagina_pedida if pagina_pedida.isdigit() else 1)
+    return render(request, "inventario/movimientos.html", {
+        "pagina": pagina,
+        "tipos": MovimientoInventario.Tipo.choices,
+        "filtros_url": urlencode(filtros),
+        **filtros,
+    })
+
+
+@login_required
+@require_GET
+def movimientos_exportar(request):
+    """Descarga los movimientos (con los mismos filtros de la pantalla) como CSV: es el dataset del inventario."""
+    negocio = _negocio_o_redirect(request)
+    if negocio is None:
+        return redirect("accounts:datos_negocio")
+
+    lista, _ = _movimientos_filtrados(negocio, request.GET)
+    respuesta = HttpResponse(content_type="text/csv; charset=utf-8")
+    respuesta["Content-Disposition"] = 'attachment; filename="movimientos_inventario.csv"'
+    respuesta.write("\ufeff")  # para que Excel abra bien los acentos
+    escritor = csv.writer(respuesta)
+    escritor.writerow(["fecha", "producto", "tipo", "cantidad", "existencia_resultante", "costo_unitario", "motivo", "folio_venta"])
+    for m in lista.order_by("creado_en", "id").iterator():
+        escritor.writerow([
+            m.creado_en.astimezone().strftime("%Y-%m-%d %H:%M:%S"), m.producto.nombre, m.tipo,
+            m.cantidad, m.existencia_resultante, m.costo_unitario if m.costo_unitario is not None else "",
+            m.motivo, m.venta.folio if m.venta else "",
+        ])
     return respuesta

@@ -1,25 +1,68 @@
 {% extends "finanzas/_base_finanzas.html" %}
+{% load humanize %}
 
 {% block fin_content %}
 <div class="fin-title"><i class="bi bi-tag-fill"></i> Sugerir Precios</div>
-<p class="fin-subtitle">Precio sugerido por producto, a partir de lo que te cuesta y la ganancia que quieres tener.</p>
+<p class="fin-subtitle">Precio sugerido por producto, a partir de lo que te cuesta y de la ganancia que necesitas para cubrir tus gastos.</p>
 
 <div class="fin-callout">
-  <i class="bi bi-lightbulb-fill"></i> <strong>¿Cómo se calcula?</strong> Precio sugerido = costo del producto ÷ (1 − margen que quieres).
-  Por ejemplo, si te cuesta $15 y quieres ganar 40% del precio, lo vendes en $25.
+  <i class="bi bi-lightbulb-fill"></i> <strong>¿Cómo se calcula?</strong> Precio sugerido = costo del producto ÷ (1 − margen).
+  El margen es la parte del precio que te queda después de pagar la mercancía.
+  Por ejemplo, si te cuesta $15 y el margen es 40%, lo vendes en $25.
   {% if gastos_sobre_ventas is not None %}
-  <br>De cada $100 que vendiste en los últimos 3 meses, <strong>${{ gastos_sobre_ventas }}</strong> se fueron en gastos operativos:
-  elige un margen mayor a ese porcentaje para que te quede ganancia.
+  <br>En los últimos {{ gastos.meses }} meses vendiste <strong>${{ gastos.ingresos|intcomma }}</strong> y gastaste <strong>${{ gastos.gastos|intcomma }}</strong> en gastos del negocio:
+  de cada $100 que vendes, <strong>${{ gastos_sobre_ventas }}</strong> se van en gastos. El margen tiene que ser mayor a ese porcentaje para que te quede ganancia.
+  {% else %}
+  <br>Cuando registres ventas y gastos, aquí verás qué parte de cada $100 que vendes se va en gastos.
   {% endif %}
 </div>
 
 <div class="fin-card">
-  <form method="get" class="fin-filtro-margen">
-    <label for="margen">Margen que quiero ganar (%)</label>
-    <input type="number" id="margen" name="margen" value="{{ margen|floatformat:'-1' }}" min="1" max="90" step="0.5">
+  <form method="get" class="fin-filtro-margen" id="formMargen">
+    <div class="fin-opciones-margen">
+      <label class="fin-opcion-margen">
+        <input type="radio" name="modo" value="gastos" {% if modo == "gastos" %}checked{% endif %} {% if gastos_sobre_ventas is None %}disabled{% endif %}>
+        <span><strong>Cubrir mis gastos</strong> y ganar un extra</span>
+      </label>
+      <label class="fin-opcion-margen">
+        <input type="radio" name="modo" value="manual" {% if modo == "manual" %}checked{% endif %}>
+        <span><strong>Yo elijo</strong> el margen</span>
+      </label>
+    </div>
+
+    <div class="fin-campo-modo" id="campoGastos" {% if modo != "gastos" %}style="display:none;"{% endif %}>
+      <label for="utilidad">Ganancia extra que quiero (%)</label>
+      <input type="number" id="utilidad" name="utilidad" value="{{ utilidad|floatformat:'-1' }}" min="0" max="50" step="0.5">
+    </div>
+    <div class="fin-campo-modo" id="campoManual" {% if modo != "manual" %}style="display:none;"{% endif %}>
+      <label for="margen">Margen que quiero ganar (%)</label>
+      <input type="number" id="margen" name="margen" value="{{ margen|floatformat:'-1' }}" min="1" max="90" step="0.5">
+    </div>
     <button type="submit" class="fin-btn-primary">Calcular</button>
   </form>
+
+  {% if modo == "gastos" %}
+  <p class="fin-subtitle" style="margin:12px 0 0;">
+    Para cubrir tus gastos (${{ gastos_sobre_ventas }} de cada $100 vendidos) y ganar un {{ utilidad|floatformat:"-1" }}% extra,
+    tu margen debe ser de <strong>{{ margen|floatformat:"-1" }}%</strong>.
+    Es una estimación: supone que vendes lo mismo que en los últimos meses.
+  </p>
+  {% elif margen_ya_cubre %}
+  <p class="fin-subtitle" style="margin:12px 0 0; color:var(--color-danger);">
+    Con un margen de {{ margen|floatformat:"-1" }}% no alcanzas a cubrir tus gastos, que son el {{ gastos_sobre_ventas }}% de tus ventas.
+  </p>
+  {% endif %}
 </div>
+
+<script>
+  // muestra solo el campo que corresponde a la opción elegida
+  document.querySelectorAll('#formMargen input[name="modo"]').forEach(function (radio) {
+    radio.addEventListener('change', function () {
+      document.getElementById('campoGastos').style.display = radio.value === 'gastos' ? '' : 'none';
+      document.getElementById('campoManual').style.display = radio.value === 'manual' ? '' : 'none';
+    });
+  });
+</script>
 
 <div class="fin-card">
   {% if pagina.object_list %}
@@ -31,6 +74,7 @@
         <th>Precio actual</th>
         <th>Margen actual</th>
         <th>Precio sugerido</th>
+        <th>Ganancia por pieza</th>
         <th>Tu decisión</th>
       </tr>
     </thead>
@@ -42,9 +86,12 @@
         <td>${{ fila.producto.precio_venta }}</td>
         <td>{{ fila.producto.margen_porcentaje }}%</td>
         <td><span class="fin-badge-green">${{ fila.sugerido }}</span></td>
+        <td>${{ fila.ganancia }}</td>
         <td>
           <form method="post" action="{% url 'finanzas:aceptar_precio_sugerido' fila.producto.pk %}" class="fin-fila-precio">
             {% csrf_token %}
+            <input type="hidden" name="modo" value="{{ modo }}">
+            <input type="hidden" name="utilidad" value="{{ utilidad }}">
             <input type="hidden" name="margen" value="{{ margen }}">
             <input type="hidden" name="page" value="{{ pagina.number }}">
             <input type="text" name="precio" value="{{ fila.sugerido }}" inputmode="decimal" class="fin-input-precio" title="Puedes ajustar el precio antes de aceptarlo">
@@ -59,9 +106,9 @@
 
   {% if pagina.paginator.num_pages > 1 %}
   <div class="fin-paginacion">
-    {% if pagina.has_previous %}<a href="?margen={{ margen }}&page={{ pagina.previous_page_number }}" data-sin-loader>&larr; Anterior</a>{% endif %}
+    {% if pagina.has_previous %}<a href="?modo={{ modo }}&margen={{ margen }}&utilidad={{ utilidad }}&page={{ pagina.previous_page_number }}" data-sin-loader>&larr; Anterior</a>{% endif %}
     <span>Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
-    {% if pagina.has_next %}<a href="?margen={{ margen }}&page={{ pagina.next_page_number }}" data-sin-loader>Siguiente &rarr;</a>{% endif %}
+    {% if pagina.has_next %}<a href="?modo={{ modo }}&margen={{ margen }}&utilidad={{ utilidad }}&page={{ pagina.next_page_number }}" data-sin-loader>Siguiente &rarr;</a>{% endif %}
   </div>
   {% endif %}
   <p class="fin-subtitle" style="margin-top:10px;">

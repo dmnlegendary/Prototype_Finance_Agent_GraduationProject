@@ -1,7 +1,13 @@
+from decimal import Decimal
+
 from django.conf import settings
 from django.db import models
 
 from core.models import ModeloBase
+
+
+# cantidad mínima que se propone al dar de alta un producto (la alerta roja salta al llegar a ella)
+MINIMO_POR_DEFECTO = Decimal("5")
 
 
 class Categoria(ModeloBase):
@@ -197,3 +203,60 @@ class HistorialModificacionProducto(ModeloBase):
 
     def __str__(self):
         return f"{self.producto.nombre}: {self.motivo[:40]}"
+
+
+class MovimientoInventario(ModeloBase):
+    """El kardex: un renglón por cada cambio en las existencias de un producto, con su origen
+    (venta, entrada de mercancía, merma o ajuste). Nunca se edita ni se borra; así queda la
+    evidencia de por qué cambió cada cifra y sirve como dataset para el análisis."""
+
+    class Tipo(models.TextChoices):
+        ENTRADA = "ENTRADA", "Entrada de mercancía"
+        VENTA = "VENTA", "Venta"
+        MERMA = "MERMA", "Merma"
+        AJUSTE = "AJUSTE", "Ajuste de conteo"
+
+    negocio = models.ForeignKey("accounts.Negocio", on_delete=models.CASCADE, related_name="movimientos_inventario")
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name="movimientos")
+    tipo = models.CharField(max_length=10, choices=Tipo.choices)
+    # lo que cambió: positivo si entraron piezas, negativo si salieron
+    cantidad = models.DecimalField(max_digits=10, decimal_places=3)
+    existencia_resultante = models.DecimalField(max_digits=10, decimal_places=3)
+    motivo = models.CharField(max_length=255, blank=True)
+    # a cuánto costó cada pieza de este movimiento (en las ventas y mermas es el costo de los lotes de los que salió)
+    costo_unitario = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    venta = models.ForeignKey("ventas.Venta", on_delete=models.SET_NULL, null=True, blank=True, related_name="movimientos")
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+
+    class Meta:
+        verbose_name = "Movimiento de inventario"
+        verbose_name_plural = "Movimientos de inventario"
+        ordering = ["-creado_en", "-id"]
+        indexes = [
+            models.Index(fields=["negocio", "creado_en"], name="movimiento_negocio_fecha_idx"),
+            models.Index(fields=["producto", "creado_en"], name="movimiento_producto_fecha_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} de {self.producto.nombre}: {self.cantidad}"
+
+
+class LoteInventario(ModeloBase):
+    """Una compra de mercancía que todavía no se acaba. Cada vez que entran piezas se abre un lote
+    con lo que costó esa compra y, al vender, se gastan primero los lotes más viejos (PEPS).
+    Así, si la coca costó 15 ayer y 17 hoy, las de ayer se venden con costo de 15 y las de hoy de 17."""
+
+    negocio = models.ForeignKey("accounts.Negocio", on_delete=models.CASCADE, related_name="lotes_inventario")
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name="lotes")
+    cantidad_inicial = models.DecimalField(max_digits=10, decimal_places=3)
+    cantidad_restante = models.DecimalField(max_digits=10, decimal_places=3)
+    costo_unitario = models.DecimalField(max_digits=12, decimal_places=4)
+
+    class Meta:
+        verbose_name = "Lote de inventario"
+        verbose_name_plural = "Lotes de inventario"
+        ordering = ["creado_en", "id"]
+        indexes = [models.Index(fields=["producto", "cantidad_restante"], name="lote_producto_restante_idx")]
+
+    def __str__(self):
+        return f"{self.producto.nombre}: {self.cantidad_restante} a ${self.costo_unitario}"

@@ -128,7 +128,7 @@ Escuela Superior de Cómputo (ESCOM) — Instituto Politécnico Nacional.
 - **Sin internet:** se puede cobrar, dar de alta productos y registrar mercancía. Todo se guarda en el dispositivo y se sincroniza solo al regresar la conexión (ver `static/js/sinconexion.js`, `static/sw.js` y `core/sync.py`).
 - **Pantallas ligeras:** inventario y alertas cargan 20 renglones y el resto con "Ver más"; los reportes usan pocas consultas.
 - **El asistente solo recibe las herramientas de la pantalla en la que estás**, para gastar menos.
-- **Gastos con mes:** cada gasto lleva el mes al que corresponde (la luz de septiembre pagada en octubre cuenta en septiembre).
+- **Gastos por periodicidad:** los gastos fijos pueden registrarse como diarios, semanales, mensuales, cada cierta cantidad de meses o anuales, con una fecha de inicio desde la que los reportes cuentan cada ocurrencia. Los gastos puntuales y variables conservan el mes al que corresponden.
 - **Sugerir precios para cubrir tus gastos:** el margen se puede calcular con lo que se va en gastos sobre ventas más una ganancia extra.
 - **Alertas con ritmo de venta:** dentro de cada color va primero lo que se acaba antes, y cada alerta dice cuánto vende el producto por semana.
 - **Kardex de inventario:** cada entrada, venta, merma o ajuste deja un movimiento con la existencia que quedó; se consulta en `/inventario/movimientos/` y se exporta a CSV.

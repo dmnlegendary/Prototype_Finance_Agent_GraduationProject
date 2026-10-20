@@ -1,4 +1,4 @@
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 from django.db import connection
@@ -481,6 +481,142 @@ class PeriodoDelGastoTests(TestCase):
             negocio=self.negocio, tipo=GastoOperativo.Tipo.MERCANCIA, concepto="Compra", monto=Decimal("100"),
         )
         self.assertEqual(compra.periodo, self.mes_actual)
+
+
+class PeriodicidadDeGastosTests(TestCase):
+    def setUp(self):
+        self.usuario, self.negocio = crear_negocio()
+        self.client.force_login(self.usuario)
+
+    def gasto_recurrente(self, periodicidad, fecha_inicio, monto="10", intervalo_meses=1):
+        return GastoOperativo.objects.create(
+            negocio=self.negocio,
+            tipo=GastoOperativo.Tipo.FIJO,
+            concepto="Servicio",
+            monto=Decimal(monto),
+            periodicidad=periodicidad,
+            intervalo_meses=intervalo_meses,
+            fecha_inicio=fecha_inicio,
+            periodo=fecha_inicio.replace(day=1),
+        )
+
+    def test_cuenta_gastos_diarios_semanales_y_mensuales_en_sus_fechas(self):
+        inicio = date(2024, 1, 31)
+        self.gasto_recurrente(GastoOperativo.Periodicidad.DIARIA, inicio, "2")
+        self.gasto_recurrente(GastoOperativo.Periodicidad.SEMANAL, inicio, "5")
+        self.gasto_recurrente(GastoOperativo.Periodicidad.MENSUAL, inicio, "100")
+
+        febrero = calculos.gastos_periodo(self.negocio, date(2024, 2, 1), date(2024, 3, 1))
+        marzo = calculos.gastos_periodo(self.negocio, date(2024, 3, 1), date(2024, 4, 1))
+
+        self.assertEqual(febrero, Decimal("178.00"))  # 29 diarios, 4 semanales y 1 mensual
+        self.assertEqual(marzo, Decimal("182.00"))  # 31 diarios, 4 semanales y 1 mensual
+
+    def test_gasto_anual_inicia_en_la_fecha_escogida_y_ajusta_anios_no_bisiestos(self):
+        self.gasto_recurrente(GastoOperativo.Periodicidad.ANUAL, date(2024, 2, 29), "120")
+
+        antes_del_inicio = calculos.gastos_periodo(
+            self.negocio, date(2024, 1, 1), date(2024, 2, 29),
+        )
+        aniversario = calculos.gastos_periodo(
+            self.negocio, date(2025, 2, 1), date(2025, 3, 1),
+        )
+
+        self.assertEqual(antes_del_inicio, Decimal("0.00"))
+        self.assertEqual(aniversario, Decimal("120.00"))
+
+    def test_periodicidad_personalizada_cuenta_cada_dos_meses_desde_la_fecha_ancla(self):
+        self.gasto_recurrente(
+            GastoOperativo.Periodicidad.CADA_MESES,
+            date(2024, 1, 31),
+            "80",
+            intervalo_meses=2,
+        )
+
+        febrero = calculos.gastos_periodo(self.negocio, date(2024, 2, 1), date(2024, 3, 1))
+        marzo = calculos.gastos_periodo(self.negocio, date(2024, 3, 1), date(2024, 4, 1))
+        abril_y_mayo = calculos.gastos_periodo(self.negocio, date(2024, 4, 1), date(2024, 6, 1))
+
+        self.assertEqual(febrero, Decimal("0.00"))
+        self.assertEqual(marzo, Decimal("80.00"))
+        self.assertEqual(abril_y_mayo, Decimal("80.00"))
+
+    def test_resumen_mensual_incluye_recurrencias_que_comenzaron_antes(self):
+        self.gasto_recurrente(GastoOperativo.Periodicidad.DIARIA, date(2024, 1, 1), "2")
+        meses = calculos.resumen_por_meses(
+            self.negocio, [date(2024, 2, 1), date(2024, 3, 1)], Decimal("0"),
+        )
+
+        self.assertEqual(meses[0]["gastos"], Decimal("58.00"))
+        self.assertEqual(meses[1]["gastos"], Decimal("62.00"))
+
+    def test_el_resumen_diario_cuenta_la_ocurrencia_no_el_dia_de_captura(self):
+        hoy = timezone.localdate()
+        ayer = hoy - timedelta(days=1)
+        self.gasto_recurrente(GastoOperativo.Periodicidad.DIARIA, ayer, "25")
+
+        self.assertEqual(
+            calculos.gastos_capturados(self.negocio, hoy, hoy + timedelta(days=1)),
+            Decimal("25.00"),
+        )
+
+    def test_formulario_guarda_periodicidad_y_fecha_de_inicio(self):
+        fecha_inicio = date(2024, 5, 15)
+        respuesta = self.client.post(reverse("finanzas:registrar_gastos"), {
+            "tipo": "FIJO",
+            "concepto": "Internet",
+            "monto": "350",
+            "periodicidad": GastoOperativo.Periodicidad.CADA_MESES,
+            "intervalo_meses": "3",
+            "fecha_inicio": fecha_inicio.isoformat(),
+            "nota": "",
+        })
+
+        self.assertEqual(respuesta.status_code, 302)
+        gasto = GastoOperativo.objects.get()
+        self.assertEqual(gasto.periodicidad, GastoOperativo.Periodicidad.CADA_MESES)
+        self.assertEqual(gasto.intervalo_meses, 3)
+        self.assertEqual(gasto.fecha_inicio, fecha_inicio)
+        self.assertEqual(gasto.periodo, date(2024, 5, 1))
+
+    def test_un_gasto_recurrente_requiere_fecha_de_inicio(self):
+        respuesta = self.client.post(reverse("finanzas:registrar_gastos"), {
+            "tipo": "FIJO",
+            "concepto": "Internet",
+            "monto": "350",
+            "periodicidad": GastoOperativo.Periodicidad.CADA_MESES,
+            "intervalo_meses": "2",
+            "fecha_inicio": "",
+            "nota": "",
+        })
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(GastoOperativo.objects.count(), 0)
+        self.assertContains(respuesta, "Selecciona desde qué fecha comienza el gasto.")
+
+    def test_un_gasto_de_cada_cierto_numero_de_meses_requiere_intervalo(self):
+        respuesta = self.client.post(reverse("finanzas:registrar_gastos"), {
+            "tipo": "FIJO",
+            "concepto": "Mantenimiento",
+            "monto": "350",
+            "periodicidad": GastoOperativo.Periodicidad.CADA_MESES,
+            "intervalo_meses": "",
+            "fecha_inicio": "2024-05-15",
+            "nota": "",
+        })
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(GastoOperativo.objects.count(), 0)
+        self.assertContains(respuesta, "Indica cada cuántos meses ocurre el gasto.")
+
+    def test_las_opciones_de_periodicidad_se_muestran_en_el_formulario(self):
+        respuesta = self.client.get(reverse("finanzas:registrar_gastos"))
+
+        self.assertContains(respuesta, "Diaria")
+        self.assertContains(respuesta, "Semanal")
+        self.assertContains(respuesta, "Mensual")
+        self.assertContains(respuesta, "Cada cierta cantidad de meses")
+        self.assertContains(respuesta, "Anual")
 
 
 class PreciosParaCubrirGastosTests(TestCase):

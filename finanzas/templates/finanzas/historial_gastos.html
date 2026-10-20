@@ -12,6 +12,8 @@
       <tr>
         <th>Concepto</th>
         <th>Tipo</th>
+        <th>Periodicidad</th>
+        <th>Inicio</th>
         <th>Nota</th>
         <th>Mes</th>
         <th>Capturado</th>
@@ -31,6 +33,14 @@
           <span class="badge-estado tipo-variable">Variable</span>
           {% endif %}
         </td>
+        <td>
+          {% if gasto.periodicidad == "CADA_MESES" %}
+          Cada {{ gasto.intervalo_meses }} meses
+          {% else %}
+          {{ gasto.get_periodicidad_display }}
+          {% endif %}
+        </td>
+        <td>{% if gasto.fecha_inicio %}{{ gasto.fecha_inicio|date:"d/m/Y" }}{% else %}—{% endif %}</td>
         <td>{{ gasto.nota|default:"—" }}</td>
         <td>{{ gasto.periodo|date:"F Y" }}</td>
         <td>{{ gasto.fecha|date:"d/m/Y" }}</td>
@@ -38,7 +48,7 @@
       </tr>
       {% empty %}
       <tr>
-        <td colspan="6" style="text-align:center;color:var(--text-faint);padding:24px;">
+        <td colspan="8" style="text-align:center;color:var(--text-faint);padding:24px;">
           Todavía no has registrado ningún gasto.
         </td>
       </tr>

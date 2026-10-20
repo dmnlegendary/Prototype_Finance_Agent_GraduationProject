@@ -6,11 +6,11 @@ números siempre coincidan.
 import calendar
 import math
 import warnings
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.conf import settings
-from django.db.models import DecimalField, F, Sum
+from django.db.models import Count, DecimalField, F, Sum
 from django.db.models.functions import TruncDate, TruncMonth
 
 from core import cache_negocio
@@ -64,6 +64,81 @@ def _suma(queryset, expresion):
     return total or CERO
 
 
+def _contar_ocurrencias(gasto, desde, hasta):
+    """Cuenta las fechas de cobro del gasto dentro de [desde, hasta)."""
+    inicio = gasto.fecha_inicio
+    if not inicio or desde >= hasta or inicio >= hasta:
+        return 0
+
+    primera_fecha = max(inicio, desde)
+    if gasto.periodicidad == GastoOperativo.Periodicidad.DIARIA:
+        return (hasta - primera_fecha).days
+
+    if gasto.periodicidad == GastoOperativo.Periodicidad.SEMANAL:
+        dias = (primera_fecha - inicio).days
+        primera_fecha += timedelta(days=(-dias) % 7)
+        if primera_fecha >= hasta:
+            return 0
+        return ((hasta - primera_fecha - timedelta(days=1)).days // 7) + 1
+
+    ultimo_dia = hasta - timedelta(days=1)
+    if gasto.periodicidad in (
+        GastoOperativo.Periodicidad.MENSUAL,
+        GastoOperativo.Periodicidad.CADA_MESES,
+    ):
+        intervalo_meses = (
+            gasto.intervalo_meses
+            if gasto.periodicidad == GastoOperativo.Periodicidad.CADA_MESES
+            else 1
+        )
+        cursor = primer_dia_del_mes(primera_fecha)
+        meses_desde_inicio = (cursor.year - inicio.year) * 12 + cursor.month - inicio.month
+        primer_intervalo = (
+            (meses_desde_inicio + intervalo_meses - 1) // intervalo_meses
+        ) * intervalo_meses
+        ocurrencias = 0
+        mes_indice = (inicio.year - 1) * 12 + inicio.month - 1 + primer_intervalo
+        ultimo_indice = (ultimo_dia.year - 1) * 12 + ultimo_dia.month - 1
+        while mes_indice <= ultimo_indice:
+            anio, mes = divmod(mes_indice, 12)
+            cursor = date(anio + 1, mes + 1, 1)
+            dia = min(inicio.day, calendar.monthrange(cursor.year, cursor.month)[1])
+            fecha = cursor.replace(day=dia)
+            if inicio <= fecha and desde <= fecha < hasta:
+                ocurrencias += 1
+            mes_indice += intervalo_meses
+        return ocurrencias
+
+    if gasto.periodicidad == GastoOperativo.Periodicidad.ANUAL:
+        ocurrencias = 0
+        for anio in range(primera_fecha.year, ultimo_dia.year + 1):
+            dia = min(inicio.day, calendar.monthrange(anio, inicio.month)[1])
+            fecha = inicio.replace(year=anio, day=dia)
+            if inicio <= fecha and desde <= fecha < hasta:
+                ocurrencias += 1
+        return ocurrencias
+
+    return 0
+
+
+def _gastos_recurrentes(negocio, hasta, tipo=None):
+    gastos = GastoOperativo.objects.filter(
+        negocio=negocio,
+        tipo=GastoOperativo.Tipo.FIJO,
+        periodicidad__in=[
+            GastoOperativo.Periodicidad.DIARIA,
+            GastoOperativo.Periodicidad.SEMANAL,
+            GastoOperativo.Periodicidad.MENSUAL,
+            GastoOperativo.Periodicidad.CADA_MESES,
+            GastoOperativo.Periodicidad.ANUAL,
+        ],
+        fecha_inicio__lt=hasta,
+    )
+    if tipo not in (None, GastoOperativo.Tipo.FIJO):
+        return gastos.none()
+    return gastos
+
+
 def ventas_cobradas(negocio, desde, hasta):
     """Ventas cobradas entre dos fechas (el límite 'hasta' no se incluye)."""
     return Venta.objects.filter(
@@ -77,22 +152,86 @@ def ingresos_periodo(negocio, desde, hasta):
 
 
 def gastos_periodo(negocio, desde, hasta, tipo=None):
-    """Gastos operativos (fijos y variables) del periodo, según el mes al que corresponde cada gasto.
-    La compra de mercancía NO entra aquí:
-    esa se cuenta aparte (compras_periodo) porque su costo ya se resta al vender."""
-    gastos = GastoOperativo.objects.filter(negocio=negocio, periodo__gte=desde, periodo__lt=hasta)
+    """Gastos operativos del periodo. Los no recurrentes usan el mes asignado; los
+    fijos recurrentes se cuentan por cada fecha de ocurrencia desde su fecha de inicio.
+    La compra de mercancía se cuenta aparte porque su costo ya se resta al vender."""
+    gastos = GastoOperativo.objects.filter(
+        negocio=negocio,
+        periodo__gte=desde,
+        periodo__lt=hasta,
+        periodicidad=GastoOperativo.Periodicidad.UNA_VEZ,
+    )
     if tipo:
         gastos = gastos.filter(tipo=tipo)
     else:
         gastos = gastos.exclude(tipo=GastoOperativo.Tipo.MERCANCIA)
-    return redondear(_suma(gastos, "monto"))
+    total = _suma(gastos, "monto")
+    recurrentes = _gastos_recurrentes(negocio, hasta, tipo)
+    total += sum(
+        (gasto.monto * _contar_ocurrencias(gasto, desde, hasta) for gasto in recurrentes),
+        CERO,
+    )
+    return redondear(total)
+
+
+def cantidad_gastos_periodo(negocio, desde, hasta):
+    """Cuenta registros puntuales y ocurrencias fijas dentro del periodo."""
+    puntuales = GastoOperativo.objects.filter(
+        negocio=negocio,
+        periodo__gte=desde,
+        periodo__lt=hasta,
+        periodicidad=GastoOperativo.Periodicidad.UNA_VEZ,
+    ).exclude(tipo=GastoOperativo.Tipo.MERCANCIA)
+    cantidad = puntuales.count()
+    cantidad += sum(
+        _contar_ocurrencias(gasto, desde, hasta)
+        for gasto in _gastos_recurrentes(negocio, hasta)
+    )
+    return cantidad
 
 
 def gastos_capturados(negocio, desde, hasta):
-    """Gastos operativos que se capturaron entre dos fechas, sin importar a qué mes
-    correspondan. Sirve para el resumen del día: lo que salió de la caja ese día."""
-    gastos = GastoOperativo.objects.filter(negocio=negocio, fecha__gte=desde, fecha__lt=hasta)
-    return redondear(_suma(gastos.exclude(tipo=GastoOperativo.Tipo.MERCANCIA), "monto"))
+    """Gastos ocurridos entre dos fechas. Para un registro no recurrente se usa
+    la fecha de captura; para uno recurrente, la fecha de cada ocurrencia."""
+    gastos = GastoOperativo.objects.filter(
+        negocio=negocio,
+        fecha__gte=desde,
+        fecha__lt=hasta,
+        periodicidad=GastoOperativo.Periodicidad.UNA_VEZ,
+    ).exclude(tipo=GastoOperativo.Tipo.MERCANCIA)
+    total = _suma(gastos, "monto")
+    recurrentes = _gastos_recurrentes(negocio, hasta)
+    total += sum(
+        (gasto.monto * _contar_ocurrencias(gasto, desde, hasta) for gasto in recurrentes),
+        CERO,
+    )
+    return redondear(total)
+
+
+def gasto_mas_inusual(negocio, desde, hasta):
+    """Devuelve el mayor gasto individual si supera dos veces el promedio del periodo."""
+    puntuales = GastoOperativo.objects.filter(
+        negocio=negocio,
+        periodo__gte=desde,
+        periodo__lt=hasta,
+        periodicidad=GastoOperativo.Periodicidad.UNA_VEZ,
+    ).exclude(tipo=GastoOperativo.Tipo.MERCANCIA)
+    totales = puntuales.aggregate(total=Sum("monto"), cantidad=Count("pk"))
+    suma = totales["total"] or CERO
+    cantidad = totales["cantidad"]
+    mayor = puntuales.order_by("-monto").first()
+
+    for gasto in _gastos_recurrentes(negocio, hasta):
+        ocurrencias = _contar_ocurrencias(gasto, desde, hasta)
+        if ocurrencias:
+            suma += gasto.monto * ocurrencias
+            cantidad += ocurrencias
+            if mayor is None or gasto.monto > mayor.monto:
+                mayor = gasto
+
+    if cantidad and mayor and mayor.monto > suma / cantidad * 2:
+        return mayor
+    return None
 
 
 def compras_periodo(negocio, desde, hasta):
@@ -180,7 +319,7 @@ def resumen_financiero(negocio, desde, hasta, tasa_isr):
 
 
 def resumen_por_meses(negocio, meses, tasa_isr):
-    """El resumen de varios meses seguidos con solo 4 consultas (en vez de 4 por mes).
+    """El resumen de varios meses seguidos con consultas agrupadas, no una por mes.
     `meses` es la lista de primeros días de mes, del más viejo al más nuevo."""
     desde = meses[0]
     hasta = mes_siguiente(meses[-1])
@@ -202,9 +341,19 @@ def resumen_por_meses(negocio, meses, tasa_isr):
     costos = por_mes(
         ItemVenta.objects.filter(venta__in=ventas), "venta__creado_en", F("cantidad") * F("costo_unitario"),
     )
-    gastos_todos = GastoOperativo.objects.filter(negocio=negocio, periodo__gte=desde, periodo__lt=hasta)
+    gastos_todos = GastoOperativo.objects.filter(
+        negocio=negocio,
+        periodo__gte=desde,
+        periodo__lt=hasta,
+        periodicidad=GastoOperativo.Periodicidad.UNA_VEZ,
+    )
     gastos = por_mes(gastos_todos.exclude(tipo=GastoOperativo.Tipo.MERCANCIA), "periodo", "monto")
     compras = por_mes(gastos_todos.filter(tipo=GastoOperativo.Tipo.MERCANCIA), "periodo", "monto")
+    for gasto in _gastos_recurrentes(negocio, hasta):
+        for mes in meses:
+            gastos[mes] = gastos.get(mes, CERO) + gasto.monto * _contar_ocurrencias(
+                gasto, mes, mes_siguiente(mes),
+            )
 
     return [
         resumen_desde_sumas(

@@ -2,11 +2,11 @@
 
 {% block fin_content %}
 <div class="fin-title"><i class="bi bi-receipt"></i> Registro de Gastos</div>
-<p class="fin-subtitle">Registra tus gastos fijos (siempre los pagas) y variables (cambian cada mes).</p>
+<p class="fin-subtitle">Registra gastos fijos con la frecuencia en que ocurren y gastos variables cuando correspondan.</p>
 
 <div class="fin-callout">
   <i class="bi bi-lightbulb-fill"></i> <strong>¿Cuál es la diferencia?</strong><br>
-  <strong>Gastos fijos:</strong> los pagas siempre, aunque no vendas nada (renta, luz, internet).<br>
+  <strong>Gastos fijos:</strong> indica si son diarios, semanales, mensuales, cada cierta cantidad de meses o anuales; se contarán desde la fecha de inicio que elijas.<br>
   <strong>Gastos variables:</strong> cambian según cuánto vendas (bolsas, flete, merma).<br>
   <strong>No registres aquí la mercancía que compras:</strong> esa compra se anota sola cuando agregas piezas al inventario, y su costo ya se resta cuando vendes.
 </div>
@@ -38,7 +38,25 @@
         <label>Monto ($) <span class="campo-requerido">*</span></label>
         {{ form.monto }}
       </div>
-      <div class="fin-form-group">
+      <div class="fin-form-group" id="grupoPeriodicidad">
+        <label>Periodicidad del gasto fijo</label>
+        {{ form.periodicidad }}
+        <small style="font-size:11px;color:var(--text-faint);">El monto corresponde a cada ocurrencia. Una sola vez mantiene el registro tradicional.</small>
+        {% if form.periodicidad.errors %}<small style="color:var(--color-danger);">{{ form.periodicidad.errors|join:", " }}</small>{% endif %}
+      </div>
+      <div class="fin-form-group" id="grupoIntervaloMeses" style="display:none;">
+        <label>{{ form.intervalo_meses.label }} <span class="campo-requerido">*</span></label>
+        {{ form.intervalo_meses }}
+        <small style="font-size:11px;color:var(--text-faint);">{{ form.intervalo_meses.help_text }}</small>
+        {% if form.intervalo_meses.errors %}<small style="color:var(--color-danger);">{{ form.intervalo_meses.errors|join:", " }}</small>{% endif %}
+      </div>
+      <div class="fin-form-group" id="grupoFechaInicio" style="display:none;">
+        <label>Fecha de inicio <span class="campo-requerido">*</span></label>
+        {{ form.fecha_inicio }}
+        <small style="font-size:11px;color:var(--text-faint);">{{ form.fecha_inicio.help_text }}</small>
+        {% if form.fecha_inicio.errors %}<small style="color:var(--color-danger);">{{ form.fecha_inicio.errors|join:", " }}</small>{% endif %}
+      </div>
+      <div class="fin-form-group" id="grupoPeriodo">
         <label>Mes al que corresponde <span class="campo-requerido">*</span></label>
         {{ form.periodo }}
         <small style="font-size:11px;color:var(--text-faint);">{{ form.periodo.help_text }}</small>
@@ -128,6 +146,17 @@
     document.getElementById('id_tipo').value = tipo;
     document.getElementById('btnTipoFijo').classList.toggle('active', tipo === 'FIJO');
     document.getElementById('btnTipoVariable').classList.toggle('active', tipo === 'VARIABLE');
+    actualizarCamposPeriodo();
+  }
+
+  function actualizarCamposPeriodo() {
+    var esFijo = document.getElementById('id_tipo').value === 'FIJO';
+    var periodicidad = document.getElementById('id_periodicidad').value;
+    var tienePeriodicidad = periodicidad !== 'UNA_VEZ';
+    document.getElementById('grupoPeriodicidad').style.display = esFijo ? '' : 'none';
+    document.getElementById('grupoIntervaloMeses').style.display = esFijo && periodicidad === 'CADA_MESES' ? '' : 'none';
+    document.getElementById('grupoFechaInicio').style.display = esFijo && tienePeriodicidad ? '' : 'none';
+    document.getElementById('grupoPeriodo').style.display = !esFijo || !tienePeriodicidad ? '' : 'none';
   }
 
   // al elegir una categoría se propone si es fijo o variable (se puede cambiar con los botones)
@@ -136,5 +165,8 @@
       if (pill.dataset.tipo) elegirTipoGasto(pill.dataset.tipo);
     });
   });
+
+  document.getElementById('id_periodicidad').addEventListener('change', actualizarCamposPeriodo);
+  actualizarCamposPeriodo();
 </script>
 {% endblock %}

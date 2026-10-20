@@ -1,0 +1,297 @@
+EVALUACION DE LOS MODELOS DE PRONOSTICO DE VENTAS
+=================================================
+
+Fecha del documento: 19/10/2026
+Fuente de implementacion: finanzas/calculos.py y finanzas/tests.py
+Entorno de la corrida sintetica: Python 3.12.2, Django 5.2.18,
+statsmodels 0.15.0, Windows.
+Alcance: comportamiento implementado y resultados reproducibles de pruebas
+unitarias con datos sinteticos. Este documento no presenta resultados de una
+evaluacion con ventas reales de una tienda.
+
+
+1. RESUMEN EJECUTIVO
+--------------------
+
+El prototipo estima las unidades que se venderan de cada producto durante la
+siguiente semana. Compara tres modelos: regresion lineal, ARIMA(1,1,1) y
+Holt-Winters. Calcula el error absoluto medio (MAE), en unidades por semana,
+con hasta las ultimas cuatro semanas de la serie y selecciona el modelo con
+menor MAE para cada producto.
+
+La prueba automatizada principal usa un conjunto sintetico de 12 semanas y
+11 productos. De estos, se evalua el pronostico de los 10 productos con mas
+unidades vendidas. En esa prueba, los MAE medidos fueron 0.75 para regresion
+lineal, 0.79 para ARIMA y 1.38 para Holt-Winters en cada uno de los 10 productos.
+Estos numeros describen un patron artificial simple; no son una medida del
+desempeno esperado en una tienda ni una garantia de precision en produccion.
+
+Actualmente no se guarda un reporte historico de cada ejecucion, no se mide
+el tiempo de ejecucion y no se calcula una matriz de confusion. La matriz de
+confusion no es apropiada para este problema tal como esta implementado: la
+salida es una cantidad numerica de unidades, no una clase.
+
+
+2. QUE PREDICE EL SISTEMA Y QUE DATOS USA
+-----------------------------------------
+
+- Variable a predecir: unidades vendidas de un producto en la siguiente semana.
+- Frecuencia de la serie: semanal. Las semanas comienzan el lunes.
+- Ventas incluidas: ventas cobradas de productos activos del mismo negocio.
+- Seleccion de productos: los 10 con mas unidades vendidas; el limite es un
+  parametro de la funcion y la pantalla usa el valor predeterminado de 10.
+- Ventana por producto: las ultimas 26 semanas, parametro predeterminado de
+  semanas_historial en la funcion de calculo.
+- Semanas sin venta: se incluyen como cero para tener una serie semanal continua.
+- Semana objetivo: la semana que inicia inmediatamente despues de la ultima
+  semana con ventas considerada en la serie.
+- Historia minima para mostrar una estimacion: 30 dias naturales, configurable
+  mediante PRONOSTICO_MINIMO_DIAS (predeterminado: 30).
+- Guardia tecnica de ajuste: la funcion del modelo requiere una serie de al
+  menos 8 posiciones semanales. La serie del pronostico tiene 26 posiciones
+  por defecto y rellena con cero las semanas sin ventas, por lo que esta
+  guardia no significa que deban existir 8 semanas con ventas.
+- Predicciones negativas: se limitan a cero antes de calcular el MAE y al
+  presentar la estimacion.
+- Excepcion de dato atipico: si existen al menos cinco dias con ventas y un
+  dia concentra la mitad o mas de todas las unidades del producto en la ventana,
+  el valor de ese dia se sustituye por el segundo valor diario mas alto. La
+  serie utilizada se marca como corregida en la pantalla.
+
+Nota sobre el periodo: la ventana pronosticada se limita a 26 semanas, pero la
+seleccion de los productos mas vendidos se calcula sobre las ventas cobradas
+disponibles, sin limitar esa consulta a las 26 semanas. El historial utilizado
+por cada producto se cuenta desde el dia de su primera venta dentro de la
+ventana hasta la ultima fecha con ventas del conjunto.
+
+
+3. MODELOS Y PARAMETROS IMPLEMENTADOS
+-------------------------------------
+
+REGRESION LINEAL
+- Ajuste: minimos cuadrados ordinarios sobre el indice de semana (0, 1, 2...).
+- Entradas: unidades vendidas por semana, incluidos ceros.
+- Horizonte: los pasos solicitados; la pantalla solicita un paso, una semana.
+- Dependencias adicionales: no requiere una biblioteca estadistica.
+- Restriccion: prolonga una tendencia recta y puede no representar cambios
+  bruscos o patrones estacionales.
+
+ARIMA
+- Orden: (p,d,q) = (1,1,1).
+- enforce_stationarity: False.
+- enforce_invertibility: False.
+- Ajuste: statsmodels.tsa.arima.model.ARIMA(...).fit().
+- No se hace busqueda automatica de orden ni optimizacion de hiperparametros.
+- Los avisos del ajuste se silencian durante el calculo.
+
+HOLT-WINTERS
+- Tendencia: aditiva.
+- Tendencia amortiguada: activada.
+- Estacionalidad: aditiva.
+- Periodo estacional: 4 semanas.
+- Inicializacion: estimated.
+- Ajuste: fit(optimized=True).
+- Los avisos del ajuste se silencian durante el calculo.
+
+
+4. PROTOCOLO DE EVALUACION ACTUAL
+---------------------------------
+
+Para una serie de n semanas, la evaluacion usa:
+
+  semanas de prueba = min(4, n - 8)
+  entrenamiento = todas las semanas anteriores a las semanas de prueba
+
+Si hay 12 semanas:
+- entrenamiento: primeras 8 semanas;
+- prueba: ultimas 4 semanas;
+- cada modelo produce pronosticos para esas 4 semanas, usando el historial
+  disponible antes del bloque de prueba;
+- se compara cada pronostico con las unidades reales de esa semana.
+
+Si la ventana predeterminada contiene 26 semanas:
+- entrenamiento: primeras 22 semanas;
+- prueba: ultimas 4 semanas.
+
+En una ejecucion normal, los 26 valores son la ventana completa, incluso si
+algunas semanas no tienen ventas y valen cero. La prueba de 12 semanas pasa
+una ventana de ese tamano para comprobar el comportamiento y usa 8 posiciones
+para entrenamiento.
+
+La metrica calculada es MAE (Mean Absolute Error / error absoluto medio):
+
+  MAE = suma(abs(real - pronosticado)) / numero de semanas de prueba
+
+Unidad: piezas por semana (o unidades de venta por semana si el producto se
+mide a granel). Un MAE de 0.75 significa que, en ese bloque, el pronostico se
+desvio en promedio 0.75 unidades por semana.
+
+El mismo bloque de las ultimas semanas se usa para comparar los modelos,
+seleccionar el de menor MAE y mostrar su error. Por ello, el MAE mostrado
+participa en la seleccion del ganador y no debe presentarse como una evaluacion
+final independiente; esta seleccion puede hacer que el error reportado parezca
+mejor de lo que seria en semanas futuras no vistas.
+
+
+5. RESULTADO CUANTITATIVO REPRODUCIBLE DE LA PRUEBA UNITARIA
+-----------------------------------------------------------
+
+Prueba de origen:
+  FinanzasConDatosRealesTests.test_pronostico_compara_tres_modelos_para_los_diez_mas_vendidos
+  (el nombre de la clase no implica que el fixture use datos reales;
+   las ventas de esta prueba son sinteticas).
+
+Datos del fixture:
+- Fechas de venta: lunes desde 06/01/2025 hasta 24/03/2025.
+- Duracion: 12 semanas consecutivas; una venta semanal por producto.
+- Productos creados: 11, llamados "Producto 00" a "Producto 10".
+- Productos evaluados: los 10 mas vendidos, "Producto 00" a "Producto 09".
+- Producto 10: queda fuera del limite de 10.
+- Cantidad semanal sintetica del producto de indice i:
+  20 - i + (numero_de_semana mod 3).
+- Entrenamiento para el MAE: 06/01/2025 a 24/02/2025 (8 semanas).
+- Prueba: 03/03/2025 a 24/03/2025 (4 semanas).
+- Semana pronosticada por la prueba de integracion: inicia 31/03/2025.
+- Metrica: MAE por producto y modelo, en unidades semanales.
+- Para generar el pronostico de la siguiente semana, cada modelo vuelve a
+  ajustarse usando las 12 semanas completas; esa prediccion no forma parte de
+  las cuatro observaciones usadas para el MAE.
+
+Producto   MAE lineal   MAE ARIMA   MAE Holt-Winters   Ganador por MAE
+---------  ----------   ---------   ----------------   ---------------
+Producto 00    0.75        0.79            1.38              Lineal
+Producto 01    0.75        0.79            1.38              Lineal
+Producto 02    0.75        0.79            1.38              Lineal
+Producto 03    0.75        0.79            1.38              Lineal
+Producto 04    0.75        0.79            1.38              Lineal
+Producto 05    0.75        0.79            1.38              Lineal
+Producto 06    0.75        0.79            1.38              Lineal
+Producto 07    0.75        0.79            1.38              Lineal
+Producto 08    0.75        0.79            1.38              Lineal
+Producto 09    0.75        0.79            1.38              Lineal
+
+Estos valores se reprodujeron ejecutando la funcion de evaluacion del proyecto
+con las mismas series semanales sinteticas definidas por la prueba. La prueba
+automatizada verifica que los tres modelos esten disponibles, que entreguen
+pronostico y MAE, y que se respete el limite de productos; no contiene
+aserciones que fijen los valores numericos del MAE.
+
+
+6. PRUEBAS UNITARIAS Y QUE COMPRUEBA CADA UNA
+---------------------------------------------
+
+Archivo: finanzas/tests.py
+
+1) FinanzasConDatosRealesTests.test_pronostico_compara_tres_modelos_para_los_diez_mas_vendidos
+   - Escenario sintetico de 11 productos y 12 semanas; se comprueba el limite
+     de 10, el orden por ventas, disponibilidad de los tres modelos, presencia
+     de MAE y fecha de la siguiente semana.
+   - No valida que un modelo sea mejor con datos reales.
+
+2) FinanzasConDatosRealesTests.test_pronostico_sin_ventas_indica_que_no_hay_datos
+   - Sin ventas; verifica respuesta sin pronosticos y la presentacion del
+     estado vacio.
+
+3) PronosticoProgresivoTests.test_cada_modelo_se_pide_por_separado
+   - Un producto "Refresco", 12 semanas desde 06/01/2025; ventas semanales
+     sinteticas de 10 + semana mod 3 unidades.
+   - Comprueba que lineal, Holt-Winters y ARIMA se pueden solicitar por
+     separado y devuelven pronostico y MAE.
+
+4) PronosticoProgresivoTests.test_un_producto_con_pocos_dias_de_historia_dice_datos_insuficientes
+   - Producto con dos ventas separadas por 10 dias (11 dias de historia).
+   - Comprueba que no se inventa un pronostico y que la confianza indica
+     "sin datos".
+
+5) PronosticoProgresivoTests.test_el_minimo_de_dias_se_puede_configurar
+   - Cuatro ventas semanales sinteticas; verifica el umbral con
+     PRONOSTICO_MINIMO_DIAS=15 y =60.
+   - Comprueba la configuracion de elegibilidad, no mide la precision.
+
+6) ReglasDelPronosticoTests.test_un_dia_que_vendio_la_mitad_de_todo_se_ajusta
+   - Ocho dias sinteticos con una venta diaria de 4 y un dia con 40 unidades.
+   - Verifica que el dia atipico se sustituya por el siguiente valor diario
+     mas alto.
+
+7) ReglasDelPronosticoTests.test_si_las_ventas_son_parejas_no_se_ajusta
+   - Ocho dias sinteticos sin un pico que alcance la mitad del total.
+   - Verifica que los datos permanezcan intactos.
+
+8) ReglasDelPronosticoTests.test_con_muy_pocos_dias_no_se_ajusta
+   - Tres dias con ventas; verifica que no se active la regla de atipicos.
+
+9) ReglasDelPronosticoTests.test_nivel_de_confianza_segun_el_error_contra_lo_que_se_vende
+   - Comprueba calculo de los niveles y tratamiento de falta de datos.
+
+10) PronosticoProgresivoTests.test_el_pronostico_trae_cambio_contra_la_ultima_semana_y_confianza
+    - Un producto con 12 semanas sinteticas; comprueba que existan cambio
+      porcentual, ultima venta y nivel de confianza.
+
+11) PronosticoProgresivoTests.test_un_modelo_que_no_existe_da_404
+    - Verifica que una clave de modelo desconocida no se acepte.
+
+12) ExplicacionDelPronosticoTests.test_sin_historia_suficiente_no_se_llama_a_la_ia
+    - Verifica que la explicacion no invoque IA cuando falta historia.
+
+Estas pruebas automatizan reglas, contratos y funcionamiento del calculo. No
+constituyen por si mismas una validacion estadistica sobre tiendas o periodos
+historicos reales.
+
+
+7. "PRECISION", MATRIZ DE CONFUSION Y CONFIANZA
+-----------------------------------------------
+
+No se debe reportar accuracy/precision de clasificacion ni matriz de confusion
+para los resultados actuales: cada modelo predice una magnitud continua
+(unidades por semana), no una etiqueta como "alto/bajo". Para evaluar esta
+implementacion son apropiadas MAE y, como complemento, RMSE.
+
+MAPE tampoco se calcula actualmente. No se recomienda aplicarlo directamente
+cuando las semanas reales pueden ser cero, porque dividir entre cero deja la
+metrica indefinida. Si se requiere una medida porcentual, debe definirse un
+indicador que trate explicitamente semanas sin ventas y presentarse junto con
+MAE/RMSE.
+
+La etiqueta "confianza" de la pantalla es una regla relativa, no una
+probabilidad estadistica:
+- alta: MAE / promedio semanal reciente <= 0.25;
+- media: proporcion > 0.25 y <= 0.50;
+- baja: proporcion > 0.50;
+- sin datos: MAE inexistente o promedio semanal igual a cero.
+
+El promedio de referencia usa las ultimas 8 semanas. Los umbrales estan
+definidos en finanzas/calculos.py y son criterios iniciales, no calibrados
+contra una muestra estadistica externa.
+
+
+8. INFORMACION PENDIENTE PARA UNA EVALUACION CON DATOS REALES
+-------------------------------------------------------------
+
+Para afirmar que un modelo tiene determinado desempeno en la tienda, ejecutar
+y conservar una corrida con, al menos:
+
+- Identificador de corrida, fecha/hora y version del codigo.
+- Negocio anonimizado; no publicar nombres, credenciales ni datos personales.
+- Producto o identificador anonimizado, unidad de medida y criterio de
+  seleccion (por ejemplo, top 10).
+- Fecha inicial/final del historial usado, numero de semanas, ventas faltantes
+  completadas con cero y si se corrigio un dia atipico.
+- Modelo, version de statsmodels cuando aplique y parametros de ajuste.
+- Fechas exactas de entrenamiento, validacion y prueba final.
+- Horizonte pronosticado (una semana), valores reales y pronosticados por
+  semana, MAE y RMSE por modelo y producto.
+- Ganador elegido y criterio de seleccion.
+- Duracion de ejecucion medida por separado para preparar datos, ajustar cada
+  modelo y completar la corrida. Hoy el codigo no registra esos tiempos.
+
+Protocolo recomendado para reportar resultados sin optimismo por seleccion:
+usar un bloque cronologico final que no participe en la seleccion del modelo.
+Si hay historia suficiente, elegir el modelo con ventanas de validacion
+anteriores y reportar su resultado una sola vez en ese bloque final. Repetir
+con origenes temporales sucesivos y resumir MAE/RMSE por producto y modelo.
+No mezclar semanas futuras con el entrenamiento ni barajar aleatoriamente una
+serie temporal.
+
+Hasta reunir esas corridas, la conclusion respaldada por el prototipo es que
+los tres modelos pueden ejecutarse y compararse con una prueba sintetica; aun
+no se ha demostrado cual tiene mejor desempeno en ventas reales.

@@ -134,6 +134,7 @@ Escuela Superior de Cómputo (ESCOM) — Instituto Politécnico Nacional.
 - **Kardex de inventario:** cada entrada, venta, merma o ajuste deja un movimiento con la existencia que quedó; se consulta en `/inventario/movimientos/` y se exporta a CSV.
 - **Reportes financieros configurables:** de 1, 3, 6 o 12 meses o un rango de meses, con sugerencias, más un reporte de ventas por periodo.
 - **Pronóstico por partes y con confianza:** carga primero la base y luego cada modelo; con poco historial avisa el nivel de confianza, y el botón "Explícame mi pronóstico" hace otra llamada a la IA.
+- **Evaluación de pronósticos:** la metodología, parámetros, pruebas unitarias, MAE de la prueba sintética y límites de evaluación están documentados en [`docs/EVALUACION_MODELOS_PRONOSTICO.txt`](docs/EVALUACION_MODELOS_PRONOSTICO.txt).
 - **Llaves de la IA cifradas** en la base de datos (usan la `SECRET_KEY`, así que en un servidor hay que fijar `DJANGO_SECRET_KEY` en el `.env`); `python manage.py configurar_ia --ver` muestra cuáles hay, tapadas.
 - **Video de bienvenida** la primera vez que entra cada usuario, y preferencias del negocio (como el margen de ganancia) que el asistente recuerda.
 - **Listo para publicar:** `DJANGO_DEBUG`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, `USAR_HTTPS` y el correo SMTP se configuran desde el `.env` (ver `.env.example`).

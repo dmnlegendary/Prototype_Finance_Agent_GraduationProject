@@ -275,53 +275,109 @@ function explicarConAvi(tipo) {
 
 // Dictado como un micrófono de radio: se empieza a escuchar al presionar el botón y se deja de
 // escuchar al soltarlo. Mientras se mantiene presionado el texto va apareciendo en el chat.
-const MIC = { reconocimiento: null, activo: false, inicio: 0, base: '' };
+// Usa el reconocimiento de voz del navegador, que existe en Chrome y Edge (no en Firefox) y
+// necesita internet y permiso para el micrófono.
+const MIC = { reconocimiento: null, sostenido: false, inicio: 0, base: '', permiso: false, error: '', idioma: 'es-MX' };
 
-function empezarADictar(boton) {
-  if (MIC.activo) return;
-  const Reconocimiento = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!Reconocimiento) {
-    showToast('Tu navegador no soporta dictado por voz.', 'info');
-    return;
+function reconocimientoDelNavegador() {
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
+function mensajeDeErrorDeVoz(codigo) {
+  if (codigo === 'not-allowed' || codigo === 'service-not-allowed') {
+    return 'El navegador no tiene permiso para usar el micrófono. Permítelo en el candado de la barra de direcciones y vuelve a intentar.';
   }
+  if (codigo === 'audio-capture') return 'No encontré un micrófono conectado.';
+  if (codigo === 'network') return 'El dictado necesita internet: el navegador manda el audio a un servicio de reconocimiento de voz.';
+  if (codigo === 'no-speech') return 'No escuché nada. Mantén presionado el micrófono mientras hablas.';
+  return 'No pude dictar (' + codigo + ').';
+}
 
+function estadoDelMicrofono(escuchando) {
+  const boton = document.querySelector('.avi-mic-btn');
   const input = document.getElementById('aviTexto');
-  MIC.activo = true;
+  if (boton) boton.classList.toggle('escuchando', escuchando);
+  if (input) {
+    if (escuchando) { input.dataset.marcador = input.placeholder; input.placeholder = 'Escuchando… suelta el micrófono al terminar'; }
+    else if (input.dataset.marcador) { input.placeholder = input.dataset.marcador; delete input.dataset.marcador; }
+  }
+}
+
+// la primera vez se pide el permiso con una pregunta aparte: si el aviso del navegador saliera justo
+// al empezar a dictar, le quitaría el clic al botón y el dictado se cortaría solo
+function pedirPermisoDelMicrofono() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { MIC.permiso = true; return Promise.resolve(true); }
+  return navigator.mediaDevices.getUserMedia({ audio: true }).then(function (flujo) {
+    flujo.getTracks().forEach(function (pista) { pista.stop(); });
+    MIC.permiso = true;
+    showToast('Micrófono listo. Ahora mantén presionado el botón y habla.', 'success');
+    return true;
+  }).catch(function (error) {
+    const sinMicrofono = error && (error.name === 'NotFoundError' || error.name === 'OverconstrainedError');
+    showToast(mensajeDeErrorDeVoz(sinMicrofono ? 'audio-capture' : 'not-allowed'), 'alerta');
+    return false;
+  });
+}
+
+function empezarADictar() {
+  const input = document.getElementById('aviTexto');
+  const Reconocimiento = reconocimientoDelNavegador();
   MIC.inicio = Date.now();
+  MIC.error = '';
   MIC.base = input.value.trim() ? input.value.trim() + ' ' : '';
 
   const reconocimiento = new Reconocimiento();
-  reconocimiento.lang = 'es-MX';
+  reconocimiento.lang = MIC.idioma;
   reconocimiento.continuous = true;      // no se corta solo cuando haces una pausa
   reconocimiento.interimResults = true;  // se va viendo lo que entiende mientras hablas
   reconocimiento.maxAlternatives = 1;
 
+  reconocimiento.onstart = function () { estadoDelMicrofono(true); };
   reconocimiento.onresult = function (evento) {
     let texto = '';
     for (let i = 0; i < evento.results.length; i++) texto += evento.results[i][0].transcript;
     input.value = MIC.base + texto.trim();
   };
-  reconocimiento.onerror = function (evento) {
-    if (evento.error === 'not-allowed' || evento.error === 'service-not-allowed') {
-      showToast('Permite el uso del micrófono en tu navegador para poder dictar.', 'alerta');
-    } else if (evento.error !== 'no-speech' && evento.error !== 'aborted') {
-      showToast('No te escuché bien, intenta otra vez.', 'info');
-    }
-  };
+  reconocimiento.onerror = function (evento) { MIC.error = evento.error || 'desconocido'; };
   reconocimiento.onend = function () {
-    MIC.activo = false;
-    boton.classList.remove('escuchando');
+    estadoDelMicrofono(false);
+    MIC.reconocimiento = null;
     input.focus();
+    if (MIC.error === 'language-not-supported' && MIC.idioma !== 'es') {
+      MIC.idioma = 'es';  // algunos navegadores solo traen "es" a secas
+      if (MIC.sostenido) empezarADictar();
+    } else if (MIC.error && MIC.error !== 'aborted') {
+      showToast(mensajeDeErrorDeVoz(MIC.error), 'alerta');
+    } else if (MIC.sostenido && Date.now() - MIC.inicio < 1500) {
+      showToast('El navegador cortó el dictado. Intenta de nuevo.', 'info');
+    }
   };
 
   MIC.reconocimiento = reconocimiento;
-  boton.classList.add('escuchando');
-  try { reconocimiento.start(); } catch (e) { MIC.activo = false; boton.classList.remove('escuchando'); }
+  try { reconocimiento.start(); } catch (e) { MIC.reconocimiento = null; showToast(mensajeDeErrorDeVoz('desconocido'), 'alerta'); }
 }
 
-function pararDeDictar() {
-  if (!MIC.activo || !MIC.reconocimiento) return;
-  if (Date.now() - MIC.inicio < 400) showToast('Mantén presionado el micrófono mientras hablas y suéltalo al terminar.', 'info');
+function alPresionarMicrofono() {
+  if (MIC.sostenido) return;
+  MIC.sostenido = true;
+  MIC.inicio = Date.now();
+  if (!reconocimientoDelNavegador()) {
+    showToast('Este navegador no permite dictar por voz. Usa Google Chrome o Microsoft Edge.', 'info');
+    return;
+  }
+  if (!MIC.permiso) {
+    pedirPermisoDelMicrofono();
+    return;
+  }
+  empezarADictar();
+}
+
+function alSoltarMicrofono() {
+  if (!MIC.sostenido) return;
+  const duracion = Date.now() - MIC.inicio;
+  MIC.sostenido = false;
+  if (!MIC.reconocimiento) return;
+  if (duracion < 400) showToast('Mantén presionado el micrófono mientras hablas y suéltalo al terminar.', 'info');
   MIC.reconocimiento.stop();  // al parar, el navegador entrega lo último que entendió
 }
 
@@ -329,23 +385,41 @@ document.addEventListener('DOMContentLoaded', function () {
   const boton = document.querySelector('.avi-mic-btn');
   if (!boton) return;
 
+  if (!reconocimientoDelNavegador()) {
+    boton.classList.add('sin-soporte');
+    boton.title = 'Este navegador no permite dictar por voz. Usa Google Chrome o Microsoft Edge.';
+  }
+
+  // si el permiso ya estaba dado no hace falta preguntarlo otra vez
+  try {
+    navigator.permissions.query({ name: 'microphone' }).then(function (estado) {
+      if (estado.state === 'granted') MIC.permiso = true;
+    }).catch(function () {});
+  } catch (e) {}
+
   boton.addEventListener('pointerdown', function (evento) {
+    if (evento.pointerType === 'mouse' && evento.button !== 0) return;
     evento.preventDefault();
-    try { boton.setPointerCapture(evento.pointerId); } catch (e) {}  // para que el soltar se detecte aunque el dedo se salga del botón
-    empezarADictar(boton);
+    // el soltar se escucha en toda la ventana, así no se pierde si el dedo o el ratón se salen del botón
+    const soltar = function () {
+      window.removeEventListener('pointerup', soltar);
+      window.removeEventListener('pointercancel', soltar);
+      alSoltarMicrofono();
+    };
+    window.addEventListener('pointerup', soltar);
+    window.addEventListener('pointercancel', soltar);
+    alPresionarMicrofono();
   });
-  boton.addEventListener('pointerup', pararDeDictar);
-  boton.addEventListener('pointercancel', pararDeDictar);
   boton.addEventListener('contextmenu', function (evento) { evento.preventDefault(); });  // el toque largo no abre menú
+  window.addEventListener('blur', alSoltarMicrofono);  // si la ventana pierde el foco, se deja de escuchar
   // con teclado: mantener la barra espaciadora
   boton.addEventListener('keydown', function (evento) {
-    if (evento.key === ' ' && !evento.repeat) { evento.preventDefault(); empezarADictar(boton); }
+    if (evento.key === ' ' && !evento.repeat) { evento.preventDefault(); alPresionarMicrofono(); }
   });
   boton.addEventListener('keyup', function (evento) {
-    if (evento.key === ' ') pararDeDictar();
+    if (evento.key === ' ') alSoltarMicrofono();
   });
 });
-
 
 document.addEventListener('DOMContentLoaded', function () {
   document.querySelectorAll('form[data-validar]').forEach(function (form) {

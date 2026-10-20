@@ -921,3 +921,8 @@ class CategoriasDeGastoTests(TestCase):
         self.client.post(reverse("finanzas:completar_no_encontrado", args=[producto.pk]), {"precio_compra": "30"})
         producto.refresh_from_db()
         self.assertEqual(producto.costo, Decimal("0"))
+
+    def test_las_categorias_de_gasto_se_ven_recogidas_con_mostrar_mas(self):
+        respuesta = self.client.get(reverse("finanzas:registrar_gastos"))
+        self.assertContains(respuesta, "data-colapsable")
+        self.assertContains(respuesta, "data-siempre")  # el botón "Nueva" nunca se esconde

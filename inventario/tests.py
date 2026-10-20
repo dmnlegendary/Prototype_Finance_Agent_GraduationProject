@@ -801,3 +801,46 @@ class DatosBaseTests(TestCase):
         _, negocio = crear_negocio()
         call_command("seed_catalogo", "--negocios", stdout=StringIO())
         self.assertGreaterEqual(Proveedor.objects.filter(negocio=negocio).count(), 20)
+
+
+class ListasColapsablesTests(TestCase):
+    """Las listas largas (categorías, proveedores, íconos) se muestran recogidas con "Mostrar más"."""
+
+    def setUp(self):
+        from .datos_base import preparar_negocio
+        self.usuario, self.negocio = crear_negocio()
+        self.client.force_login(self.usuario)
+        preparar_negocio(self.negocio)
+
+    def test_el_panel_marca_sus_listas_largas_como_colapsables(self):
+        respuesta = self.client.get(reverse("inventario:panel"))
+        # categoría, proveedor e ícono en el alta y en la edición, y las categorías de los dos formularios de proveedor
+        self.assertGreaterEqual(respuesta.content.decode().count("data-colapsable"), 9)
+
+    def test_el_proveedor_del_producto_se_elige_en_una_lista_con_la_opcion_sin_proveedor(self):
+        respuesta = self.client.get(reverse("inventario:panel"))
+        self.assertContains(respuesta, 'type="radio" name="proveedor"')
+        self.assertContains(respuesta, "Sin proveedor")
+
+    def test_se_puede_dar_de_alta_con_proveedor_y_sin_proveedor(self):
+        from .models import Proveedor
+        categoria = Categoria.objects.get_or_create(nombre="Bebidas")[0]
+        proveedor = Proveedor.objects.get(negocio=self.negocio, nombre="Coca-Cola FEMSA")
+        base = {
+            "descripcion": "Refresco", "costo": "12", "precio_venta": "19", "cantidad_actual": "10",
+            "cantidad_minima": "5", "categoria": categoria.pk,
+        }
+        self.client.post(reverse("inventario:producto_alta"), {**base, "nombre": "Sprite", "proveedor": proveedor.pk})
+        self.client.post(reverse("inventario:producto_alta"), {**base, "nombre": "Fanta", "proveedor": ""})
+        self.assertEqual(Producto.objects.get(nombre="Sprite").proveedor, proveedor)
+        self.assertIsNone(Producto.objects.get(nombre="Fanta").proveedor)
+
+    def test_cada_proveedor_muestra_solo_tres_categorias_y_cuantas_mas(self):
+        respuesta = self.client.get(reverse("inventario:panel"))
+        # Mayorista de abarrotes surte 4 categorías, así que se muestran 3 y "+1 más"
+        self.assertContains(respuesta, "+1 más")
+
+    def test_la_pagina_carga_el_script_de_las_listas_colapsables(self):
+        respuesta = self.client.get(reverse("inventario:panel"))
+        self.assertContains(respuesta, "colapsables.js")
+        self.assertContains(respuesta, "colapsables.css")

@@ -1,7 +1,7 @@
 // Service worker de marIA: guarda las pantallas y los archivos estáticos para poder abrir el
 // sistema cuando no hay internet. Los datos (ventas, productos…) NO se guardan aquí: eso lo
 // hace static/js/sinconexion.js en la cola del dispositivo.
-const VERSION = 'maria-v2';
+const VERSION = 'maria-v3';
 
 // pantallas que se pueden abrir sin conexión
 const PANTALLAS = ['/ventas/', '/inventario/', '/finanzas/'];
@@ -43,10 +43,24 @@ self.addEventListener('fetch', function (evento) {
 
   const url = new URL(peticion.url);
 
-  // archivos estáticos y recursos de otros sitios (fuentes, íconos): primero lo guardado, y se actualiza de fondo
+  // los archivos propios (JS y CSS): primero el servidor, para no quedarse con una versión vieja; sin internet, la guardada
   const esEstatico = url.origin === self.location.origin && url.pathname.indexOf('/static/') === 0;
+  if (esEstatico) {
+    evento.respondWith(
+      fetch(peticion).then(function (respuesta) {
+        if (respuesta && respuesta.ok) {
+          const copia = respuesta.clone();
+          caches.open(VERSION).then(function (cache) { cache.put(peticion, copia); });
+        }
+        return respuesta;
+      }).catch(function () { return caches.match(peticion); })
+    );
+    return;
+  }
+
+  // recursos de otros sitios (fuentes, íconos): primero lo guardado, y se actualiza de fondo
   const esExterno = url.origin !== self.location.origin && ['style', 'script', 'font', 'image'].indexOf(peticion.destination) !== -1;
-  if (esEstatico || esExterno) {
+  if (esExterno) {
     evento.respondWith(
       caches.open(VERSION).then(function (cache) {
         return cache.match(peticion).then(function (guardado) {

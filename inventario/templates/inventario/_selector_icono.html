@@ -1,6 +1,6 @@
 <div class="form-group">
   <label>Ícono del producto <span style="font-weight:400;color:var(--text-faint);">(opcional)</span></label>
-  <div class="selector-icono">
+  <div class="selector-icono" data-colapsable>
     {{ campo }}
     {% for icono in iconos %}<button type="button" class="icono-opcion" data-icono="{{ icono }}" onclick="elegirIcono(this)">{{ icono }}</button>{% endfor %}
   </div>

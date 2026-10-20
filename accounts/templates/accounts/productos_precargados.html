@@ -44,8 +44,8 @@
 
             <input type="text" id="buscar-catalogo" placeholder="Buscar producto..." class="form-control buscador-producto mb-3" autocomplete="off">
 
-            <div class="d-flex gap-2 overflow-auto pb-2 mb-3">
-                <button type="button" class="btn btn-sm text-nowrap filtro-categoria activo" data-categoria="">Todos</button>
+            <div class="d-flex flex-wrap gap-2 pb-1 mb-1" data-colapsable data-limite="3" id="filtrosDeCategoria">
+                <button type="button" class="btn btn-sm text-nowrap filtro-categoria activo" data-siempre data-categoria="">Todos</button>
                 {% for categoria in categorias %}
                 <button type="button" class="btn btn-sm text-nowrap filtro-categoria" data-categoria="{{ categoria.nombre }}">{{ categoria.icono }} {{ categoria.nombre }}</button>
                 {% endfor %}

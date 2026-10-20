@@ -408,6 +408,7 @@ nav {
 }
 .avi-input button:hover { opacity: .9; }
 .avi-mic-btn { background: var(--bg-muted); color: var(--text-secondary); touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.avi-mic-btn.sin-soporte { opacity: .45; }
 .avi-mic-btn.escuchando {
   background: var(--color-danger);
   color: var(--bg-white);

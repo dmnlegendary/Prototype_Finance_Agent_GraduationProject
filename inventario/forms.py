@@ -24,6 +24,7 @@ class ProductoForm(forms.ModelForm):
             "cantidad_minima": forms.NumberInput(attrs={"step": "any", "placeholder": "0"}),
             "stock_ideal": forms.NumberInput(attrs={"step": "any", "placeholder": "0"}),
             "categoria": forms.RadioSelect(),
+            "proveedor": forms.RadioSelect(),
             "icono": forms.HiddenInput(),
             "codigo_barras": forms.TextInput(attrs={"placeholder": "Escanéalo con tu lector o escríbelo", "autocomplete": "off"}),
         }
@@ -34,6 +35,7 @@ class ProductoForm(forms.ModelForm):
         if negocio is not None:
             self.fields["proveedor"].queryset = Proveedor.objects.filter(negocio=negocio)
         self.fields["proveedor"].required = False
+        self.fields["proveedor"].empty_label = "Sin proveedor"
         # todo producto lleva una categoría y una descripción breve (así lo piden los requisitos)
         self.fields["categoria"].required = True
         self.fields["categoria"].error_messages["required"] = "Elige una categoría para el producto."

@@ -1,0 +1,13 @@
+.colapsado-oculto { display: none !important; }
+.btn-mostrar-mas {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 4px 2px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  color: var(--color-primary, #7c3aed);
+  cursor: pointer;
+}
+.btn-mostrar-mas:hover { text-decoration: underline; }

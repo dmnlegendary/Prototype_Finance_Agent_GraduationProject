@@ -178,18 +178,22 @@
 
       <div class="form-group">
         <label>Categoría <span class="campo-requerido">*</span></label>
-        <div class="cat-pills">
+        <div class="cat-pills" data-colapsable>
           {% for radio in form_alta.categoria %}
           <label class="cat-pill">{{ radio.tag }} {{ radio.choice_label }}</label>
           {% endfor %}
-          <button type="button" class="cat-pill" onclick="abrirNuevaCategoria('alta')"><i class="bi bi-plus-lg"></i> Nueva</button>
+          <button type="button" class="cat-pill" data-siempre onclick="abrirNuevaCategoria('alta')"><i class="bi bi-plus-lg"></i> Nueva</button>
         </div>
         {% if form_alta.categoria.errors %}<span style="color:var(--color-danger);font-size:12px;">{{ form_alta.categoria.errors|join:", " }}</span>{% endif %}
       </div>
 
       <div class="form-group">
-        {{ form_alta.proveedor.label_tag }}
-        {{ form_alta.proveedor }}
+        <label>Proveedor <span style="font-weight:400;color:var(--text-faint);">(opcional)</span></label>
+        <div class="cat-pills" data-colapsable>
+          {% for radio in form_alta.proveedor %}
+          <label class="cat-pill">{{ radio.tag }} {{ radio.choice_label }}</label>
+          {% endfor %}
+        </div>
       </div>
 
       <div class="panel-footer" style="padding:0; border-top:none;">
@@ -279,7 +283,7 @@
       </div>
       <div class="form-group">
         <label>Categoría <span class="campo-requerido">*</span></label>
-        <div class="cat-pills">
+        <div class="cat-pills" data-colapsable>
           {% for radio in form_edicion.categoria %}
           <label class="cat-pill">{{ radio.tag }} {{ radio.choice_label }}</label>
           {% endfor %}
@@ -287,8 +291,12 @@
         {% if form_edicion.categoria.errors %}<span style="color:var(--color-danger);font-size:12px;">{{ form_edicion.categoria.errors|join:", " }}</span>{% endif %}
       </div>
       <div class="form-group">
-        {{ form_edicion.proveedor.label_tag }}
-        {{ form_edicion.proveedor }}
+        <label>Proveedor <span style="font-weight:400;color:var(--text-faint);">(opcional)</span></label>
+        <div class="cat-pills" data-colapsable>
+          {% for radio in form_edicion.proveedor %}
+          <label class="cat-pill">{{ radio.tag }} {{ radio.choice_label }}</label>
+          {% endfor %}
+        </div>
       </div>
       <div class="form-group">
         <label>Motivo del cambio <span class="campo-requerido">*</span></label>
@@ -350,6 +358,7 @@
       <button type="button" class="panel-close" onclick="closeModal('proveedores')"><i class="bi bi-x-lg"></i></button>
     </div>
     <div class="panel-body">
+      <div class="lista-proveedores" data-colapsable style="display:flex;flex-direction:column;gap:8px;">
       {% for p in proveedores_lista %}
       <div class="provider-card" style="cursor:pointer;" onclick="closeModal('proveedores'); openModal('proveedor-editar-{{ p.pk }}')">
         <div class="prov-avatar">{{ p.nombre|first|upper }}</div>
@@ -358,9 +367,10 @@
           <div class="prov-contact">{{ p.telefono|default:"Sin teléfono" }} · {{ p.correo|default:"Sin correo" }}</div>
           {% if p.categorias.all %}
           <div class="prov-cats">
-            {% for cat in p.categorias.all %}
+            {% for cat in p.categorias.all|slice:":3" %}
             <span class="badge-cat cat-{{ cat.nombre|lower }}">{{ cat.icono }} {{ cat.nombre }}</span>
             {% endfor %}
+            {% if p.categorias.all|length > 3 %}<span class="badge-cat">+{{ p.categorias.all|length|add:"-3" }} más</span>{% endif %}
           </div>
           {% endif %}
         </div>
@@ -369,6 +379,7 @@
       {% empty %}
       <p style="color:var(--text-faint); font-size:13px; text-align:center;">Aún no has registrado ningún proveedor.</p>
       {% endfor %}
+      </div>
 
       <hr style="border:none;border-top:1px solid var(--border);margin:6px 0;">
 
@@ -392,7 +403,7 @@
         </div>
         <div class="form-group">
           <label>Categorías que surte</label>
-          <div class="cat-tags">
+          <div class="cat-tags" data-colapsable>
             {% for checkbox in form_proveedor.categorias %}
             <label for="{{ checkbox.id_for_label }}">{{ checkbox.tag }} {{ checkbox.choice_label }}</label>
             {% empty %}
@@ -432,7 +443,7 @@
       </div>
       <div class="form-group">
         <label>Categorías que surte</label>
-        <div class="cat-tags">
+        <div class="cat-tags" data-colapsable>
           {% for checkbox in p.form_editar.categorias %}
           <label for="{{ checkbox.id_for_label }}">{{ checkbox.tag }} {{ checkbox.choice_label }}</label>
           {% endfor %}

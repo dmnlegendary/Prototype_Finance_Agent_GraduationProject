@@ -23,11 +23,11 @@
       </div>
       <div class="fin-form-group">
         <label>Categoría</label>
-        <div class="cat-pills">
+        <div class="cat-pills" data-colapsable>
           {% for radio in form.categoria %}
           <label class="cat-pill" data-tipo="{{ radio.data.value.instance.tipo }}">{{ radio.tag }} {{ radio.choice_label }}</label>
           {% endfor %}
-          <button type="button" class="cat-pill" onclick="openModal('categoria-gasto-nueva')"><i class="bi bi-plus-lg"></i> Nueva</button>
+          <button type="button" class="cat-pill" data-siempre onclick="openModal('categoria-gasto-nueva')"><i class="bi bi-plus-lg"></i> Nueva</button>
         </div>
       </div>
       <div class="fin-form-group">

@@ -8,15 +8,15 @@ Las pruebas unitarias revisan las tareas pequeñas del sistema una por una, como
 
 ### 8.1.1 Pruebas en el entorno local
 
-Para las pruebas locales usamos las herramientas de pruebas de Django [4], que crean una base de datos temporal, ejecutan cada prueba y la borran al terminar. Al final del desarrollo el sistema tiene 452 pruebas automáticas, que se corren con un solo comando (`python manage.py test`) y que pasaron todas en la última corrida. La Tabla 8.1 muestra cómo se reparten por aplicación y qué revisan.
+Para las pruebas locales usamos las herramientas de pruebas de Django [4], que crean una base de datos temporal, ejecutan cada prueba y la borran al terminar. Al final del desarrollo el sistema tiene 458 pruebas automáticas, que se corren con un solo comando (`python manage.py test`) y que pasaron todas en la última corrida. La Tabla 8.1 muestra cómo se reparten por aplicación y qué revisan.
 
 Tabla 8.1. Pruebas automáticas por aplicación.
 
 | Aplicación | Pruebas | Qué se comprueba |
 |---|---|---|
-| finanzas | 92 | Flujo de efectivo, utilidad, margen, ISR de RESICO, punto de equilibrio (también cuando todavía no hay costos), precio sugerido (también el que cubre los gastos), el mes de cada gasto, que la compra de mercancía no se cuente como gasto, los modelos de pronóstico con sus niveles de confianza, el pronóstico por partes, los reportes configurables y el reporte de ventas |
+| finanzas | 93 | Flujo de efectivo, utilidad, margen, ISR de RESICO, punto de equilibrio (también cuando todavía no hay costos), precio sugerido (también el que cubre los gastos), el mes de cada gasto, que la compra de mercancía no se cuente como gasto, los modelos de pronóstico con sus niveles de confianza, el pronóstico por partes, los reportes configurables y el reporte de ventas |
 | ventas | 43 | Que los dos cajas no se mezclen, el cambio de cantidad, el cobro, la regla de oro, los productos a granel, que el precio y el costo queden guardados en cada renglón y que una venta no se cobre dos veces |
-| inventario | 121 | Alta y edición de productos con sus campos obligatorios, búsqueda con errores de dedo y acentos, importación desde CSV, semáforo, alertas por lotes y por ritmo de venta, compras automáticas y el kardex de movimientos, el costo por lotes (PEPS), la regla de que el precio de venta no sea menor al costo, el stock ideal por promedio, los íconos y los datos base |
+| inventario | 126 | Alta y edición de productos con sus campos obligatorios, búsqueda con errores de dedo y acentos, importación desde CSV, semáforo, alertas por lotes y por ritmo de venta, compras automáticas y el kardex de movimientos, el costo por lotes (PEPS), la regla de que el precio de venta no sea menor al costo, el stock ideal por promedio, los íconos y los datos base |
 | accounts | 32 | Registro, inicio de sesión, datos de la tienda, catálogo inicial, preferencias del negocio y video de bienvenida |
 | core | 47 | Caché por negocio, sincronización de operaciones hechas sin internet (también el kardex), llaves de la IA cifradas y comandos de carga |
 | avi | 117 | Funciones del asistente, uso de las herramientas por pantalla, reglas del asistente (mensaje fuera de tema, alta con categoría), explicación del pronóstico, historial de 24 horas, mensajes de error y respaldo entre proveedores |

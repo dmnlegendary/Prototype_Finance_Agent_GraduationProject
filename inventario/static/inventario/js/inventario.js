@@ -105,6 +105,8 @@ function marcarIcono(selector) {
   selector.querySelectorAll('.icono-opcion').forEach(function (boton) {
     boton.classList.toggle('activo', !!campo.value && boton.dataset.icono === campo.value);
   });
+  // el ícono elegido siempre se queda a la vista aunque la lista esté recogida
+  if (typeof actualizarColapsable === 'function') actualizarColapsable(selector);
 }
 
 function elegirIcono(boton) {
@@ -124,6 +126,7 @@ function abrirEdicion(pk, conErrores) {
     // el servidor ya regresó el formulario con lo que el usuario escribió y sus errores
     actualizarUnidades(form);
     form.querySelectorAll('.selector-icono').forEach(marcarIcono);
+    actualizarColapsables(form);
     openModal('editar');
     return;
   }
@@ -141,10 +144,12 @@ function abrirEdicion(pk, conErrores) {
       form.querySelectorAll('input[name=categoria]').forEach(function (radio) {
         radio.checked = String(radio.value) === String(p.categoria);
       });
-      const proveedor = document.getElementById('id_editar_proveedor');
-      if (proveedor) proveedor.value = p.proveedor === null ? '' : p.proveedor;
+      form.querySelectorAll('input[name=proveedor]').forEach(function (radio) {
+        radio.checked = String(radio.value) === String(p.proveedor === null ? '' : p.proveedor);
+      });
       form.querySelector('input[name=motivo]').value = '';
       document.getElementById('tituloEditar').textContent = p.pendiente_validacion ? 'Completar producto' : 'Editar producto';
+      actualizarColapsables(form);
       actualizarUnidades(form);
       openModal('editar');
     })

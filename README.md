@@ -143,3 +143,5 @@ Escuela Superior de Cómputo (ESCOM) — Instituto Politécnico Nacional.
 - **Reglas de negocio:** el precio de venta nunca puede ser menor al de compra (alta, edición, resurtido, CSV y asistente), y el stock ideal es el promedio de lo que había después de cada carga de mercancía.
 - **Íconos de productos:** se eligen de una lista o se asignan solos según el nombre.
 - **Dictado como radio:** el micrófono del chat se mantiene presionado mientras se habla y se suelta al terminar.
+- **Listas recogidas:** categorías, proveedores, íconos y categorías de gasto muestran solo 3 opciones y el resto sale con «Mostrar más»; lo elegido siempre queda visible.
+- **Dictado:** funciona en Chrome y Edge (Firefox no trae reconocimiento de voz); la primera vez pide el permiso del micrófono con un aviso aparte y después se mantiene presionado para hablar.

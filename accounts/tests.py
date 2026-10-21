@@ -46,7 +46,7 @@ class RegistroTests(TestCase):
     def datos(self, **cambios):
         datos = {
             "nombre_completo": "Raúl Martínez", "telefono": "5511112222",
-            "email": "raul@ejemplo.com", "password": "Tiend1ta-Segura-2026",
+            "email": "raul@ejemplo.com", "password": "Tiend1ta-Segura-2026", "acepto_terminos": "on",
         }
         datos.update(cambios)
         return datos
@@ -281,3 +281,45 @@ class PreferenciasDelNegocioTests(TestCase):
         antes = Negocio.objects.get(pk=negocio.pk).actualizado_en
         negocio.guardar_preferencias(meses_reportes=3)
         self.assertEqual(Negocio.objects.get(pk=negocio.pk).actualizado_en, antes)
+
+
+class TerminosYGuiaDeColoresTests(TestCase):
+    def datos(self, **cambios):
+        datos = {
+            "nombre_completo": "Raúl Martínez", "telefono": "5511112222",
+            "email": "raul@ejemplo.com", "password": "Tiend1ta-Segura-2026", "acepto_terminos": "on",
+        }
+        datos.update(cambios)
+        return datos
+
+    def test_sin_aceptar_los_terminos_no_se_crea_la_cuenta(self):
+        respuesta = self.client.post(reverse("accounts:registro"), self.datos(acepto_terminos=""))
+        self.assertEqual(Usuario.objects.count(), 0)
+        self.assertContains(respuesta, "aceptar los términos y condiciones")
+
+    def test_al_registrarse_se_guarda_cuando_acepto_los_terminos(self):
+        self.client.post(reverse("accounts:registro"), self.datos())
+        self.assertIsNotNone(Usuario.objects.get().terminos_aceptados_en)
+
+    def test_los_terminos_se_pueden_leer_sin_iniciar_sesion(self):
+        respuesta = self.client.get(reverse("core:terminos"))
+        self.assertContains(respuesta, "LFPDPPP")
+        self.assertContains(respuesta, "derechos ARCO")
+        self.assertContains(respuesta, "Limitación de responsabilidad legal")
+
+    def test_el_registro_y_el_login_enlazan_a_los_terminos(self):
+        self.assertContains(self.client.get(reverse("accounts:registro")), reverse("core:terminos"))
+        self.assertContains(self.client.get(reverse("accounts:login")), reverse("core:terminos"))
+
+    def test_la_pantalla_de_inicio_de_sesion_explica_los_colores(self):
+        respuesta = self.client.get(reverse("accounts:login"))
+        self.assertContains(respuesta, "¿Qué significan los colores de marIA?")
+        for color in ("Morado", "Rosa", "Verde", "Azul", "Naranja", "Amarillo", "Rojo"):
+            self.assertContains(respuesta, color)
+
+    def test_la_guia_de_colores_sale_la_primera_vez_y_ya_no_despues(self):
+        usuario, negocio = crear_negocio()
+        self.client.force_login(usuario)
+        self.assertContains(self.client.get(reverse("ventas:punto_de_venta")), 'id="modal-guia-colores"')
+        self.client.post(reverse("accounts:guia_colores_vista"))
+        self.assertNotContains(self.client.get(reverse("ventas:punto_de_venta")), 'id="modal-guia-colores"')

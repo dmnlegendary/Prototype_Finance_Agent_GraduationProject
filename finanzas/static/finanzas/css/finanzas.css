@@ -94,7 +94,7 @@ a.fin-stat-card:hover {
 
 .fin-module-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
   gap: 14px;
 }
 .fin-module-card {
@@ -357,3 +357,76 @@ a.fin-stat-card:hover {
 .fin-confianza-media { color: var(--color-warning); }
 .fin-confianza-baja { color: var(--color-danger); }
 .fin-confianza-sin-datos { color: var(--text-faint); }
+
+/* ---- gráficas del agente financiero (siempre en rosa) ---- */
+.fin-grafica { width: 100%; min-height: 40px; }
+.fin-grafica svg { display: block; max-width: 100%; }
+.fin-grafica-vacia {
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  font-size: 12px; color: var(--text-faint);
+  border: 1px dashed var(--fin-200); border-radius: var(--radius-lg); background: rgba(255,255,255,.5);
+  padding: 8px;
+}
+.fin-g-rejilla { stroke: var(--border); stroke-width: 1; }
+.fin-g-rejilla.cero { stroke: var(--text-faint); stroke-dasharray: 3 3; }
+.fin-g-texto { font-size: 11px; fill: var(--text-muted); font-family: inherit; }
+.fin-g-texto.ref { fill: var(--fin-700); font-weight: 700; }
+.fin-g-valor { font-size: 11px; font-weight: 700; fill: var(--fin-700); font-family: inherit; }
+.fin-g-area { fill: var(--fin-600); opacity: .12; }
+.fin-g-punto { stroke: var(--bg-white); stroke-width: 1.5; }
+.fin-g-barra:hover, .fin-g-punto:hover { opacity: .8; }
+.fin-g-referencia { stroke: var(--fin-700); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.fin-leyenda { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; font-size: 12px; color: var(--text-muted); }
+.fin-leyenda span { display: inline-flex; align-items: center; gap: 6px; }
+.fin-leyenda i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
+.fin-leyenda i.ref { height: 0; width: 16px; border-top: 2px dashed var(--fin-700); border-radius: 0; }
+
+/* el ojo que abre la gráfica en grande */
+.fin-btn-ojo {
+  flex: none; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--fin-200); border-radius: 50%; background: var(--bg-white); color: var(--fin-700);
+  cursor: pointer; font-size: 15px; transition: background .15s, transform .15s;
+}
+.fin-btn-ojo:hover { background: var(--fin-100); transform: scale(1.06); }
+.fin-btn-ojo:focus-visible { outline: 2px solid var(--fin-600); outline-offset: 2px; }
+.fin-card-cabecera { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+.fin-card-cabecera h3 { margin: 0; }
+
+.fin-modal-grafica { width: min(960px, 94vw); max-width: none; }
+.fin-modal-grafica .panel-body { gap: 14px; }
+.fin-tabla-grafica { margin-top: 4px; }
+.fin-tabla-grafica td, .fin-tabla-grafica th { padding: 6px 10px; }
+
+/* tarjetas del inicio: todas en rosa, con su gráfica real */
+.fin-module-card { position: relative; cursor: pointer; transition: box-shadow .15s, transform .15s; background: var(--fin-50); border-color: var(--fin-100); }
+.fin-module-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.fin-module-card .fin-grafica { margin: 2px 0; }
+.fin-module-head h3 a { color: inherit; text-decoration: none; }
+.fin-module-acciones { display: flex; align-items: center; justify-content: space-between; }
+.fin-module-pie { font-size: 11px; color: var(--text-muted); margin-top: -4px; }
+
+/* ---- reportes financieros: cabecera, filtros y cifras con más aire ---- */
+.fin-cabecera { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.fin-cabecera .fin-subtitle { margin-top: 4px; }
+.fin-barra-filtros {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 14px 22px;
+  background: var(--bg-white); border: 1px solid var(--border); border-radius: var(--radius-xl);
+  padding: 12px 16px; box-shadow: var(--shadow-sm);
+}
+.fin-filtro-grupo { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.fin-filtro-titulo { font-size: 12px; font-weight: 700; color: var(--filtro-700); text-transform: uppercase; letter-spacing: .03em; }
+.fin-barra-filtros .fin-filtro-margen input { width: auto; padding: 7px 10px; }
+.fin-enlace-reporte { margin-left: auto; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.fin-stat-rosa .fin-stat-value { color: var(--fin-700); }
+.fin-stat-rosa .fin-stat-value.negativo { color: var(--color-danger); }
+.fin-nota-grafica { font-size: 12px; color: var(--text-muted); margin-top: 10px; }
+.fin-tabla-utilidad td { padding: 10px 6px; border-bottom: 1px solid var(--border-light); }
+.fin-tabla-utilidad td.monto { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fin-tabla-utilidad tr.resultado td { border-bottom: none; background: var(--fin-50); font-size: 14px; }
+.fin-tabla-utilidad tr.resultado td:first-child { border-radius: var(--radius-md) 0 0 var(--radius-md); }
+.fin-tabla-utilidad tr.resultado td:last-child { border-radius: 0 var(--radius-md) var(--radius-md) 0; color: var(--fin-700); }
+.fin-explicaciones { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-light); display: grid; gap: 6px; }
+.fin-explicaciones p { font-size: 12px; line-height: 1.55; color: var(--text-muted); }.fin-modal-grafica .panel-body { overflow-y: auto; }
+.fin-modal-grafica .panel-body > * { flex: none; }
+.fin-module-grid { align-items: stretch; }
+.fin-module-card .fin-module-link { margin-top: auto; }

@@ -926,3 +926,79 @@ class CategoriasDeGastoTests(TestCase):
         respuesta = self.client.get(reverse("finanzas:registrar_gastos"))
         self.assertContains(respuesta, "data-colapsable")
         self.assertContains(respuesta, "data-siempre")  # el botón "Nueva" nunca se esconde
+
+
+class GraficasRealesTests(TestCase):
+    """Las gráficas del inicio y de los reportes salen de los datos de la tienda, no son dibujos fijos."""
+
+    def setUp(self):
+        self.usuario, self.negocio = crear_negocio()
+        self.client.force_login(self.usuario)
+        self.producto = crear_producto(self.negocio, nombre="Coca 600", costo="15", precio="25", cantidad="50")
+
+    def vender(self, cantidad, folio=1):
+        venta = Venta.objects.create(negocio=self.negocio, folio=folio, estado=Venta.Estado.COBRADA)
+        ItemVenta.objects.create(venta=venta, producto=self.producto, cantidad=Decimal(cantidad), precio_unitario=Decimal("25"), costo_unitario=Decimal("15"))
+        venta.recalcular_total()
+        return venta
+
+    def test_las_graficas_del_inicio_traen_las_ventas_reales(self):
+        from . import graficas
+        self.vender(4)  # 100 de ventas hoy
+        datos = graficas.graficas_del_inicio(self.negocio, timezone.localdate(), {"estado": "sin_datos"})
+        self.assertEqual(sum(datos["pronostico"]["series"][0]["valores"]), 100.0)
+        self.assertEqual(datos["equilibrio"]["series"][0]["valores"][-1], 100.0)
+        self.assertEqual(datos["reportes"]["etiquetas"][-1], graficas.etiqueta_mes(timezone.localdate()))
+        self.assertEqual(len(datos["reportes"]["series"][0]["valores"]), 6)
+
+    def test_el_margen_de_los_mas_vendidos_se_calcula_con_su_precio_y_costo(self):
+        from . import graficas
+        self.vender(2)
+        datos = graficas.graficas_del_inicio(self.negocio, timezone.localdate(), {"estado": "sin_datos"})
+        self.assertEqual(datos["precios"]["series"][0]["valores"], [40.0])  # (25 - 15) / 25
+
+    def test_los_gastos_se_dibujan_en_su_mes(self):
+        from . import graficas
+        GastoOperativo.objects.create(negocio=self.negocio, tipo="FIJO", concepto="Luz", monto=Decimal("300"))
+        datos = graficas.graficas_del_inicio(self.negocio, timezone.localdate(), {"estado": "sin_datos"})
+        self.assertEqual(datos["gastos"]["series"][0]["valores"][-1], 300.0)
+        self.assertEqual(sum(datos["gastos"]["series"][0]["valores"][:-1]), 0.0)
+
+    def test_con_el_punto_de_equilibrio_se_dibuja_su_linea_de_referencia(self):
+        from . import graficas
+        datos = graficas.graficas_del_inicio(self.negocio, timezone.localdate(), {"estado": "ok", "pe_total": Decimal("5000")})
+        self.assertEqual(datos["equilibrio"]["referencia"]["valor"], 5000.0)
+
+    def test_el_inicio_tiene_cinco_graficas_cada_una_con_su_ojo(self):
+        self.vender(1)
+        respuesta = self.client.get(reverse("finanzas:inicio"))
+        self.assertContains(respuesta, 'data-grafica="g-', count=5)
+        self.assertContains(respuesta, 'data-ampliar="g-', count=5)
+        self.assertContains(respuesta, 'id="modal-grafica-grande"')
+        self.assertNotContains(respuesta, 'points="0,45 30,35')  # el dibujo de ejemplo de antes
+
+    def test_los_reportes_tienen_dos_graficas_con_sus_datos_y_su_ojo(self):
+        self.vender(2)
+        respuesta = self.client.get(reverse("finanzas:reportes_financieros"), {"periodo": 3})
+        self.assertContains(respuesta, 'data-ampliar="g-ingresos"')
+        self.assertContains(respuesta, 'data-ampliar="g-utilidad"')
+        ingresos = respuesta.context["grafica_ingresos"]["series"][0]["valores"]
+        self.assertEqual(len(ingresos), 3)
+        self.assertEqual(ingresos[-1], 50.0)
+
+    def test_el_reporte_de_ventas_dibuja_las_ventas_de_cada_dia(self):
+        self.vender(3)
+        respuesta = self.client.get(reverse("finanzas:reporte_ventas"))
+        self.assertContains(respuesta, 'data-ampliar="g-ventas"')
+        self.assertEqual(respuesta.context["grafica_ventas"]["series"][0]["valores"][-1], 75.0)
+
+    def test_las_graficas_usan_el_rosa_del_agente_financiero(self):
+        from pathlib import Path
+        from django.conf import settings
+        ruta = Path(settings.BASE_DIR) / "finanzas" / "static" / "finanzas" / "js" / "graficas.js"
+        if not ruta.exists():
+            self.skipTest("el archivo de JavaScript no está en este entorno")
+        js = ruta.read_text(encoding="utf-8")
+        self.assertIn("var(--fin-600)", js)
+        self.assertNotIn("color-success", js)
+        self.assertNotIn("color-danger", js)

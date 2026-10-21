@@ -145,3 +145,6 @@ Escuela Superior de Cómputo (ESCOM) — Instituto Politécnico Nacional.
 - **Dictado como radio:** el micrófono del chat se mantiene presionado mientras se habla y se suelta al terminar.
 - **Listas recogidas:** categorías, proveedores, íconos y categorías de gasto muestran solo 3 opciones y el resto sale con «Mostrar más»; lo elegido siempre queda visible.
 - **Dictado:** funciona en Chrome y Edge (Firefox no trae reconocimiento de voz); la primera vez pide el permiso del micrófono con un aviso aparte y después se mantiene presionado para hablar.
+- **Gráficas reales en rosa:** el inicio y los reportes del agente financiero dibujan los datos de la tienda (ya no son ilustraciones) y cada gráfica tiene un ojo que la abre en grande.
+- **Guía de colores** en el inicio de sesión, la primera vez que se entra y la ayuda, y **términos y condiciones con aviso de protección de datos** (`/terminos/`), aceptados al registrarse.
+- **Manuales:** `docs/capitulos_tt2/12_anexo_a_manual_de_usuario.md` y `13_anexo_b_manual_tecnico.md`.

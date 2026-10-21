@@ -8,16 +8,16 @@ Las pruebas unitarias revisan las tareas pequeñas del sistema una por una, como
 
 ### 8.1.1 Pruebas en el entorno local
 
-Para las pruebas locales usamos las herramientas de pruebas de Django [4], que crean una base de datos temporal, ejecutan cada prueba y la borran al terminar. Al final del desarrollo el sistema tiene 458 pruebas automáticas, que se corren con un solo comando (`python manage.py test`) y que pasaron todas en la última corrida. La Tabla 8.1 muestra cómo se reparten por aplicación y qué revisan.
+Para las pruebas locales usamos las herramientas de pruebas de Django [4], que crean una base de datos temporal, ejecutan cada prueba y la borran al terminar. Al final del desarrollo el sistema tiene 472 pruebas automáticas, que se corren con un solo comando (`python manage.py test`) y que pasaron todas en la última corrida. La Tabla 8.1 muestra cómo se reparten por aplicación y qué revisan.
 
 Tabla 8.1. Pruebas automáticas por aplicación.
 
 | Aplicación | Pruebas | Qué se comprueba |
 |---|---|---|
-| finanzas | 93 | Flujo de efectivo, utilidad, margen, ISR de RESICO, punto de equilibrio (también cuando todavía no hay costos), precio sugerido (también el que cubre los gastos), el mes de cada gasto, que la compra de mercancía no se cuente como gasto, los modelos de pronóstico con sus niveles de confianza, el pronóstico por partes, los reportes configurables y el reporte de ventas |
+| finanzas | 101 | Flujo de efectivo, utilidad, margen, ISR de RESICO, punto de equilibrio (también cuando todavía no hay costos), precio sugerido (también el que cubre los gastos), el mes de cada gasto, que la compra de mercancía no se cuente como gasto, los modelos de pronóstico con sus niveles de confianza, el pronóstico por partes, los reportes configurables y el reporte de ventas, y las gráficas con datos reales |
 | ventas | 43 | Que los dos cajas no se mezclen, el cambio de cantidad, el cobro, la regla de oro, los productos a granel, que el precio y el costo queden guardados en cada renglón y que una venta no se cobre dos veces |
 | inventario | 126 | Alta y edición de productos con sus campos obligatorios, búsqueda con errores de dedo y acentos, importación desde CSV, semáforo, alertas por lotes y por ritmo de venta, compras automáticas y el kardex de movimientos, el costo por lotes (PEPS), la regla de que el precio de venta no sea menor al costo, el stock ideal por promedio, los íconos y los datos base |
-| accounts | 32 | Registro, inicio de sesión, datos de la tienda, catálogo inicial, preferencias del negocio y video de bienvenida |
+| accounts | 38 | Registro, inicio de sesión, datos de la tienda, catálogo inicial, preferencias del negocio y video de bienvenida, aceptación de términos y guía de colores |
 | core | 47 | Caché por negocio, sincronización de operaciones hechas sin internet (también el kardex), llaves de la IA cifradas y comandos de carga |
 | avi | 117 | Funciones del asistente, uso de las herramientas por pantalla, reglas del asistente (mensaje fuera de tema, alta con categoría), explicación del pronóstico, historial de 24 horas, mensajes de error y respaldo entre proveedores |
 
@@ -83,6 +83,8 @@ Tabla 8.4. Casos de prueba funcionales.
 | PF-15f | Ventas | Apretar dos veces seguidas el botón de cobrar | Solo se cobra una vez y la segunda petición se rechaza | Automática |
 | PF-15i | Inventario | Resurtir la coca con un costo mayor a su precio de venta | Se rechaza y se pide un precio de venta igual o mayor; si se escribe el precio nuevo, se acepta y se actualiza | Automática |
 | PF-15j | Inventario | Cargar mercancía tres veces dejando 24, 26 y 29 piezas | El stock ideal queda en 26, el promedio | Automática |
+| PF-15l | Finanzas | Abrir el inicio y los reportes con ventas y gastos registrados | Las gráficas muestran los datos de la tienda en rosa y el ojo de cada una la abre en una ventana grande | Automática y navegador |
+| PF-15m | Registro | Crear la cuenta sin marcar los términos y condiciones | No se crea; con la casilla marcada se guarda la fecha de aceptación | Automática |
 | PF-15k | Registro | Crear una tienda nueva | Arranca con sus 24 proveedores y 19 categorías de gastos, sin duplicarlos si se editan los datos | Automática |
 | PF-15h | Inventario | Comprar la coca a 15 pesos, volver a comprarla a 17 y vender 12 piezas | Salen 10 con costo de 15 y 2 con costo de 17; la venta guarda el costo promedio y el segundo lote queda con 8 piezas | Automática |
 | PF-08a | Sin internet | Apagar el wifi con productos en la caja y seguir vendiendo | Los productos siguen en la caja, se cobra sin internet y al volver la conexión la venta se guarda una sola vez | Navegador |

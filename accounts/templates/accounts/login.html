@@ -39,5 +39,14 @@
             ¿No tienes cuenta? <a href="{% url 'accounts:registro' %}">Regístrate</a>
         </p>
     </div>
+
+    <details class="card card-auth p-3 mt-3">
+        <summary class="guia-resumen">¿Qué significan los colores de marIA?</summary>
+        <div class="mt-3">{% include "partials/guia_colores.html" %}</div>
+    </details>
+
+    <p class="text-center small text-muted mt-3 mb-0">
+        Al usar marIA aceptas los <a href="{% url 'core:terminos' %}">términos y condiciones y el aviso de protección de datos</a>.
+    </p>
 </div>
 {% endblock %}

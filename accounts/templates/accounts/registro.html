@@ -65,11 +65,11 @@
             </div>
 
             <div class="form-check mb-3">
-                <input type="checkbox" required class="form-check-input" id="acepto-terminos">
-                <label class="form-check-label small text-muted" for="acepto-terminos">
-                    Acepto los <span class="text-primary fw-semibold">Términos y condiciones</span> y el
-                    <span class="text-primary fw-semibold">Aviso de privacidad</span>
+                {{ form.acepto_terminos }}
+                <label class="form-check-label small text-muted" for="{{ form.acepto_terminos.id_for_label }}">
+                    Acepto los <a href="{% url 'core:terminos' %}" target="_blank" rel="noopener" class="fw-semibold">términos y condiciones y el aviso de protección de datos</a>
                 </label>
+                {% if form.acepto_terminos.errors %}<div class="text-danger small mt-1">{{ form.acepto_terminos.errors|join:", " }}</div>{% endif %}
             </div>
 
             <button type="submit" class="btn btn-primary w-100 fw-bold py-2">Continuar</button>

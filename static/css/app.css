@@ -22,7 +22,7 @@
   --filtro-50: #fff7ed;  --filtro-100: #ffedd5;  --filtro-200: #fed7aa;  --filtro-500: #f97316;  --filtro-600: #ea580c;  --filtro-700: #c2410c;  --filtro-texto: #9a3412;
   --venta-50: #f0fdf4;  --venta-100: #dcfce7;  --venta-200: #bbf7d0;  --venta-500: #22c55e;  --venta-600: #16a34a;  --venta-700: #15803d;
   --inv-50: #eff6ff;  --inv-100: #dbeafe;  --inv-200: #bfdbfe;  --inv-500: #3b82f6;  --inv-600: #2563eb;  --inv-700: #1d4ed8;
-  --fin-50: #fdf2f8;  --fin-100: #fce7f3;  --fin-200: #fbcfe8;  --fin-500: #e866b5;  --fin-600: #d6409f;  --fin-700: #be2a85;
+  --fin-50: #fdf2f8;  --fin-100: #fce7f3;  --fin-200: #fbcfe8;  --fin-300: #f6a5d2;  --fin-500: #e866b5;  --fin-600: #d6409f;  --fin-700: #be2a85;
   --alerta-50: #fef2f2;  --alerta-100: #fee2e2;  --alerta-200: #fecaca;  --alerta-300: #fca5a5;  --alerta-600: #dc2626;  --alerta-700: #b91c1c;  --alerta-900: #991b1b;
 
   /* el color "principal" cambia según el módulo (ver más abajo); fuera de ellos es el morado */

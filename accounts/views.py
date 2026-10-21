@@ -154,6 +154,16 @@ class TiendaLogoutView(LogoutView):
 
 @login_required
 @require_POST
+def guia_colores_vista(request):
+    """Ya vio la guía de los colores de la primera vez: no se le vuelve a mostrar."""
+    if not request.user.guia_colores_vista:
+        request.user.guia_colores_vista = True
+        request.user.save(update_fields=["guia_colores_vista"])
+    return JsonResponse({"ok": True})
+
+
+@login_required
+@require_POST
 def video_visto(request):
     """El tendero ya vio (o cerró) el video de bienvenida: no se le vuelve a mostrar."""
     if not request.user.video_visto:

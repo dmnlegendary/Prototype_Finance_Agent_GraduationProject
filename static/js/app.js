@@ -504,13 +504,30 @@ document.addEventListener('DOMContentLoaded', function () {
   if (aviso) showToast(aviso, 'success');
 });
 
-// Video de bienvenida (RF-S05): se abre solo la primera vez y se marca como visto al cerrarlo
-document.addEventListener('DOMContentLoaded', function () {
+// Primera vez que entra: primero la guía de los colores y después el video de bienvenida (RF-S05)
+function abrirVideoBienvenida() {
   const video = document.getElementById('videoBienvenida');
   if (!video) return;
   video.src = video.dataset.src;
   openModal('video-bienvenida');
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  if (document.getElementById('modal-guia-colores')) openModal('guia-colores');
+  else abrirVideoBienvenida();
 });
+
+function cerrarGuiaColores() {
+  closeModal('guia-colores');
+  const formulario = document.getElementById('formGuiaVista');
+  if (formulario) {
+    fetch(formulario.action, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': formulario.querySelector('input[name=csrfmiddlewaretoken]').value },
+    }).catch(function () {});
+  }
+  abrirVideoBienvenida();
+}
 
 function cerrarVideoBienvenida() {
   const video = document.getElementById('videoBienvenida');

@@ -12,6 +12,10 @@ class Usuario(AbstractUser):
     email = models.EmailField("Correo electrónico", blank=True)
     # si ya vio (o cerró) el video de bienvenida de la primera vez que entró
     video_visto = models.BooleanField(default=False)
+    # si ya vio la guía de los colores que se muestra la primera vez que entra
+    guia_colores_vista = models.BooleanField(default=False)
+    # cuándo aceptó los términos y condiciones y el aviso de protección de datos (al registrarse)
+    terminos_aceptados_en = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.nombre_completo or self.username

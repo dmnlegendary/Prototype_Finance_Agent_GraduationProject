@@ -18,6 +18,27 @@
 
 {% include "partials/ayuda.html" %}
 
+{% if guia_colores %}
+<!-- Guía de los colores: solo la primera vez que entra -->
+<div class="modal-backdrop" id="modal-guia-colores">
+  <div class="form-card" style="max-width:520px;">
+    <div class="panel-header">
+      <h3><i class="bi bi-palette-fill"></i> Así se organizan los colores</h3>
+      <button type="button" class="panel-close" onclick="cerrarGuiaColores()" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="panel-body">
+      <p style="font-size:13px;color:var(--text-muted);margin:0;">En marIA cada color siempre significa lo mismo, para que sepas dónde estás sin leer:</p>
+      {% include "partials/guia_colores.html" %}
+      <p style="font-size:12px;color:var(--text-faint);margin:0;">Puedes volver a verlo en Ayuda (el signo de interrogación).</p>
+    </div>
+    <div class="panel-footer">
+      <button type="button" class="btn-success" onclick="cerrarGuiaColores()">Entendido</button>
+    </div>
+  </div>
+</div>
+<form id="formGuiaVista" method="post" action="{% url 'accounts:guia_colores_vista' %}" style="display:none;">{% csrf_token %}</form>
+{% endif %}
+
 {% if video_bienvenida %}
 <!-- Video de bienvenida: solo la primera vez que entra -->
 <div class="modal-backdrop" id="modal-video-bienvenida">

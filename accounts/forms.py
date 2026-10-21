@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, SetPasswordForm
 from django.contrib.auth.password_validation import validate_password
+from django.utils import timezone
 
 from .models import Negocio, Usuario
 
@@ -26,6 +27,11 @@ class RegistroForm(forms.ModelForm):
     password = forms.CharField(
         label="Contraseña",
         widget=forms.PasswordInput(attrs={"placeholder": "Mínimo 6 caracteres", "class": INPUT_CLASSES}),
+    )
+    acepto_terminos = forms.BooleanField(
+        required=True,
+        error_messages={"required": "Para crear tu cuenta tienes que aceptar los términos y condiciones y el aviso de protección de datos."},
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
     )
 
     class Meta:
@@ -57,6 +63,7 @@ class RegistroForm(forms.ModelForm):
         # se usa el teléfono como username mientras no se decida el login por teléfono
         usuario.username = self.cleaned_data["telefono"]
         usuario.set_password(self.cleaned_data["password"])
+        usuario.terminos_aceptados_en = timezone.now()
         if commit:
             usuario.save()
         return usuario

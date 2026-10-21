@@ -1,0 +1,9 @@
+/* guía de colores: qué significa cada color de marIA (login, primera vez que se entra y ayuda) */
+.guia-colores { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.guia-colores li { display: flex; align-items: flex-start; gap: 12px; font-size: 13px; line-height: 1.45; text-align: left; }
+.guia-colores .guia-color {
+  flex: none; width: 22px; height: 22px; margin-top: 1px; border-radius: 7px; background: var(--c);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 18%, transparent);
+}
+.guia-colores strong { font-weight: 700; }
+.guia-resumen { font-size: 13px; font-weight: 700; cursor: pointer; }

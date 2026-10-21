@@ -21,4 +21,6 @@ def negocio_activo(request):
         "alertas_nivel": nivel_mas_urgente(conteo),
         # el video de presentación se muestra solo la primera vez que entra, y solo si ya hay un enlace
         "video_bienvenida": settings.VIDEO_INTRODUCTORIO_URL if not usuario.video_visto else "",
+        # la guía de los colores también se muestra solo la primera vez
+        "guia_colores": not usuario.guia_colores_vista,
     }

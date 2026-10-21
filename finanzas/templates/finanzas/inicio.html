@@ -39,59 +39,73 @@
 </div>
 
 <div class="fin-module-grid">
-  <a href="{% url 'finanzas:reportes_financieros' %}" class="fin-module-card v-pink">
+  <article class="fin-module-card" data-enlace="{% url 'finanzas:reportes_financieros' %}">
     <div class="fin-module-head">
-      <h3><i class="bi bi-bar-chart-fill"></i> Reportes financieros</h3>
-      <span class="fin-module-badge">Ingresos, egresos y utilidad</span>
+      <h3><a href="{% url 'finanzas:reportes_financieros' %}" data-sin-loader><i class="bi bi-bar-chart-fill"></i> Reportes financieros</a></h3>
+      <button type="button" class="fin-btn-ojo" data-ampliar="g-reportes" title="Ver en grande" aria-label="Ver la gráfica de reportes en grande"><i class="bi bi-eye"></i></button>
     </div>
-    <svg viewBox="0 0 200 60" width="100%" height="60"><polyline points="0,45 30,35 60,42 90,20 120,30 150,10 180,15" fill="none" stroke="var(--color-primary)" stroke-width="3"/></svg>
+    <div class="fin-grafica" data-grafica="g-reportes" data-alto="84"></div>
+    <div class="fin-module-pie">Ingresos, egresos y utilidad · últimos 6 meses</div>
     <span class="fin-module-link">Ver módulo →</span>
-  </a>
+  </article>
 
-  <a href="{% url 'finanzas:pronostico_ventas' %}" class="fin-module-card v-purple">
+  <article class="fin-module-card" data-enlace="{% url 'finanzas:pronostico_ventas' %}">
     <div class="fin-module-head">
-      <h3><i class="bi bi-graph-up-arrow"></i> Pronóstico de ventas</h3>
-      <span class="fin-module-badge">Modelo ML · 24 sem.</span>
+      <h3><a href="{% url 'finanzas:pronostico_ventas' %}" data-sin-loader><i class="bi bi-graph-up-arrow"></i> Pronóstico de ventas</a></h3>
+      <button type="button" class="fin-btn-ojo" data-ampliar="g-pronostico" title="Ver en grande" aria-label="Ver la gráfica de ventas por semana en grande"><i class="bi bi-eye"></i></button>
     </div>
-    <svg viewBox="0 0 200 60" width="100%" height="60">
-      <rect x="5" y="20" width="18" height="35" fill="var(--color-primary)"/>
-      <rect x="35" y="30" width="18" height="25" fill="var(--color-primary)"/>
-      <rect x="65" y="15" width="18" height="40" fill="var(--color-primary)"/>
-      <rect x="95" y="25" width="18" height="30" fill="var(--color-primary)"/>
-    </svg>
+    <div class="fin-grafica" data-grafica="g-pronostico" data-alto="84"></div>
+    <div class="fin-module-pie">Tus ventas de las últimas 8 semanas, con las que se calcula</div>
     <span class="fin-module-link">Ver módulo →</span>
-  </a>
+  </article>
 
-  <a href="{% url 'finanzas:registrar_gastos' %}" class="fin-module-card v-green">
+  <article class="fin-module-card" data-enlace="{% url 'finanzas:registrar_gastos' %}">
     <div class="fin-module-head">
-      <h3><i class="bi bi-receipt"></i> Registrar gastos</h3>
-      <span class="fin-module-badge">{{ num_gastos_mes }} gasto{{ num_gastos_mes|pluralize }} este mes</span>
+      <h3><a href="{% url 'finanzas:registrar_gastos' %}" data-sin-loader><i class="bi bi-receipt"></i> Registrar gastos</a></h3>
+      <button type="button" class="fin-btn-ojo" data-ampliar="g-gastos" title="Ver en grande" aria-label="Ver la gráfica de gastos en grande"><i class="bi bi-eye"></i></button>
     </div>
-    <svg viewBox="0 0 200 60" width="100%" height="60"><rect x="10" y="35" width="30" height="20" fill="var(--color-success)"/><rect x="60" y="10" width="30" height="45" fill="var(--color-success)"/></svg>
+    <div class="fin-grafica" data-grafica="g-gastos" data-alto="84"></div>
+    <div class="fin-module-pie">{{ num_gastos_mes }} gasto{{ num_gastos_mes|pluralize }} este mes</div>
     <span class="fin-module-link">Ver módulo →</span>
-  </a>
+  </article>
 
-  <a href="{% url 'finanzas:punto_equilibrio' %}" class="fin-module-card v-green">
+  <article class="fin-module-card" data-enlace="{% url 'finanzas:punto_equilibrio' %}">
     <div class="fin-module-head">
-      <h3><i class="bi bi-graph-up"></i> Punto de equilibrio</h3>
-      <span class="fin-module-badge">Por categoría</span>
+      <h3><a href="{% url 'finanzas:punto_equilibrio' %}" data-sin-loader><i class="bi bi-graph-up"></i> Punto de equilibrio</a></h3>
+      <button type="button" class="fin-btn-ojo" data-ampliar="g-equilibrio" title="Ver en grande" aria-label="Ver la gráfica del punto de equilibrio en grande"><i class="bi bi-eye"></i></button>
     </div>
-    <svg viewBox="0 0 200 60" width="100%" height="60"><polyline points="0,40 40,45 80,20 120,30 160,15 200,25" fill="none" stroke="var(--color-success)" stroke-width="3"/></svg>
+    <div class="fin-grafica" data-grafica="g-equilibrio" data-alto="84"></div>
+    <div class="fin-module-pie">{% if equilibrio %}Meta del mes: ${{ equilibrio|floatformat:2|intcomma }}{% else %}Ventas acumuladas del mes{% endif %}</div>
     <span class="fin-module-link">Ver módulo →</span>
-  </a>
+  </article>
 
-  <a href="{% url 'finanzas:sugerir_precios' %}" class="fin-module-card v-orange">
+  <article class="fin-module-card" data-enlace="{% url 'finanzas:sugerir_precios' %}">
     <div class="fin-module-head">
-      <h3><i class="bi bi-tag-fill"></i> Sugerir precios</h3>
-      <span class="fin-module-badge">{{ num_productos_precios }} producto{{ num_productos_precios|pluralize }} analizado{{ num_productos_precios|pluralize }}</span>
+      <h3><a href="{% url 'finanzas:sugerir_precios' %}" data-sin-loader><i class="bi bi-tag-fill"></i> Sugerir precios</a></h3>
+      <button type="button" class="fin-btn-ojo" data-ampliar="g-precios" title="Ver en grande" aria-label="Ver la gráfica de márgenes en grande"><i class="bi bi-eye"></i></button>
     </div>
-    <svg viewBox="0 0 200 60" width="100%" height="60">
-      <rect x="10" y="25" width="18" height="30" fill="var(--fin-500)"/>
-      <rect x="40" y="15" width="18" height="40" fill="var(--fin-500)"/>
-      <rect x="70" y="30" width="18" height="25" fill="var(--fin-500)"/>
-      <rect x="100" y="10" width="18" height="45" fill="var(--fin-500)"/>
-    </svg>
+    <div class="fin-grafica" data-grafica="g-precios" data-alto="84"></div>
+    <div class="fin-module-pie">{{ num_productos_precios }} producto{{ num_productos_precios|pluralize }} analizado{{ num_productos_precios|pluralize }}</div>
     <span class="fin-module-link">Ver módulo →</span>
-  </a>
+  </article>
 </div>
+
+{{ graficas.reportes|json_script:"g-reportes" }}
+{{ graficas.pronostico|json_script:"g-pronostico" }}
+{{ graficas.gastos|json_script:"g-gastos" }}
+{{ graficas.equilibrio|json_script:"g-equilibrio" }}
+{{ graficas.precios|json_script:"g-precios" }}
+
+{% endblock %}
+
+{% block app_extra_scripts %}
+<script>
+  // toda la tarjeta lleva a su módulo, menos el ojo (que abre la gráfica en grande)
+  document.querySelectorAll('.fin-module-card[data-enlace]').forEach(function (tarjeta) {
+    tarjeta.addEventListener('click', function (evento) {
+      if (evento.target.closest('a, button')) return;
+      window.location.href = tarjeta.dataset.enlace;
+    });
+  });
+</script>
 {% endblock %}

@@ -1,0 +1,98 @@
+{% extends "base_auth.html" %}
+{% load static %}
+
+{% block body_attrs %} class="min-vh-100 p-3"{% endblock %}
+
+{% block content %}
+<div class="mx-auto" style="max-width: 820px;">
+    <div class="text-center mb-4">
+        <img src="{% static 'img/logo_mariamiga.png' %}" alt="marIA" class="app-logo mb-2">
+        <h1 class="h4 fw-bold mb-1">Términos y condiciones y aviso de protección de datos</h1>
+        <p class="text-muted small mb-0">marIA · prototipo académico de Trabajo Terminal (ESCOM, IPN)</p>
+    </div>
+
+    <div class="card card-auth p-4 terminos">
+        <h2 class="h6 fw-bold">1. Estatus del sistema</h2>
+        <p>
+            La operación de sistemas de gestión basados en inteligencia artificial dentro del territorio nacional se rige por un marco
+            normativo que asegura el orden mercantil y la seguridad digital. No obstante, es imperativo precisar que marIA se encuentra
+            en una fase de prototipo de carácter académico. Bajo esta premisa, el desarrollo actual no se encuentra condicionado de forma
+            vinculante por el cumplimiento total de las leyes comerciales y fiscales, operando bajo un entorno controlado de
+            experimentación técnica.
+        </p>
+        <p>
+            Aun así, para una futura transición hacia un entorno productivo, se consideran como referentes normativos la Ley Federal de
+            Protección de Datos Personales en Posesión de los Particulares (LFPDPPP) y el Código de Comercio, específicamente en lo
+            relativo a la digitalización de registros mercantiles. Esta delimitación permite que el prototipo explore innovaciones
+            tecnológicas en el procesamiento de datos sin las restricciones operativas de un software certificado comercialmente.
+        </p>
+
+        <h2 class="h6 fw-bold mt-3">2. Seguridad de la información</h2>
+        <p>
+            En la fase de diseño de un asistente inteligente orientado a la gestión financiera, la seguridad de la información debe
+            proyectarse como un componente transversal. Aunque el presente prototipo se centra en la viabilidad técnica de la
+            inteligencia artificial, en un eventual escenario de despliegue productivo se deberían considerar criterios rigurosos de
+            protección de datos para alinearse con el estándar internacional ISO/IEC 27001, asegurando así la tríada de la seguridad:
+            confidencialidad, integridad y disponibilidad.
+        </p>
+        <p>
+            Desde la perspectiva de la arquitectura de red, la integridad de las comunicaciones entre la interfaz de usuario y las APIs
+            de inferencia podría garantizarse mediante la implementación del protocolo TLS (Transport Layer Security) versión 1.3,
+            mitigando riesgos de interceptación de datos en tránsito. Asimismo, para salvaguardar la información sensible en reposo,
+            sería factible integrar algoritmos de cifrado simétrico como AES-256, lo que proporcionaría una capa de robustez ante
+            accesos no autorizados a la base de datos del inventario y ventas.
+        </p>
+        <p>
+            Finalmente, el control de acceso y la gestión de identidades para el uso de capacidades críticas, como el Function Calling,
+            podrían estructurarse bajo el estándar OAuth 2.0. Este protocolo permitiría delegar la autorización mediante tokens
+            temporales, asegurando que las acciones de modificación en el sistema financiero se ejecuten únicamente bajo sesiones
+            validadas y seguras. Este enfoque normativo garantiza que la arquitectura propuesta sea escalable y cumpla con las mejores
+            prácticas de la industria de software actual.
+        </p>
+
+        <h2 class="h6 fw-bold mt-3">3. Proyección de normas de protección de datos personales</h2>
+        <p>
+            Dada la naturaleza del sistema como una herramienta de aprendizaje y validación de algoritmos, la implementación de
+            normativas de privacidad se aborda desde un enfoque proyectivo. Aunque el prototipo no gestiona bases de datos de usuarios
+            reales en producción, el diseño del sistema contempla los principios de la LFPDPPP para asegurar que la arquitectura sea
+            compatible con las exigencias legales futuras:
+        </p>
+        <ul>
+            <li>
+                <strong>Estatus de prueba de concepto.</strong> Al ser un desarrollo en etapa experimental, el tratamiento de datos se
+                limita a información sintética o de prueba. Por consiguiente, el cumplimiento de los derechos ARCO (Acceso,
+                Rectificación, Cancelación y Oposición) se define como una funcionalidad teórica integrada en la lógica del software,
+                pero no sujeta a la jurisdicción del INAI en esta etapa de investigación.
+            </li>
+            <li>
+                <strong>Limitación de responsabilidad legal.</strong> Se establece que el prototipo no es un depositario final de fe
+                pública para efectos contables ni fiscales ante el Servicio de Administración Tributaria (SAT). La responsabilidad sobre
+                la veracidad de la información y el cumplimiento de las obligaciones tributarias recae exclusivamente en el usuario,
+                considerando al asistente como una herramienta de apoyo pedagógico y de gestión operativa preliminar.
+            </li>
+            <li>
+                <strong>Privacidad por diseño (Privacy by Design).</strong> A pesar de su estatus de prototipo, se ha procurado que la
+                estructura técnica respete los lineamientos del INAI para el uso de Inteligencia Artificial, asegurando que, en caso de
+                un despliegue real en 2026, la transición hacia el cumplimiento normativo sea técnica y legalmente viable.
+            </li>
+        </ul>
+
+        <h2 class="h6 fw-bold mt-3">4. Qué datos usa marIA</h2>
+        <p>
+            Para funcionar, el sistema guarda los datos de tu cuenta (nombre, teléfono y correo), los de tu tienda y lo que registras
+            en ella: productos, ventas, gastos y movimientos de inventario. Cuando le escribes o le hablas a marIA, el mensaje y los
+            datos necesarios para contestarlo se envían a los servicios de inteligencia artificial de Google (Gemini) o de OpenAI
+            (ChatGPT); marIA no manda más datos de los que hacen falta para esa respuesta. Las llaves de acceso a esos servicios se
+            guardan cifradas. Al crear tu cuenta se guarda la fecha en que aceptaste este aviso.
+        </p>
+
+        <p class="small text-muted mt-3 mb-0">
+            Responsables del proyecto: Luis Bernardo Delgado Acosta y Jorge Arif Diaz Jimenez.
+        </p>
+    </div>
+
+    <p class="text-center small mt-3">
+        <a href="javascript:history.back()">← Regresar</a>
+    </p>
+</div>
+{% endblock %}

@@ -60,6 +60,7 @@ Tabla 7.1. Rutas principales.
 | `/avi/chat/` | Recibe el mensaje del tendero y regresa la respuesta del asistente |
 | `/avi/resumen/`, `/avi/explicar/<tipo>/` | Resumen del día y explicaciones con IA |
 | `/sincronizar/` | Recibe lo que se hizo sin internet |
+| `/terminos/` | Términos y condiciones y aviso de protección de datos (público) |
 
 ### 7.1.4 Servicios y fórmulas
 
@@ -70,6 +71,7 @@ Tabla 7.2. Módulos con la lógica del sistema.
 | Módulo | Qué contiene |
 |---|---|
 | `finanzas/calculos.py` | Fórmulas financieras (utilidad, flujo, ISR, punto de equilibrio, precio sugerido) y los modelos de pronóstico |
+| `finanzas/graficas.py` | Datos reales de las gráficas del inicio y de los reportes |
 | `ventas/cobro.py` | Cobro de la venta y la regla de oro |
 | `ventas/carrito.py` | Operaciones de la caja: agregar, quitar, cambiar cantidad y cancelar |
 | `inventario/busqueda.py` | Búsqueda aproximada de productos |

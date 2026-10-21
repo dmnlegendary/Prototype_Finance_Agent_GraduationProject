@@ -1,44 +1,47 @@
 # Notas de arquitectura
 
-Cómo está organizado el proyecto de Django, para no perder el hilo entre entregas.
+Cómo está organizado el proyecto de Django, para no perder el hilo entre entregas. El detalle de instalación y configuración está en el manual técnico (`docs/capitulos_tt2/13_anexo_b_manual_tecnico.md`).
 
 ## Carpetas
 
 ```
 config/         configuración del proyecto (settings, urls)
-core/           cosas compartidas (ModeloBase, cache por negocio, importar_csv, context processor del navbar)
-accounts/       usuarios, login/registro, datos del negocio (Seguridad y autenticación)
-inventario/     productos, proveedores, alertas de stock (Inventario y alertas)
-ventas/         punto de venta y carrito (Ventas y carrito)
-finanzas/       gastos, reportes, punto de equilibrio, precios sugeridos y fórmulas (calculos.py)
-avi/            asistente conversacional: chat con ChatGPT/Gemini, funciones, resúmenes con IA y configurar_ia
-templates/      base.html, base_auth.html, base_app.html y el navbar
-static/         css/js que comparten varias pantallas
+core/           lo compartido: ModeloBase, caché por negocio, sincronización sin internet, llaves cifradas, términos y condiciones, importar_csv
+accounts/       usuarios, login/registro (con términos y condiciones), datos del negocio, preferencias
+inventario/     productos, proveedores, alertas, kardex, lotes de compra, importación CSV, datos base (catálogo, proveedores, íconos)
+ventas/         punto de venta con dos cajas, cobro y regla de oro
+finanzas/       gastos con mes, reportes, reporte de ventas, punto de equilibrio, precios, pronóstico y gráficas (calculos.py y graficas.py)
+avi/            asistente: chat con Gemini/ChatGPT por function calling, resúmenes y explicaciones con IA, configurar_ia
+templates/      base.html, base_auth.html, base_app.html y los parciales (navbar, ayuda, guía de colores)
+static/         css/js compartidos y el service worker (sw.js)
 ```
 
-Cada app tiene su propio `templates/<app>/` y (si aplica) `static/<app>/`.
+Cada app tiene su propio `templates/<app>/` y, si aplica, `static/<app>/`.
+
+## Reglas que viven en un solo lugar
+
+- Precio de venta nunca menor al costo: `inventario/compras.py` (`mensaje_si_vende_bajo_el_costo`).
+- Toda entrada de mercancía (alta, resurtir, CSV, asistente) pasa por `inventario/compras.py` y deja un gasto de compra.
+- Todo cambio de existencias deja un movimiento en el kardex (`inventario/movimientos.py`) y abre o gasta lotes (`inventario/lotes.py`, método PEPS).
+- El stock ideal es el promedio de las existencias tras cada carga de mercancía (`inventario/movimientos.py`).
+- Regla de oro y cobro único: `ventas/cobro.py`.
+- Fórmulas financieras y pronóstico: `finanzas/calculos.py`; datos de las gráficas: `finanzas/graficas.py`.
+- Las pantallas y el asistente llaman a las mismas funciones (`avi/services.py` usa los módulos de arriba).
 
 ## Estado actual
 
-- Cuenta: registro en 3 pasos, login con correo o teléfono, recuperar contraseña (el correo sale en
-  la terminal en modo desarrollo) y eliminar cuenta: funcionando.
-- Inventario (alta, edición con motivo, baja, proveedores, alertas, productos pendientes de validar): funcionando.
-- Ventas (carrito, cobro, ticket, historial): funcionando, con formularios POST + redirect;
-  solo la búsqueda y el chat usan fetch.
-- Finanzas: gastos con categorías, reportes, punto de equilibrio por categoría y precios sugeridos
-  con fórmulas reales (todas en `finanzas/calculos.py`). El pronóstico sigue como maqueta.
-- AVI: chat con ChatGPT o Gemini usando function calling, memoria de los últimos 10 mensajes,
-  dictado por voz y resumen diario guardado en la base (una llamada a la IA por día).
-- Semáforo de reabastecimiento (amarillo / naranja / rojo según el stock ideal), campana de alertas en el navbar y búsqueda instantánea en las alertas.
-- Base de datos PostgreSQL con índices y restricciones (ver `database/README.md`) y carga masiva desde CSV.
-- Cache por negocio (`core/cache_negocio.py`) para alertas, ventas de hoy, catálogo del asistente y resumen financiero; se invalida con señales (`core/signals.py`).
-- Pruebas automáticas: `python manage.py test` (unitarias y de integración en cada app).
+- Registro en 3 pasos con aceptación de términos, login con correo o teléfono, recuperación de contraseña y eliminar cuenta.
+- Guía de colores y video de bienvenida la primera vez que se entra.
+- Inventario: alta, edición con motivo, baja, proveedores, alertas por ritmo de venta, kardex, importación CSV y catálogo precargado.
+- Ventas: dos cajas, búsqueda tolerante, código de barras, granel, producto no encontrado y trabajo sin internet con sincronización.
+- Finanzas: gastos con mes, reportes configurables, reporte de ventas, punto de equilibrio, precios para cubrir gastos, pronóstico progresivo con tres modelos y gráficas reales en rosa con vista ampliada.
+- Asistente: 25 funciones, Gemini primero y ChatGPT de respaldo, dictado tipo radio (Chrome y Edge), explicaciones con IA.
+- Seguridad: llaves de IA cifradas en la base de datos, HTTPS y correo por variables de entorno.
+- Pruebas automáticas: `python manage.py test`.
 
 ## Pendiente
 
-- [ ] Modelo de pronóstico de ventas (fase 2): elegir método (promedio móvil, ARIMA, regresión, etc.).
+- [ ] Despliegue en Azure y servicio de correo real.
 - [ ] Prueba de aceptación con tenderos.
-- [ ] Video introductorio del tutorial.
-- [x] Paginación del catálogo, historial de ventas e historial de gastos (25 por página).
-- [ ] Servicio de correo real y configuración de producción (DEBUG, SECRET_KEY, servidor).
-- [ ] Conectar Power BI a la base de datos para los reportes.
+- [ ] Caché compartido (Redis) si se ejecutan varios procesos.
+- [ ] Registro de errores a archivo.

@@ -4,6 +4,7 @@ from pathlib import Path
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
+from django.shortcuts import render
 from django.views.decorators.http import require_GET, require_POST
 
 from .sync import aplicar_operaciones
@@ -47,3 +48,9 @@ def service_worker(request):
     respuesta["Service-Worker-Allowed"] = "/"
     respuesta["Cache-Control"] = "no-cache"
     return respuesta
+
+
+@require_GET
+def terminos(request):
+    """Términos y condiciones y aviso de protección de datos (se puede leer sin iniciar sesión)."""
+    return render(request, "core/terminos.html")

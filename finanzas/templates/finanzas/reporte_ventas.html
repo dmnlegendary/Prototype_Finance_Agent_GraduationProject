@@ -38,7 +38,7 @@
   </div>
   <div class="fin-stat-card">
     <div class="fin-stat-label">Ganaste (antes de gastos)</div>
-    <div class="fin-stat-value" style="color:var(--color-success);">${{ reporte.ganancia|floatformat:2|intcomma }}</div>
+    <div class="fin-stat-value" style="color:var(--fin-700);">${{ reporte.ganancia|floatformat:2|intcomma }}</div>
     <div class="fin-stat-delta neutral">{% if reporte.margen_bruto is not None %}{{ reporte.margen_bruto }}% de lo vendido{% else %}sin ventas{% endif %}</div>
   </div>
   <div class="fin-stat-card">
@@ -53,14 +53,13 @@
 
 {% if reporte.tickets %}
 <div class="fin-card">
-  <h3>Ventas de cada día</h3>
-  <svg viewBox="0 0 320 160" width="100%" height="160">
-    {% for d in reporte.por_dia %}
-    <rect x="{{ d.x }}" y="{{ d.y }}" width="{{ d.ancho }}" height="{{ d.alto }}" fill="var(--color-primary)"><title>{{ d.etiqueta }}: ${{ d.total|floatformat:2 }}</title></rect>
-    {% if d.con_etiqueta %}<text x="{{ d.x|add:0 }}" y="152" font-size="8" fill="var(--text-muted)">{{ d.etiqueta }}</text>{% endif %}
-    {% endfor %}
-  </svg>
+  <div class="fin-card-cabecera">
+    <h3>Ventas de cada día</h3>
+    <button type="button" class="fin-btn-ojo" data-ampliar="g-ventas" title="Ver en grande" aria-label="Ver las ventas de cada día en grande"><i class="bi bi-eye"></i></button>
+  </div>
+  <div class="fin-grafica" data-grafica="g-ventas" data-alto="190"></div>
 </div>
+{{ grafica_ventas|json_script:"g-ventas" }}
 
 <div class="fin-grid-2">
   <div class="fin-card">

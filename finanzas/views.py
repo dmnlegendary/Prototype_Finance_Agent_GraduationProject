@@ -16,7 +16,7 @@ from inventario.compras import mensaje_si_vende_bajo_el_costo, registrar_compra
 from inventario.models import HistorialModificacionProducto, Producto
 from ventas.models import ItemVenta, Venta
 
-from . import calculos
+from . import calculos, graficas
 from .forms import GastoOperativoForm
 from .models import CategoriaGasto, GastoOperativo
 
@@ -82,6 +82,7 @@ def inicio(request):
         "renglones_sin_costo": calculos.renglones_sin_costo(negocio, inicio_mes, manana),
         "num_gastos_mes": GastoOperativo.objects.filter(negocio=negocio, periodo__gte=inicio_mes).count(),
         "num_productos_precios": Producto.objects.filter(negocio=negocio, activo=True, costo__gt=0).count(),
+        "graficas": graficas.graficas_del_inicio(negocio, hoy, equilibrio),
     })
 
 
@@ -508,28 +509,7 @@ def reportes_financieros(request):
         compras=sum((m["compras"] for m in datos_meses), Decimal("0")),
     )
 
-    # coordenadas de las barras/puntos dentro de un viewBox fijo de 320x160,
-    # normalizadas contra el valor más alto del periodo
-    n = len(datos_meses)
-    paso = 320 / n
-    ancho_barra = max(min(round(paso / 2 - 1), 10), 3)
-    max_barra = max([m["ingresos"] for m in datos_meses] + [m["gastos"] + m["compras"] for m in datos_meses] + [Decimal("1")])
-    max_utilidad = max([abs(m["utilidad_neta"]) for m in datos_meses] + [Decimal("1")])
-    for i, m in enumerate(datos_meses):
-        centro = paso * i + paso / 2
-        m["ancho"] = ancho_barra
-        m["x_ingresos"] = round(centro - ancho_barra)
-        m["x_egresos"] = round(centro + 1)
-        m["x_texto"] = round(centro)
-        m["h_ingresos"] = max(round(float(m["ingresos"] / max_barra) * 100), 2)
-        # la barra de egresos incluye lo que se gastó en comprar mercancía (es dinero que salió)
-        m["h_egresos"] = max(round(float((m["gastos"] + m["compras"]) / max_barra) * 100), 2)
-        m["y_ingresos"] = 135 - m["h_ingresos"]
-        m["y_egresos"] = 135 - m["h_egresos"]
-        m["y_punto"] = round(90 - float(m["utilidad_neta"] / max_utilidad) * 50)
-        m["con_etiqueta"] = n <= 12 or i % 2 == 0  # con muchos meses se muestra una etiqueta sí y otra no
-
-    puntos_linea = " ".join(f"{m['x_texto']},{m['y_punto']}" for m in datos_meses)
+    etiquetas = [m["etiqueta"] for m in datos_meses]
 
     # el gasto operativo más grande del periodo, si es claramente mayor al promedio
     gastos_del_periodo = GastoOperativo.objects.filter(
@@ -551,7 +531,8 @@ def reportes_financieros(request):
         "hasta_mes": meses[-1].strftime("%Y-%m"),
         "mes_actual": calculos.primer_dia_del_mes(hoy).strftime("%Y-%m"),
         "datos_meses": datos_meses,
-        "puntos_linea": puntos_linea,
+        "grafica_ingresos": graficas.grafica_ingresos_y_egresos(datos_meses, etiquetas),
+        "grafica_utilidad": graficas.grafica_utilidad(datos_meses, etiquetas),
         "total": total,
         "es_resico": negocio.regimen_resico,
         "gasto_inusual": gasto_inusual,
@@ -614,21 +595,10 @@ def reporte_ventas(request):
 
     reporte = calculos.reporte_de_ventas(negocio, desde, hasta)
 
-    # barras de las ventas de cada día dentro de un viewBox de 320x160
-    por_dia = reporte["por_dia"]
-    if por_dia:
-        maximo = max(dia["total"] for dia in por_dia) or Decimal("1")
-        paso = 320 / len(por_dia)
-        ancho = max(min(round(paso - 2), 24), 2)
-        for i, dia in enumerate(por_dia):
-            altura = max(round(float(dia["total"] / maximo) * 110), 2)
-            dia.update(x=round(paso * i + (paso - ancho) / 2), alto=altura, y=135 - altura, ancho=ancho)
-            dia["etiqueta"] = dia["dia"].strftime("%d/%m")
-            dia["con_etiqueta"] = len(por_dia) <= 10 or i % max(len(por_dia) // 8, 1) == 0
-
     return render(request, "finanzas/reporte_ventas.html", {
         "activo": "reporte_ventas",
         "reporte": reporte,
+        "grafica_ventas": graficas.grafica_ventas_por_dia(reporte["por_dia"]),
         "desde": desde.isoformat(),
         "hasta": hasta.isoformat(),
         "hoy": hoy.isoformat(),

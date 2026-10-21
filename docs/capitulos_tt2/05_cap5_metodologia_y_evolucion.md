@@ -35,7 +35,7 @@ Tabla 5.2. Iteraciones del desarrollo.
 | 1. Preparación | 8 de junio de 2026 | Crear el repositorio en GitHub, la licencia y el README | Repositorio inicial |
 | 2. Primeros pasos | 16 de agosto de 2026 | Armar la estructura inicial y un primer menú de la aplicación | Esqueleto con navegación |
 | 3. Rediseño | 26 al 29 de septiembre de 2026 | Rehacer el proyecto con Django, crear las cuentas de usuario, conectar el inventario con una cuenta de prueba, probar los primeros modelos de pronóstico y conectar la API de IA | Sistema funcionando en local con los tres módulos y el asistente |
-| 4. Requisitos y pronóstico | 1 al 5 de octubre de 2026 | Completar los requisitos funcionales y enfocar el pronóstico en los 10 productos más vendidos | Pronóstico semanal con tres modelos |
+| 4. Requisitos y pronóstico | 1 al 5 de octubre de 2026 | Completar los requisitos funcionales y enfocar el pronóstico en los 10 productos más vendidos | Pronóstico semanal con ARIMA |
 | 5. Observaciones y pulido | 11 y 12 de octubre de 2026 | Atender las observaciones de los directores y de los tenderos, pasar el historial a PostgreSQL y agregar el respaldo entre Gemini y ChatGPT | Prototipo casi final |
 | 6. Pruebas y despliegue | Octubre de 2026 en adelante [COMPLETAR] | Pruebas de aceptación y despliegue del frontend en Azure | [COMPLETAR] |
 

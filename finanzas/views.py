@@ -4,7 +4,7 @@ from decimal import Decimal, InvalidOperation
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Avg, Q, Sum
+from django.db.models import Q, Sum
 from django.http import Http404, JsonResponse
 from django.template.loader import render_to_string
 from django.shortcuts import get_object_or_404, redirect, render
@@ -80,7 +80,7 @@ def inicio(request):
         "compras_mes": mes["compras"],
         # ventas sin precio de compra: mientras existan, la utilidad se ve más alta de lo real
         "renglones_sin_costo": calculos.renglones_sin_costo(negocio, inicio_mes, manana),
-        "num_gastos_mes": GastoOperativo.objects.filter(negocio=negocio, periodo__gte=inicio_mes).count(),
+        "num_gastos_mes": calculos.cantidad_gastos_periodo(negocio, inicio_mes, manana),
         "num_productos_precios": Producto.objects.filter(negocio=negocio, activo=True, costo__gt=0).count(),
         "graficas": graficas.graficas_del_inicio(negocio, hoy, equilibrio),
     })
@@ -366,8 +366,10 @@ def pronostico_base(request):
         return JsonResponse({"estado": "sin_ventas"})
     return JsonResponse({
         "estado": "ok",
+        "inicio_historial": base["primera_semana"].strftime("%d/%m/%Y"),
         "ultima_semana": base["ultima_semana"].strftime("%d/%m/%Y"),
         "semana_pronostico": base["semana_pronostico"].strftime("%d/%m/%Y"),
+        "semanas_historial": base["semanas_historial"],
         "minimo_de_dias": base["minimo_de_dias"],
         "umbrales": {nivel: float(limite) for limite, nivel in calculos.NIVELES_DE_CONFIANZA},
         "productos": [
@@ -383,7 +385,7 @@ def pronostico_base(request):
 @login_required
 @require_GET
 def pronostico_modelo(request, clave):
-    """Lo que dice un solo modelo (lineal, holt_winters o arima) de cada producto."""
+    """Pronostico ARIMA para cada producto elegible."""
     negocio = _negocio_o_none(request)
     if negocio is None or clave not in {modelo["clave"] for modelo in calculos.MODELOS_PRONOSTICO}:
         raise Http404("Ese modelo no existe.")
@@ -512,15 +514,9 @@ def reportes_financieros(request):
     etiquetas = [m["etiqueta"] for m in datos_meses]
 
     # el gasto operativo más grande del periodo, si es claramente mayor al promedio
-    gastos_del_periodo = GastoOperativo.objects.filter(
-        negocio=negocio, periodo__gte=meses[0], periodo__lt=calculos.mes_siguiente(meses[-1]),
-    ).exclude(tipo=GastoOperativo.Tipo.MERCANCIA)
-    gasto_inusual = None
-    promedio_gasto = gastos_del_periodo.aggregate(promedio=Avg("monto"))["promedio"]
-    if promedio_gasto:
-        mayor = gastos_del_periodo.order_by("-monto").first()
-        if mayor and mayor.monto > promedio_gasto * 2:
-            gasto_inusual = mayor
+    gasto_inusual = calculos.gasto_mas_inusual(
+        negocio, meses[0], calculos.mes_siguiente(meses[-1]),
+    )
 
     hasta_fecha = min(hoy + timedelta(days=1), calculos.mes_siguiente(meses[-1]))
     return render(request, "finanzas/reportes_financieros.html", {

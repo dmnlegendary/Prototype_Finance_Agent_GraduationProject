@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.validators import MinValueValidator
 from django.utils import timezone
 
 from core.models import ModeloBase
@@ -39,11 +40,26 @@ class GastoOperativo(ModeloBase):
         VARIABLE = "VARIABLE", "Variable"
         MERCANCIA = "MERCANCIA", "Compra de mercancía"
 
+    class Periodicidad(models.TextChoices):
+        UNA_VEZ = "UNA_VEZ", "Una sola vez"
+        DIARIA = "DIARIA", "Diaria"
+        SEMANAL = "SEMANAL", "Semanal"
+        MENSUAL = "MENSUAL", "Mensual"
+        CADA_MESES = "CADA_MESES", "Cada cierta cantidad de meses"
+        ANUAL = "ANUAL", "Anual"
+
     negocio = models.ForeignKey("accounts.Negocio", on_delete=models.CASCADE, related_name="gastos")
     categoria = models.ForeignKey(
         CategoriaGasto, on_delete=models.SET_NULL, null=True, blank=True, related_name="gastos",
     )
     tipo = models.CharField(max_length=10, choices=Tipo.choices)
+    periodicidad = models.CharField(
+        max_length=10, choices=Periodicidad.choices, default=Periodicidad.UNA_VEZ,
+    )
+    intervalo_meses = models.PositiveSmallIntegerField(
+        default=1, validators=[MinValueValidator(1)],
+    )
+    fecha_inicio = models.DateField(null=True, blank=True)
     concepto = models.CharField(max_length=150)
     monto = models.DecimalField(max_digits=10, decimal_places=2)
     nota = models.CharField(max_length=255, blank=True)
@@ -63,6 +79,28 @@ class GastoOperativo(ModeloBase):
             models.CheckConstraint(
                 condition=models.Q(monto__gt=0), name="gasto_monto_positivo",
                 violation_error_message="El monto del gasto debe ser mayor a cero.",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(
+                        periodicidad="UNA_VEZ",
+                        fecha_inicio__isnull=True,
+                        intervalo_meses=1,
+                    )
+                    | models.Q(
+                        tipo="FIJO",
+                        fecha_inicio__isnull=False,
+                        periodicidad__in=["DIARIA", "SEMANAL", "MENSUAL", "ANUAL"],
+                        intervalo_meses=1,
+                    )
+                    | models.Q(
+                        tipo="FIJO",
+                        periodicidad="CADA_MESES",
+                        fecha_inicio__isnull=False,
+                        intervalo_meses__gte=2,
+                    )
+                ),
+                name="gasto_periodicidad_coherente",
             ),
         ]
 

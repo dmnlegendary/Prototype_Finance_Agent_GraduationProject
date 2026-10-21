@@ -214,23 +214,19 @@ Tabla 6.2. Tiempos de respuesta según el almacenamiento.
 
 ## 6.6 Modelos de pronóstico de ventas
 
-El pronóstico de ventas busca decirle al tendero cuántas piezas de un producto va a vender la semana siguiente, para que decida cuánto comprar. Se probaron tres modelos y el sistema usa el que mejor funcionó para cada producto.
+El pronóstico de ventas estima cuántas piezas de un producto podrían venderse la semana siguiente para apoyar la decisión de cuánto comprar. Para facilitar la explicación y mantener una sola metodología de pronóstico, la versión actual del sistema utiliza exclusivamente ARIMA(1,1,1).
 
 ### 6.6.1 Datos utilizados y su preparación
 
-Se tomaron los 10 productos más vendidos de la tienda, porque son los que tienen suficientes ventas para que un modelo aprenda algo. De cada uno se arma una serie semanal con las unidades vendidas en las últimas 26 semanas. Las semanas en las que no se vendió el producto cuentan como cero, para que la serie no tenga huecos. Para que un producto se pronostique tiene que tener al menos 30 días de historia (se puede cambiar en la configuración); si tiene menos, la pantalla dice "Datos insuficientes" y no se estima nada, ni siquiera un cero. Antes de calcular se hace un filtrado ligero: si un solo día se vendió la mitad o más de todo lo que se vendió del producto en el historial, algo muy raro que pasó una vez, ese día se cambia por el siguiente día más alto para que no engañe al modelo. Como el sistema no guarda cuántas piezas había en cada día, la mitad se mide contra el total vendido del periodo.
+Se toman los 10 productos con más unidades vendidas en todo el historial disponible del negocio. De cada uno se arma una serie semanal desde la primera semana con ventas del negocio hasta la última semana registrada. Las semanas en las que no se vendió el producto cuentan como cero, incluso las anteriores a su primera venta registrada, para que todas las series cubran el mismo periodo; por eso el número de semanas depende de los datos cargados y no de una ventana fija. Para determinar si un producto tiene historia suficiente, se cuentan los días desde su primera venta registrada, sin considerar los ceros previos. Si tiene menos de 30 días (configurable), la pantalla dice "Datos insuficientes" y no se estima nada, ni siquiera un cero. Antes de calcular se hace un filtrado ligero sobre el historial utilizado: si un solo día concentra la mitad o más de todas las unidades vendidas, ese día se cambia por el siguiente día más alto para que no engañe al modelo. Como el sistema no guarda cuántas piezas había en cada día, la mitad se mide contra el total vendido del historial.
 
-### 6.6.2 Modelos considerados y el modelo elegido
+### 6.6.2 Modelo elegido y justificación
 
-El primer modelo es una regresión lineal, que ajusta una línea recta a las ventas semanales y la prolonga una semana. Es el más sencillo y sirve como punto de comparación. Lo programamos a mano con la fórmula de mínimos cuadrados, así que no depende de ninguna biblioteca.
+Se eligió ARIMA porque es una familia clásica de métodos para series temporales y permite representar tanto los cambios entre observaciones como la dependencia de los valores y errores anteriores [7], [8]. Esto resulta adecuado para explicar el problema como una secuencia de ventas semanales y deja una estructura conocida para evolucionar posteriormente el análisis.
 
-El segundo es ARIMA, un modelo clásico de series de tiempo que predice a partir de los valores y los errores de las semanas anteriores [7], [8]. Usamos la configuración (1, 1, 1), que toma en cuenta la semana anterior, el cambio entre semanas y el error anterior, con la biblioteca statsmodels.
+La implementación actual usa el orden fijo (1, 1, 1): un término autorregresivo, una diferenciación y un término de media móvil. Se ajusta con la biblioteca `statsmodels`, con `enforce_stationarity=False` y `enforce_invertibility=False`. No se realiza una búsqueda automática del orden ni una optimización comparativa de configuraciones. Por tanto, la elección de ARIMA como modelo único es una decisión metodológica del proyecto; no se afirma que haya obtenido el menor error en datos reales.
 
-El tercero es Holt-Winters, o suavizamiento exponencial, que separa la serie en un nivel, una tendencia y un patrón que se repite [8]. Lo configuramos con tendencia amortiguada y un ciclo de cuatro semanas, pensando en que muchas compras siguen un patrón mensual.
-
-Para decidir cuál usar, cada modelo se entrena con las semanas anteriores y se le pide predecir las últimas cuatro semanas, que ya sabemos cómo fueron. Se calcula el error absoluto medio (MAE), que es cuántas piezas se equivoca en promedio, y para cada producto se escoge el modelo con menor error. Por eso no hay un solo modelo ganador: depende del producto.
-
-### 6.6.3 Métricas de evaluación y resultados
+### 6.6.3 Métrica de evaluación
 
 El error absoluto medio se calcula como el promedio de las diferencias, sin importar el signo, entre lo que realmente se vendió y lo que el modelo estimó.
 
@@ -238,19 +234,21 @@ El error absoluto medio se calcula como el promedio de las diferencias, sin impo
 MAE = (1 / n) x suma de |ventas reales - ventas estimadas|
 ```
 
-La Tabla 6.3 muestra los resultados con el historial de pruebas. [COMPLETAR con los datos que muestra la pantalla de pronóstico: el MAE de cada modelo por producto y cuál ganó]
+La prueba actual utiliza las últimas cuatro semanas disponibles como bloque de evaluación y entrena ARIMA con todas las semanas anteriores. Por ejemplo, si hay 45 semanas, usa 41 para entrenamiento y cuatro para prueba. La pantalla muestra el MAE en unidades por semana. El pronóstico para la semana siguiente se obtiene volviendo a ajustar ARIMA con todo el historial disponible.
 
-Tabla 6.3. Error de cada modelo en los productos más vendidos (en piezas por semana).
+Las pruebas unitarias usan datos sintéticos y verifican el funcionamiento del cálculo, la preparación de la serie y la respuesta de la pantalla. No constituyen una evaluación de precisión con ventas reales. En una medición exploratoria anterior, con un patrón sintético de 12 semanas y 10 productos, ARIMA obtuvo un MAE de 0.79 unidades semanales; una regresión lineal obtuvo 0.75 y Holt-Winters 1.38. Ese ejemplo sintético no demuestra que ARIMA sea el más preciso; se conserva únicamente como antecedente de comparación y no forma parte de la funcionalidad actual.
 
-| Producto | Regresión lineal | ARIMA | Holt-Winters | Mejor modelo | Pronóstico próxima semana |
-|---|---|---|---|---|---|
-| [COMPLETAR] | [COMPLETAR] | [COMPLETAR] | [COMPLETAR] | [COMPLETAR] | [COMPLETAR] |
+Tabla 6.3. Métrica de ARIMA en el fixture sintético exploratorio (no representa ventas reales).
+
+| Productos evaluados | Semanas de entrenamiento | Semanas de prueba | Modelo vigente | MAE de referencia |
+|---:|---:|---:|---|---:|
+| 10 | 8 | 4 | ARIMA(1,1,1) | 0.79 unidades/semana |
 
 ### 6.6.4 Integración al sistema y limitaciones
 
-El pronóstico se calcula cuando el tendero abre la pantalla de pronóstico, y se muestra de forma progresiva para que no parezca que se quedó esperando. Primero aparecen los productos y lo que vendieron la última semana. Después se pide un modelo a la vez, del más rápido al más lento: con la regresión lineal sale un resultado preliminar en pocos segundos, y se va refinando con Holt-Winters y con ARIMA, mientras una barra de avance y un mensaje cuentan en qué paso va. Para cada producto se muestra lo que estima cada modelo, su error, cuál resultó mejor, la cantidad que se espera vender la próxima semana y cuánto cambia contra la última semana. También se muestra un nivel de confianza (alta, media o baja) que compara el error del modelo con lo que el producto vende normalmente en una semana: si se equivoca menos de 25 % es alta, hasta 50 % es media y más que eso es baja. Ese criterio es una propuesta que se puede ajustar. Un botón, "Explícame mi pronóstico", le pide a la IA un resumen en palabras sencillas. La pantalla recuerda siempre que se trata de una estimación de apoyo y que la decisión de cuánto comprar es del tendero. No se guardan modelos entrenados, sino que se vuelven a ajustar con las ventas más recientes cada vez, lo que significa que el modelo siempre está al día, a cambio de unos segundos de cálculo.
+Al abrir la pantalla, el sistema obtiene la serie semanal de cada producto elegible y ajusta ARIMA(1,1,1). Muestra la última venta semanal, el pronóstico para la semana siguiente, el cambio porcentual, el MAE y un nivel de confianza orientativo. La confianza compara el MAE con el promedio semanal reciente: alta hasta 25 %, media hasta 50 % y baja por encima de ese umbral. No representa una probabilidad estadística. Un botón permite solicitar a la IA una explicación en lenguaje sencillo. El modelo se ajusta nuevamente con las ventas recientes cada vez que se calcula el pronóstico; no se guarda un modelo entrenado.
 
-Tiene varias limitaciones. Solo funciona para productos con al menos 30 días de ventas, así que una tienda nueva tiene que esperar. Con cuatro semanas de prueba, el error que se mide es aproximado y puede cambiar mucho de un producto a otro. Además, los modelos solo ven las ventas pasadas y no saben de cosas como una fiesta, la lluvia o un cambio de precio del proveedor, así que sus resultados son una guía y la decisión de compra sigue siendo del tendero.
+Tiene varias limitaciones. Solo pronostica productos con al menos 30 días de historia; utiliza todas las semanas disponibles y rellena con cero aquellas sin ventas registradas. Esto presupone que la ausencia de un registro significa que no hubo ventas, lo cual puede ser falso si el historial está incompleto. El CSV de referencia contiene fechas desde el 30 de mayo de 2025 hasta el 7 de abril de 2026; se importaron 63,409 de sus 63,411 renglones. Como el archivo no contiene costos ni existencias, los 2,298 productos creados desde ventas están pendientes de validar y tienen costo e inventario inicial en cero. El MAE de las últimas cuatro semanas es una evaluación corta y exploratoria, no una garantía de error futuro. La configuración ARIMA(1,1,1) es fija y aún no se ha calibrado con datos reales de múltiples tiendas. El modelo solo observa ventas pasadas: no incorpora promociones, días festivos, clima, faltantes de inventario ni cambios de precio. Por eso el resultado es una estimación de apoyo y la decisión de compra sigue siendo del tendero.
 
 ## 6.7 Asistente Virtual Inteligente (AVI) y APIs utilizadas
 

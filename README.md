@@ -21,8 +21,7 @@ resolver dudas del negocio.
   mantener en Python simple, sin abusar de las utilidades más avanzadas de Django.
 - **Frontend**: HTML, CSS y JavaScript, con Bootstrap 5 para no maquetar todo a mano.
 - **Base de datos**: PostgreSQL (SQLite si no se configura nada). Ver `database/README.md`.
-- **Machine Learning**: todavía por definir el modelo de pronóstico (ARIMA, series de
-  tiempo o regresión), se va a probar más de uno.
+- **Pronóstico de ventas**: ARIMA(1,1,1) estima las unidades por producto para la siguiente semana con sus ventas semanales históricas.
 - **Reportes**: Power BI, conectado a la base de datos para los reportes avanzados.
 
 ## Cómo correrlo
@@ -128,12 +127,13 @@ Escuela Superior de Cómputo (ESCOM) — Instituto Politécnico Nacional.
 - **Sin internet:** se puede cobrar, dar de alta productos y registrar mercancía. Todo se guarda en el dispositivo y se sincroniza solo al regresar la conexión (ver `static/js/sinconexion.js`, `static/sw.js` y `core/sync.py`).
 - **Pantallas ligeras:** inventario y alertas cargan 20 renglones y el resto con "Ver más"; los reportes usan pocas consultas.
 - **El asistente solo recibe las herramientas de la pantalla en la que estás**, para gastar menos.
-- **Gastos con mes:** cada gasto lleva el mes al que corresponde (la luz de septiembre pagada en octubre cuenta en septiembre).
+- **Gastos por periodicidad:** los gastos fijos pueden registrarse como diarios, semanales, mensuales, cada cierta cantidad de meses o anuales, con una fecha de inicio desde la que los reportes cuentan cada ocurrencia. Los gastos puntuales y variables conservan el mes al que corresponden.
 - **Sugerir precios para cubrir tus gastos:** el margen se puede calcular con lo que se va en gastos sobre ventas más una ganancia extra.
 - **Alertas con ritmo de venta:** dentro de cada color va primero lo que se acaba antes, y cada alerta dice cuánto vende el producto por semana.
 - **Kardex de inventario:** cada entrada, venta, merma o ajuste deja un movimiento con la existencia que quedó; se consulta en `/inventario/movimientos/` y se exporta a CSV.
 - **Reportes financieros configurables:** de 1, 3, 6 o 12 meses o un rango de meses, con sugerencias, más un reporte de ventas por periodo.
-- **Pronóstico por partes y con confianza:** carga primero la base y luego cada modelo; con poco historial avisa el nivel de confianza, y el botón "Explícame mi pronóstico" hace otra llamada a la IA.
+- **Pronóstico con ARIMA:** usa un solo modelo para estimar las ventas de la semana siguiente, calcula el MAE de las últimas semanas y muestra un nivel de confianza orientativo. La metodología, parámetros y límites están en [`docs/EVALUACION_MODELOS_PRONOSTICO.txt`](docs/EVALUACION_MODELOS_PRONOSTICO.txt).
+- **Evaluación de pronósticos:** la metodología, parámetros, pruebas unitarias, MAE de la prueba sintética y límites de evaluación están documentados en [`docs/EVALUACION_MODELOS_PRONOSTICO.txt`](docs/EVALUACION_MODELOS_PRONOSTICO.txt).
 - **Llaves de la IA cifradas** en la base de datos (usan la `SECRET_KEY`, así que en un servidor hay que fijar `DJANGO_SECRET_KEY` en el `.env`); `python manage.py configurar_ia --ver` muestra cuáles hay, tapadas.
 - **Video de bienvenida** la primera vez que entra cada usuario, y preferencias del negocio (como el margen de ganancia) que el asistente recuerda.
 - **Listo para publicar:** `DJANGO_DEBUG`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, `USAR_HTTPS` y el correo SMTP se configuran desde el `.env` (ver `.env.example`).

@@ -56,7 +56,7 @@ Tabla 7.1. Rutas principales.
 | `/finanzas/reportes/` | Reportes de 1, 3, 6 o 12 meses, o de un rango de meses elegido |
 | `/finanzas/reportes/ventas/` | Reporte de ventas por periodo, con exportación a CSV |
 | `/finanzas/equilibrio/`, `/finanzas/precios/` | Punto de equilibrio y precios sugeridos |
-| `/finanzas/pronostico/` | Pronóstico de ventas; carga primero la base y luego cada modelo por separado |
+| `/finanzas/pronostico/` | Pronóstico semanal de ventas con ARIMA |
 | `/avi/chat/` | Recibe el mensaje del tendero y regresa la respuesta del asistente |
 | `/avi/resumen/`, `/avi/explicar/<tipo>/` | Resumen del día y explicaciones con IA |
 | `/sincronizar/` | Recibe lo que se hizo sin internet |

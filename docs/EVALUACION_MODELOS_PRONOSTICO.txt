@@ -1,0 +1,303 @@
+EVALUACION DE LOS MODELOS DE PRONOSTICO DE VENTAS
+=================================================
+
+Fecha del documento: 19/10/2026
+Fuente de implementacion: finanzas/calculos.py y finanzas/tests.py
+Entorno de la corrida sintetica: Python 3.12.2, Django 5.2.18,
+statsmodels 0.15.0, Windows.
+Alcance: comportamiento implementado, metodologia y resultados de una corrida
+sintetica reproducible. No presenta resultados de una evaluacion con ventas
+reales de una tienda.
+
+
+1. RESUMEN EJECUTIVO
+--------------------
+
+El prototipo estima las unidades que podrian venderse de cada producto durante
+la siguiente semana utilizando exclusivamente ARIMA(1,1,1). Calcula el error
+absoluto medio (MAE), en unidades por semana, sobre las ultimas cuatro semanas
+disponibles.
+
+Se eligio ARIMA como metodo unico por su uso establecido en el pronostico de
+series temporales y porque modela cambios y dependencia entre observaciones.
+La configuracion implementada es fija (1,1,1); no hay busqueda automatica de
+parametros. Esta decision facilita explicar y mantener una metodologia comun,
+pero no demuestra que ARIMA sea mas preciso con ventas reales.
+
+Una comparacion exploratoria anterior, sobre datos sinteticos de 12 semanas y
+10 productos, dio MAE de 0.75 para regresion lineal, 0.79 para ARIMA y 1.38
+para Holt-Winters. La regresion lineal resulto ligeramente mejor en ese
+fixture particular. Se conserva como antecedente sintetico, no como prueba
+estadistica ni como comparacion que siga ejecutando la aplicacion. La
+funcionalidad y pruebas actuales usan solo ARIMA.
+
+Actualmente no se guarda un reporte historico de cada ejecucion, no se mide
+el tiempo de ejecucion y no se calcula una matriz de confusion. La matriz de
+confusion no es apropiada para este problema tal como esta implementado: la
+salida es una cantidad numerica de unidades, no una clase.
+
+
+2. QUE PREDICE EL SISTEMA Y QUE DATOS USA
+-----------------------------------------
+
+- Variable a predecir: unidades vendidas de un producto en la siguiente semana.
+- Frecuencia de la serie: semanal. Las semanas comienzan el lunes.
+- Ventas incluidas: ventas cobradas de productos activos del mismo negocio.
+- Seleccion de productos: los 10 con mas unidades vendidas; el limite es un
+  parametro de la funcion y la pantalla usa el valor predeterminado de 10.
+- Ventana: todas las semanas entre la primera y la ultima venta cobrada de
+  productos activos del negocio. No hay un limite fijo de semanas.
+- Semanas sin venta: se incluyen como cero para tener series semanales
+  continuas, incluso antes de la primera venta registrada de un producto.
+- Semana objetivo: la semana que inicia inmediatamente despues de la ultima
+  semana con ventas considerada en la serie.
+- Historia minima para mostrar una estimacion: 30 dias naturales, configurable
+  mediante PRONOSTICO_MINIMO_DIAS (predeterminado: 30).
+- Guardia tecnica de ajuste: la funcion del modelo requiere una serie de al
+  menos 8 posiciones semanales. Las semanas sin ventas se rellenan con cero,
+  por lo que esta guardia no significa que deban existir 8 semanas con ventas.
+- Predicciones negativas: se limitan a cero antes de calcular el MAE y al
+  presentar la estimacion.
+- Excepcion de dato atipico: si existen al menos cinco dias con ventas y un
+  dia concentra la mitad o mas de todas las unidades del producto en el
+  historial utilizado, el valor de ese dia se sustituye por el segundo valor
+  diario mas alto. La serie utilizada se marca como corregida en la pantalla.
+
+El CSV de referencia disponible tiene 63,411 renglones con fechas del
+30/05/2025 al 07/04/2026. La pantalla solo utilizara los registros que hayan
+sido cargados en la base de datos del negocio; colocar el CSV en el proyecto
+no lo importa automaticamente. Los 10 productos se seleccionan por unidades
+vendidas en todo el historial disponible. Al importar este archivo en el
+negocio de prueba, se cargaron 63,409 renglones; dos se omitieron por datos
+invalidos. Los productos creados desde ese CSV quedan pendientes de validar
+y con costo e inventario inicial en cero, porque el archivo no contiene esos
+datos.
+
+
+3. MODELO Y PARAMETROS IMPLEMENTADOS
+------------------------------------
+
+ARIMA
+- Orden: (p,d,q) = (1,1,1).
+- enforce_stationarity: False.
+- enforce_invertibility: False.
+- Ajuste: statsmodels.tsa.arima.model.ARIMA(...).fit().
+- No se hace busqueda automatica de orden ni optimizacion de hiperparametros.
+- Los avisos del ajuste se silencian durante el calculo.
+- Horizonte de produccion: 1 semana.
+- La aplicacion no ejecuta regresion lineal ni Holt-Winters.
+
+
+4. PROTOCOLO DE EVALUACION ACTUAL
+---------------------------------
+
+Para una serie de n semanas, la evaluacion usa:
+
+  semanas de prueba = min(4, n - 8)
+  entrenamiento = todas las semanas anteriores a las semanas de prueba
+
+Si hay 12 semanas:
+- entrenamiento: primeras 8 semanas;
+- prueba: ultimas 4 semanas;
+- ARIMA se ajusta con las semanas anteriores y produce pronosticos para esas
+  4 semanas;
+- se compara cada pronostico con las unidades reales de esa semana.
+
+En una ejecucion normal, n es el total de semanas desde el primer registro
+disponible hasta la ultima semana con ventas, incluidas las semanas sin venta
+con valor cero. Por ejemplo, si la base contiene 45 semanas:
+- entrenamiento: primeras 41 semanas;
+- prueba: ultimas 4 semanas.
+
+La prueba unitaria de 12 semanas pasa una serie de ese tamano para comprobar
+el comportamiento y usa 8 posiciones para entrenamiento.
+
+La metrica calculada es MAE (Mean Absolute Error / error absoluto medio):
+
+  MAE = suma(abs(real - pronosticado)) / numero de semanas de prueba
+
+Unidad: piezas por semana (o unidades de venta por semana si el producto se
+mide a granel). Un MAE de 0.75 significa que, en ese bloque, el pronostico se
+desvio en promedio 0.75 unidades por semana.
+
+El MAE mostrado corresponde al bloque de prueba de ARIMA. No se selecciona un
+ganador entre modelos. Como las ultimas semanas forman un bloque corto y no se
+conserva un conjunto independiente de prueba final, el resultado es exploratorio
+y no debe presentarse como garantia de error en semanas futuras.
+
+
+5. RESULTADO CUANTITATIVO REPRODUCIBLE DE LA PRUEBA UNITARIA
+-----------------------------------------------------------
+
+Prueba automatizada actual:
+  FinanzasConDatosRealesTests.test_pronostico_usa_arima_para_los_diez_mas_vendidos
+  (los datos creados por esta prueba son sinteticos).
+
+Comparacion sintetica exploratoria anterior:
+  Se ejecuto el protocolo anterior de tres modelos sobre las mismas series
+  sinteticas. Esos resultados se documentan solo como antecedente; el codigo
+  y las pruebas actuales ya no comparan modelos.
+
+Datos del fixture:
+- Fechas de venta: lunes desde 06/01/2025 hasta 24/03/2025.
+- Duracion: 12 semanas consecutivas; una venta semanal por producto.
+- Productos creados: 11, llamados "Producto 00" a "Producto 10".
+- Productos evaluados: los 10 mas vendidos, "Producto 00" a "Producto 09".
+- Producto 10: queda fuera del limite de 10.
+- Cantidad semanal sintetica del producto de indice i:
+  20 - i + (numero_de_semana mod 3).
+- Entrenamiento para el MAE: 06/01/2025 a 24/02/2025 (8 semanas).
+- Prueba: 03/03/2025 a 24/03/2025 (4 semanas).
+- Semana pronosticada por la prueba de integracion: inicia 31/03/2025.
+- Metrica vigente: MAE de ARIMA por producto, en unidades semanales.
+- Para generar el pronostico de la siguiente semana, ARIMA vuelve a ajustarse
+  usando las 12 semanas completas; esa prediccion no forma parte de las cuatro
+  observaciones usadas para el MAE.
+
+Producto sintetico | MAE Lineal (historico) | MAE ARIMA | MAE Holt-Winters (historico)
+----------------- | ---------------------- | --------- | ---------------------------
+Producto 00-09    | 0.75                   | 0.79      | 1.38
+
+El mismo resultado se obtuvo para cada uno de los 10 productos porque sus
+series siguen el mismo patron ciclico, desplazado por una constante. La
+regresion lineal gano esta comparacion sintetica; por ello estos datos NO
+respaldan decir que ARIMA sea el modelo mas preciso. ARIMA es el modelo unico
+actual por decision metodologica, y su ventaja practica principal es disponer
+de una estructura temporal reconocida y explicable para el alcance del
+prototipo. La prueba actual comprueba que ARIMA produce una estimacion y MAE,
+pero no fija esos resultados numericos con una asercion.
+
+
+6. PRUEBAS UNITARIAS Y QUE COMPRUEBA CADA UNA
+---------------------------------------------
+
+Archivo: finanzas/tests.py
+
+1) PronosticoProgresivoTests.test_la_pantalla_trae_el_aviso_de_que_es_una_estimacion
+   - Comprueba que se explique el uso de ARIMA, el caracter estimado del
+     resultado y la accion para volver a calcular.
+
+2) FinanzasConDatosRealesTests.test_pronostico_usa_arima_para_los_diez_mas_vendidos
+   - Escenario sintetico de 11 productos y 12 semanas; se comprueba el limite
+     de 10, el orden por ventas, que solo se exponga ARIMA, que este disponible,
+     que entregue MAE y que la fecha objetivo sea la siguiente semana.
+   - No valida precision con datos reales.
+
+3) FinanzasConDatosRealesTests.test_pronostico_sin_ventas_indica_que_no_hay_datos
+   - Sin ventas; verifica respuesta sin pronosticos y la presentacion del
+     estado vacio.
+
+4) PronosticoProgresivoTests.test_la_base_sale_sin_correr_ningun_modelo
+   - Confirma que la respuesta inicial de datos no ajusta un modelo y expone
+     las fechas y productos que necesita la pantalla.
+
+5) PronosticoProgresivoTests.test_solo_se_puede_solicitar_el_modelo_arima
+   - Un producto "Refresco", 12 semanas desde 06/01/2025; ventas semanales
+     sinteticas de 10 + semana mod 3 unidades.
+   - Comprueba que ARIMA devuelve pronostico y MAE por el endpoint.
+
+6) PronosticoProgresivoTests.test_otro_modelo_no_se_puede_solicitar
+   - Comprueba que regresion lineal, Holt-Winters y una clave desconocida
+     respondan 404; el endpoint solo admite ARIMA.
+
+7) PronosticoProgresivoTests.test_un_producto_con_pocos_dias_de_historia_dice_datos_insuficientes
+   - Producto con dos ventas separadas por 10 dias (11 dias de historia).
+   - Comprueba que no se inventa un pronostico y que la confianza indica
+     "sin datos".
+
+8) PronosticoProgresivoTests.test_el_minimo_de_dias_se_puede_configurar
+   - Cuatro ventas semanales sinteticas; verifica el umbral con
+     PRONOSTICO_MINIMO_DIAS=15 y =60.
+   - Comprueba la configuracion de elegibilidad, no mide la precision.
+
+9) ReglasDelPronosticoTests.test_mae_de_arima_usa_las_ultimas_semanas_como_prueba
+   - Verifica el MAE con una prediccion controlada y confirma que se ajusten
+     ocho semanas para predecir las cuatro semanas finales.
+
+10) ReglasDelPronosticoTests.test_un_dia_que_vendio_la_mitad_de_todo_se_ajusta
+   - Ocho dias sinteticos con una venta diaria de 4 y un dia con 40 unidades.
+   - Verifica que el dia atipico se sustituya por el siguiente valor diario
+     mas alto.
+
+11) ReglasDelPronosticoTests.test_si_las_ventas_son_parejas_no_se_ajusta
+   - Ocho dias sinteticos sin un pico que alcance la mitad del total.
+   - Verifica que los datos permanezcan intactos.
+
+12) ReglasDelPronosticoTests.test_con_muy_pocos_dias_no_se_ajusta
+   - Tres dias con ventas; verifica que no se active la regla de atipicos.
+
+13) ReglasDelPronosticoTests.test_nivel_de_confianza_segun_el_error_contra_lo_que_se_vende
+   - Comprueba calculo de los niveles y tratamiento de falta de datos.
+
+14) PronosticoProgresivoTests.test_el_pronostico_trae_cambio_contra_la_ultima_semana_y_confianza
+    - Un producto con 12 semanas sinteticas; comprueba que existan cambio
+      porcentual, ultima venta y nivel de confianza.
+
+15) ExplicacionDelPronosticoTests.test_sin_historia_suficiente_no_se_llama_a_la_ia
+    - Verifica que la explicacion no invoque IA cuando falta historia.
+
+16) ExplicacionDelPronosticoTests.test_con_historia_la_ia_explica_el_pronostico
+    - Verifica que, con historia, la IA pueda explicar el pronostico calculado.
+
+Estas pruebas automatizan reglas, contratos y funcionamiento del calculo. No
+constituyen por si mismas una validacion estadistica sobre tiendas o periodos
+historicos reales.
+
+
+7. "PRECISION", MATRIZ DE CONFUSION Y CONFIANZA
+-----------------------------------------------
+
+No se debe reportar accuracy/precision de clasificacion ni matriz de confusion
+para los resultados actuales: ARIMA predice una magnitud continua
+(unidades por semana), no una etiqueta como "alto/bajo". Para evaluar esta
+implementacion son apropiadas MAE y, como complemento, RMSE.
+
+MAPE tampoco se calcula actualmente. No se recomienda aplicarlo directamente
+cuando las semanas reales pueden ser cero, porque dividir entre cero deja la
+metrica indefinida. Si se requiere una medida porcentual, debe definirse un
+indicador que trate explicitamente semanas sin ventas y presentarse junto con
+MAE/RMSE.
+
+La etiqueta "confianza" de la pantalla es una regla relativa, no una
+probabilidad estadistica:
+- alta: MAE / promedio semanal reciente <= 0.25;
+- media: proporcion > 0.25 y <= 0.50;
+- baja: proporcion > 0.50;
+- sin datos: MAE inexistente o promedio semanal igual a cero.
+
+El promedio de referencia usa las ultimas 8 semanas. Los umbrales estan
+definidos en finanzas/calculos.py y son criterios iniciales, no calibrados
+contra una muestra estadistica externa.
+
+
+8. INFORMACION PENDIENTE PARA UNA EVALUACION CON DATOS REALES
+-------------------------------------------------------------
+
+Para afirmar que un modelo tiene determinado desempeno en la tienda, ejecutar
+y conservar una corrida con, al menos:
+
+- Identificador de corrida, fecha/hora y version del codigo.
+- Negocio anonimizado; no publicar nombres, credenciales ni datos personales.
+- Producto o identificador anonimizado, unidad de medida y criterio de
+  seleccion (por ejemplo, top 10).
+- Fecha inicial/final del historial usado, numero de semanas, ventas faltantes
+  completadas con cero y si se corrigio un dia atipico.
+- Modelo ARIMA, version de statsmodels y parametros de ajuste.
+- Fechas exactas de entrenamiento, validacion y prueba final.
+- Horizonte pronosticado (una semana), valores reales y pronosticados por
+  semana, MAE y RMSE por producto.
+- Duracion de ejecucion medida por separado para preparar datos, ajustar ARIMA
+  y completar la corrida. Hoy el codigo no registra esos tiempos.
+
+Protocolo recomendado para medir ARIMA sin fuga temporal: reservar un bloque
+cronologico final que no se use para modificar parametros; ajustar con las
+semanas anteriores y reportar una sola vez el resultado en el bloque final.
+Repetir con origenes temporales sucesivos y resumir MAE/RMSE por producto. Si
+se ajusta el orden ARIMA, hacerlo con validacion anterior y conservar el
+bloque final como evaluacion independiente. No mezclar semanas futuras con el
+entrenamiento ni barajar aleatoriamente una serie temporal.
+
+Hasta reunir esas corridas, la conclusion respaldada es que el prototipo
+ejecuta ARIMA(1,1,1) y calcula su MAE de prueba con una ventana temporal
+reducida. La eleccion de ARIMA es metodologica, no una afirmacion de
+superioridad: aun no se ha demostrado su desempeno en ventas reales.

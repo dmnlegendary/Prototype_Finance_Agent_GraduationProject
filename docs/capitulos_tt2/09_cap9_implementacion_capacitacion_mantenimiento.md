@@ -93,7 +93,7 @@ Cuando el sistema cambia, por ejemplo al agregar un campo a un producto, la estr
 
 ### 9.3.3 Pronóstico de ventas
 
-El pronóstico no usa modelos guardados que haya que volver a entrenar cada cierto tiempo. Cada vez que se abre la pantalla, los modelos se ajustan con las ventas de las últimas 26 semanas, así que siempre incluyen lo más reciente. La desventaja es que el cálculo se repite en cada consulta. Si en el futuro hay muchas tiendas o muchos productos, convendría guardar el resultado una vez al día en lugar de calcularlo a cada rato. [COMPLETAR si el equipo decide agregar un reentrenamiento programado]
+El pronóstico no usa modelos guardados que haya que volver a entrenar cada cierto tiempo. Cada vez que se calcula, ARIMA se ajusta con todo el historial semanal disponible en la base de datos del negocio. La desventaja es que el cálculo se repite en cada consulta y su duración aumenta con la longitud de la serie. Si en el futuro hay muchas tiendas o muchos años de datos, convendría medir el rendimiento y valorar guardar el resultado una vez al día. [COMPLETAR si el equipo decide agregar un reentrenamiento programado]
 
 ### 9.3.4 Uso y costo de las APIs de IA
 

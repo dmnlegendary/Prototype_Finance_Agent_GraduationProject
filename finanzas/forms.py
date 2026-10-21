@@ -31,10 +31,26 @@ class GastoOperativoForm(forms.ModelForm):
         widget=MesInput(),
         help_text="Por ejemplo, la luz de septiembre que pagas en octubre.",
     )
+    fecha_inicio = forms.DateField(
+        label="Fecha de inicio",
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+        help_text="La primera fecha en que se cuenta el gasto; las siguientes se calculan con la periodicidad.",
+    )
+    intervalo_meses = forms.IntegerField(
+        label="Cada cuántos meses",
+        required=False,
+        min_value=2,
+        widget=forms.NumberInput(attrs={"min": "2", "step": "1", "placeholder": "Ej. 2"}),
+        help_text="Por ejemplo, 2 para cada dos meses o 6 para cada seis meses.",
+    )
 
     class Meta:
         model = GastoOperativo
-        fields = ["tipo", "categoria", "concepto", "monto", "periodo", "nota"]
+        fields = [
+            "tipo", "categoria", "concepto", "monto", "periodicidad", "intervalo_meses",
+            "fecha_inicio", "periodo", "nota",
+        ]
         widgets = {
             "tipo": forms.HiddenInput(),
             "categoria": forms.RadioSelect(),
@@ -48,7 +64,10 @@ class GastoOperativoForm(forms.ModelForm):
         if negocio is not None:
             self.fields["categoria"].queryset = CategoriaGasto.objects.filter(negocio=negocio)
         self.fields["categoria"].required = False
+        self.fields["periodicidad"].required = False
+        self.fields["intervalo_meses"].required = False
         self.fields["periodo"].initial = mes_actual()
+        self.fields["fecha_inicio"].initial = timezone.localdate()
 
     def clean_tipo(self):
         # la compra de mercancía no se captura a mano: se registra sola al agregar piezas al inventario
@@ -68,3 +87,48 @@ class GastoOperativoForm(forms.ModelForm):
         if periodo.year < 2000:
             raise forms.ValidationError("Escribe un mes válido.")
         return periodo
+
+    def clean_periodicidad(self):
+        return self.cleaned_data.get("periodicidad") or GastoOperativo.Periodicidad.UNA_VEZ
+
+    def clean_fecha_inicio(self):
+        fecha_inicio = self.cleaned_data.get("fecha_inicio")
+        if fecha_inicio and fecha_inicio.year < 2000:
+            raise forms.ValidationError("Escribe una fecha de inicio válida.")
+        return fecha_inicio
+
+    def clean(self):
+        cleaned_data = super().clean()
+        tipo = cleaned_data.get("tipo")
+        periodicidad = cleaned_data.get("periodicidad")
+        intervalo_meses = cleaned_data.get("intervalo_meses")
+        fecha_inicio = cleaned_data.get("fecha_inicio")
+
+        if tipo != GastoOperativo.Tipo.FIJO:
+            cleaned_data["periodicidad"] = GastoOperativo.Periodicidad.UNA_VEZ
+            cleaned_data["intervalo_meses"] = 1
+            cleaned_data["fecha_inicio"] = None
+        elif periodicidad == GastoOperativo.Periodicidad.UNA_VEZ:
+            cleaned_data["intervalo_meses"] = 1
+            cleaned_data["fecha_inicio"] = None
+        elif periodicidad == GastoOperativo.Periodicidad.CADA_MESES:
+            if intervalo_meses is None:
+                self.add_error("intervalo_meses", "Indica cada cuántos meses ocurre el gasto.")
+            elif intervalo_meses < 2:
+                self.add_error("intervalo_meses", "El intervalo debe ser de al menos 2 meses.")
+            if not fecha_inicio:
+                self.add_error("fecha_inicio", "Selecciona desde qué fecha comienza el gasto.")
+        elif not fecha_inicio:
+            cleaned_data["intervalo_meses"] = 1
+            self.add_error("fecha_inicio", "Selecciona desde qué fecha comienza el gasto.")
+        else:
+            cleaned_data["intervalo_meses"] = 1
+            cleaned_data["periodo"] = fecha_inicio.replace(day=1)
+
+        if fecha_inicio and periodicidad not in (
+            GastoOperativo.Periodicidad.UNA_VEZ,
+            None,
+        ):
+            cleaned_data["periodo"] = fecha_inicio.replace(day=1)
+
+        return cleaned_data

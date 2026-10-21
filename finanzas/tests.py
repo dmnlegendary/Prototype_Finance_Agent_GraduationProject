@@ -1,5 +1,6 @@
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.db import connection
 from django.test import SimpleTestCase, TestCase
@@ -100,7 +101,7 @@ class FinanzasConDatosRealesTests(TestCase):
             with self.subTest(pantalla=nombre):
                 self.assertEqual(self.client.get(reverse(nombre)).status_code, 200)
 
-    def test_pronostico_compara_tres_modelos_para_los_diez_mas_vendidos(self):
+    def test_pronostico_usa_arima_para_los_diez_mas_vendidos(self):
         productos = [
             crear_producto(self.negocio, nombre=f"Producto {indice:02d}")
             for indice in range(11)
@@ -130,10 +131,12 @@ class FinanzasConDatosRealesTests(TestCase):
         self.assertEqual(len(resultado["productos"]), 10)
         self.assertEqual(resultado["productos"][0]["nombre"], "Producto 00")
         self.assertNotIn("Producto 10", [producto["nombre"] for producto in resultado["productos"]])
+        self.assertEqual([modelo["clave"] for modelo in resultado["modelos"]], ["arima"])
         for producto in resultado["productos"]:
-            self.assertEqual(set(producto["modelos"]), {"arima", "lineal", "holt_winters"})
-            self.assertTrue(all(modelo["disponible"] for modelo in producto["modelos"].values()))
-            self.assertTrue(all(modelo["mae"] is not None for modelo in producto["modelos"].values()))
+            self.assertEqual(set(producto["modelos"]), {"arima"})
+            self.assertTrue(producto["modelos"]["arima"]["disponible"])
+            self.assertIsNotNone(producto["modelos"]["arima"]["mae"])
+            self.assertEqual(producto["mejor_modelo"], "ARIMA")
         self.assertEqual(resultado["semana_pronostico"], inicio + timedelta(weeks=12))
 
     def test_pronostico_sin_ventas_indica_que_no_hay_datos(self):
@@ -483,6 +486,142 @@ class PeriodoDelGastoTests(TestCase):
         self.assertEqual(compra.periodo, self.mes_actual)
 
 
+class PeriodicidadDeGastosTests(TestCase):
+    def setUp(self):
+        self.usuario, self.negocio = crear_negocio()
+        self.client.force_login(self.usuario)
+
+    def gasto_recurrente(self, periodicidad, fecha_inicio, monto="10", intervalo_meses=1):
+        return GastoOperativo.objects.create(
+            negocio=self.negocio,
+            tipo=GastoOperativo.Tipo.FIJO,
+            concepto="Servicio",
+            monto=Decimal(monto),
+            periodicidad=periodicidad,
+            intervalo_meses=intervalo_meses,
+            fecha_inicio=fecha_inicio,
+            periodo=fecha_inicio.replace(day=1),
+        )
+
+    def test_cuenta_gastos_diarios_semanales_y_mensuales_en_sus_fechas(self):
+        inicio = date(2024, 1, 31)
+        self.gasto_recurrente(GastoOperativo.Periodicidad.DIARIA, inicio, "2")
+        self.gasto_recurrente(GastoOperativo.Periodicidad.SEMANAL, inicio, "5")
+        self.gasto_recurrente(GastoOperativo.Periodicidad.MENSUAL, inicio, "100")
+
+        febrero = calculos.gastos_periodo(self.negocio, date(2024, 2, 1), date(2024, 3, 1))
+        marzo = calculos.gastos_periodo(self.negocio, date(2024, 3, 1), date(2024, 4, 1))
+
+        self.assertEqual(febrero, Decimal("178.00"))  # 29 diarios, 4 semanales y 1 mensual
+        self.assertEqual(marzo, Decimal("182.00"))  # 31 diarios, 4 semanales y 1 mensual
+
+    def test_gasto_anual_inicia_en_la_fecha_escogida_y_ajusta_anios_no_bisiestos(self):
+        self.gasto_recurrente(GastoOperativo.Periodicidad.ANUAL, date(2024, 2, 29), "120")
+
+        antes_del_inicio = calculos.gastos_periodo(
+            self.negocio, date(2024, 1, 1), date(2024, 2, 29),
+        )
+        aniversario = calculos.gastos_periodo(
+            self.negocio, date(2025, 2, 1), date(2025, 3, 1),
+        )
+
+        self.assertEqual(antes_del_inicio, Decimal("0.00"))
+        self.assertEqual(aniversario, Decimal("120.00"))
+
+    def test_periodicidad_personalizada_cuenta_cada_dos_meses_desde_la_fecha_ancla(self):
+        self.gasto_recurrente(
+            GastoOperativo.Periodicidad.CADA_MESES,
+            date(2024, 1, 31),
+            "80",
+            intervalo_meses=2,
+        )
+
+        febrero = calculos.gastos_periodo(self.negocio, date(2024, 2, 1), date(2024, 3, 1))
+        marzo = calculos.gastos_periodo(self.negocio, date(2024, 3, 1), date(2024, 4, 1))
+        abril_y_mayo = calculos.gastos_periodo(self.negocio, date(2024, 4, 1), date(2024, 6, 1))
+
+        self.assertEqual(febrero, Decimal("0.00"))
+        self.assertEqual(marzo, Decimal("80.00"))
+        self.assertEqual(abril_y_mayo, Decimal("80.00"))
+
+    def test_resumen_mensual_incluye_recurrencias_que_comenzaron_antes(self):
+        self.gasto_recurrente(GastoOperativo.Periodicidad.DIARIA, date(2024, 1, 1), "2")
+        meses = calculos.resumen_por_meses(
+            self.negocio, [date(2024, 2, 1), date(2024, 3, 1)], Decimal("0"),
+        )
+
+        self.assertEqual(meses[0]["gastos"], Decimal("58.00"))
+        self.assertEqual(meses[1]["gastos"], Decimal("62.00"))
+
+    def test_el_resumen_diario_cuenta_la_ocurrencia_no_el_dia_de_captura(self):
+        hoy = timezone.localdate()
+        ayer = hoy - timedelta(days=1)
+        self.gasto_recurrente(GastoOperativo.Periodicidad.DIARIA, ayer, "25")
+
+        self.assertEqual(
+            calculos.gastos_capturados(self.negocio, hoy, hoy + timedelta(days=1)),
+            Decimal("25.00"),
+        )
+
+    def test_formulario_guarda_periodicidad_y_fecha_de_inicio(self):
+        fecha_inicio = date(2024, 5, 15)
+        respuesta = self.client.post(reverse("finanzas:registrar_gastos"), {
+            "tipo": "FIJO",
+            "concepto": "Internet",
+            "monto": "350",
+            "periodicidad": GastoOperativo.Periodicidad.CADA_MESES,
+            "intervalo_meses": "3",
+            "fecha_inicio": fecha_inicio.isoformat(),
+            "nota": "",
+        })
+
+        self.assertEqual(respuesta.status_code, 302)
+        gasto = GastoOperativo.objects.get()
+        self.assertEqual(gasto.periodicidad, GastoOperativo.Periodicidad.CADA_MESES)
+        self.assertEqual(gasto.intervalo_meses, 3)
+        self.assertEqual(gasto.fecha_inicio, fecha_inicio)
+        self.assertEqual(gasto.periodo, date(2024, 5, 1))
+
+    def test_un_gasto_recurrente_requiere_fecha_de_inicio(self):
+        respuesta = self.client.post(reverse("finanzas:registrar_gastos"), {
+            "tipo": "FIJO",
+            "concepto": "Internet",
+            "monto": "350",
+            "periodicidad": GastoOperativo.Periodicidad.CADA_MESES,
+            "intervalo_meses": "2",
+            "fecha_inicio": "",
+            "nota": "",
+        })
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(GastoOperativo.objects.count(), 0)
+        self.assertContains(respuesta, "Selecciona desde qué fecha comienza el gasto.")
+
+    def test_un_gasto_de_cada_cierto_numero_de_meses_requiere_intervalo(self):
+        respuesta = self.client.post(reverse("finanzas:registrar_gastos"), {
+            "tipo": "FIJO",
+            "concepto": "Mantenimiento",
+            "monto": "350",
+            "periodicidad": GastoOperativo.Periodicidad.CADA_MESES,
+            "intervalo_meses": "",
+            "fecha_inicio": "2024-05-15",
+            "nota": "",
+        })
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(GastoOperativo.objects.count(), 0)
+        self.assertContains(respuesta, "Indica cada cuántos meses ocurre el gasto.")
+
+    def test_las_opciones_de_periodicidad_se_muestran_en_el_formulario(self):
+        respuesta = self.client.get(reverse("finanzas:registrar_gastos"))
+
+        self.assertContains(respuesta, "Diaria")
+        self.assertContains(respuesta, "Semanal")
+        self.assertContains(respuesta, "Mensual")
+        self.assertContains(respuesta, "Cada cierta cantidad de meses")
+        self.assertContains(respuesta, "Anual")
+
+
 class PreciosParaCubrirGastosTests(TestCase):
     """Sugerir precios para que las ventas alcancen a pagar los gastos del negocio."""
 
@@ -568,6 +707,14 @@ class PreciosParaCubrirGastosTests(TestCase):
 
 
 class ReglasDelPronosticoTests(SimpleTestCase):
+    def test_mae_de_arima_usa_las_ultimas_semanas_como_prueba(self):
+        valores = [10, 10, 10, 10, 10, 10, 10, 10, 9, 8, 7, 6]
+        with patch("finanzas.calculos._pronosticar_arima", return_value=[8, 8, 8, 8]) as pronosticar:
+            mae = calculos._evaluar_arima(valores)
+
+        self.assertEqual(mae, 1.0)
+        pronosticar.assert_called_once_with(valores[:8], 4)
+
     def test_un_dia_que_vendio_la_mitad_de_todo_se_ajusta(self):
         dias = {f"d{n}": 4.0 for n in range(8)}  # 32 unidades en 8 días
         dias["d3"] = 40.0  # un día de 40 sobre un total de 68: más de la mitad
@@ -612,6 +759,9 @@ class PronosticoProgresivoTests(TestCase):
     def test_la_pantalla_trae_el_aviso_de_que_es_una_estimacion(self):
         respuesta = self.client.get(reverse("finanzas:pronostico_ventas"))
         self.assertContains(respuesta, "estimación de apoyo")
+        self.assertContains(respuesta, "ARIMA(1,1,1)")
+        self.assertNotContains(respuesta, "Holt-Winters")
+        self.assertNotContains(respuesta, "Regresión lineal")
         self.assertContains(respuesta, "Volver a calcular")
 
     def test_la_base_sale_sin_correr_ningun_modelo(self):
@@ -622,21 +772,55 @@ class PronosticoProgresivoTests(TestCase):
         self.assertEqual(datos["productos"][0]["nombre"], "Refresco")
         self.assertTrue(datos["productos"][0]["suficiente"])
         self.assertEqual(datos["umbrales"], {"alta": 0.25, "media": 0.5})
+        self.assertEqual(datos["semanas_historial"], 12)
+        self.assertEqual(datos["inicio_historial"], "06/01/2025")
 
-    def test_cada_modelo_se_pide_por_separado(self):
+    def test_por_defecto_usa_todas_las_semanas_disponibles(self):
+        refresco = crear_producto(self.negocio, nombre="Refresco")
+        self.historial(refresco, semanas=40)
+
+        base = calculos.series_de_los_mas_vendidos(self.negocio)
+
+        self.assertEqual(base["semanas_historial"], 40)
+        self.assertEqual(len(base["productos"][0]["serie"]), 40)
+        self.assertEqual(base["primera_semana"], self.inicio)
+
+    def test_serie_comienza_en_la_primera_venta_del_negocio(self):
+        producto_menos_vendido = crear_producto(self.negocio, nombre="Venta antigua")
+        primera_venta = self.inicio - timedelta(weeks=1)
+        self.vender(producto_menos_vendido, primera_venta, 1, 10000)
+        for indice in range(10):
+            producto = crear_producto(self.negocio, nombre=f"Popular {indice}")
+            self.historial(
+                producto,
+                semanas=12,
+                folio_inicial=indice * 20 + 1,
+            )
+
+        base = calculos.series_de_los_mas_vendidos(self.negocio, limite=10)
+
+        self.assertNotIn("Venta antigua", [producto["nombre"] for producto in base["productos"]])
+        self.assertEqual(base["primera_semana"], primera_venta)
+        self.assertEqual(base["semanas_historial"], 13)
+        self.assertEqual(base["productos"][0]["serie"][0], 0)
+
+    def test_solo_se_puede_solicitar_el_modelo_arima(self):
         refresco = crear_producto(self.negocio, nombre="Refresco")
         self.historial(refresco)
-        for clave in ("lineal", "holt_winters", "arima"):
-            with self.subTest(modelo=clave):
-                datos = self.client.get(reverse("finanzas:pronostico_modelo", args=[clave])).json()
-                self.assertEqual(datos["clave"], clave)
-                resultado = datos["resultados"][0]
-                self.assertTrue(resultado["disponible"])
-                self.assertIsNotNone(resultado["pronostico"])
-                self.assertIsNotNone(resultado["mae"])
+        datos = self.client.get(reverse("finanzas:pronostico_modelo", args=["arima"])).json()
+        self.assertEqual(datos["clave"], "arima")
+        resultado = datos["resultados"][0]
+        self.assertTrue(resultado["disponible"])
+        self.assertIsNotNone(resultado["pronostico"])
+        self.assertIsNotNone(resultado["mae"])
 
-    def test_un_modelo_que_no_existe_da_404(self):
-        self.assertEqual(self.client.get(reverse("finanzas:pronostico_modelo", args=["magia"])).status_code, 404)
+    def test_otro_modelo_no_se_puede_solicitar(self):
+        for clave in ("lineal", "holt_winters", "magia"):
+            with self.subTest(modelo=clave):
+                self.assertEqual(
+                    self.client.get(reverse("finanzas:pronostico_modelo", args=[clave])).status_code,
+                    404,
+                )
 
     def test_un_producto_con_pocos_dias_de_historia_dice_datos_insuficientes(self):
         nuevo = crear_producto(self.negocio, nombre="Nuevo")

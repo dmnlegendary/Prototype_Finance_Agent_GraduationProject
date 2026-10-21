@@ -763,6 +763,8 @@ class PronosticoProgresivoTests(TestCase):
         self.assertNotContains(respuesta, "Holt-Winters")
         self.assertNotContains(respuesta, "Regresión lineal")
         self.assertContains(respuesta, "Volver a calcular")
+        self.assertContains(respuesta, 'id="pronosticoDesde"')
+        self.assertContains(respuesta, 'id="pronosticoHasta"')
 
     def test_la_base_sale_sin_correr_ningun_modelo(self):
         refresco = crear_producto(self.negocio, nombre="Refresco")
@@ -774,6 +776,57 @@ class PronosticoProgresivoTests(TestCase):
         self.assertEqual(datos["umbrales"], {"alta": 0.25, "media": 0.5})
         self.assertEqual(datos["semanas_historial"], 12)
         self.assertEqual(datos["inicio_historial"], "06/01/2025")
+
+    def test_se_puede_seleccionar_un_rango_de_semanas_para_la_base(self):
+        refresco = crear_producto(self.negocio, nombre="Refresco")
+        self.historial(refresco, semanas=12)
+        desde = self.inicio + timedelta(weeks=2, days=3)
+        hasta = self.inicio + timedelta(weeks=6, days=5)
+
+        datos = self.client.get(reverse("finanzas:pronostico_base"), {
+            "desde": desde.isoformat(),
+            "hasta": hasta.isoformat(),
+        }).json()
+
+        self.assertEqual(datos["desde_seleccionado"], (self.inicio + timedelta(weeks=2)).isoformat())
+        self.assertEqual(datos["hasta_seleccionado"], (self.inicio + timedelta(weeks=6)).isoformat())
+        self.assertEqual(datos["semanas_historial"], 5)
+        self.assertEqual(datos["productos"][0]["unidades_historicas"], 55)
+
+    def test_rango_invalido_del_pronostico_responde_con_error(self):
+        respuesta = self.client.get(reverse("finanzas:pronostico_base"), {"desde": "no-es-fecha"})
+        self.assertEqual(respuesta.status_code, 400)
+        self.assertIn("error", respuesta.json())
+
+    def test_el_rango_elegido_se_usa_para_calcular_arima(self):
+        refresco = crear_producto(self.negocio, nombre="Refresco")
+        self.historial(refresco, semanas=12)
+        desde = self.inicio + timedelta(weeks=2)
+        hasta = self.inicio + timedelta(weeks=9)
+        with patch("finanzas.calculos._pronosticar_arima", return_value=[11]) as pronosticar:
+            respuesta = self.client.get(reverse("finanzas:pronostico_modelo", args=["arima"]), {
+                "desde": desde.isoformat(),
+                "hasta": hasta.isoformat(),
+            })
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertTrue(respuesta.json()["resultados"][0]["disponible"])
+        self.assertEqual(len(pronosticar.call_args.args[0]), 8)
+
+    def test_los_mas_vendidos_se_ordenan_dentro_del_rango_seleccionado(self):
+        antiguo = crear_producto(self.negocio, nombre="Popular antes")
+        reciente = crear_producto(self.negocio, nombre="Popular después")
+        self.vender(antiguo, self.inicio, 1000, 1)
+        for semana in range(2, 12):
+            self.vender(reciente, self.inicio + timedelta(weeks=semana), 20, semana + 1)
+
+        base = calculos.series_de_los_mas_vendidos(
+            self.negocio,
+            desde=self.inicio + timedelta(weeks=2),
+            hasta=self.inicio + timedelta(weeks=11),
+        )
+
+        self.assertEqual([producto["nombre"] for producto in base["productos"]], ["Popular después"])
 
     def test_por_defecto_usa_todas_las_semanas_disponibles(self):
         refresco = crear_producto(self.negocio, nombre="Refresco")
@@ -888,6 +941,36 @@ class ExplicacionDelPronosticoTests(TestCase):
         self.assertIn("pronóstico de ventas", mensaje)
         self.assertIn("Refresco", mensaje)
         self.assertIn("la decisión de cuánto comprar es mía", mensaje)
+
+    def test_la_explicacion_usa_el_rango_de_semanas_elegido(self):
+        desde = date(2025, 1, 8)
+        hasta = date(2025, 2, 12)
+        pronostico = {
+            "estado": "ok",
+            "productos": [{
+                "nombre": "Refresco",
+                "ultima_semana_real": 10,
+                "mejor_pronostico": 11,
+                "cambio_porcentual": 10,
+                "confianza": "alta",
+                "datos_suficientes": True,
+            }],
+            "semana_pronostico": date(2025, 2, 17),
+        }
+        with patch(
+            "avi.services.calculos.pronostico_ventas_negocio", return_value=pronostico,
+        ) as calcular, patch(
+            "avi.views.generar_texto", return_value="Explicación del periodo.",
+        ) as generar:
+            respuesta = self.client.get(reverse("avi:explicar", args=["pronostico"]), {
+                "desde": desde.isoformat(),
+                "hasta": hasta.isoformat(),
+            })
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta.json()["respuesta"], "Explicación del periodo.")
+        calcular.assert_called_once_with(self.negocio, desde=desde, hasta=hasta)
+        generar.assert_called_once()
 
 
 class ReportesConfigurablesTests(TestCase):

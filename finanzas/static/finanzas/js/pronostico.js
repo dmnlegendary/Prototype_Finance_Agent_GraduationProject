@@ -9,6 +9,8 @@
   const cuerpo = document.getElementById('cuerpoPronostico');
   const botonRecalcular = document.getElementById('btnRecalcular');
   const botonExplicar = document.getElementById('btnExplicarPronostico');
+  const campoDesde = document.getElementById('pronosticoDesde');
+  const campoHasta = document.getElementById('pronosticoHasta');
 
   let base = null;
   let resultados = [];
@@ -22,9 +24,37 @@
 
   function pedir(url) {
     return fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } }).then(function (r) {
-      if (!r.ok) throw new Error('Respuesta ' + r.status);
-      return r.json();
+      return r.json().then(function (datos) {
+        if (!r.ok) throw new Error(datos.error || 'Respuesta ' + r.status);
+        return datos;
+      });
     });
+  }
+
+  function urlConRango(url) {
+    const destino = new URL(url, window.location.origin);
+    if (campoDesde.value && campoHasta.value) {
+      destino.searchParams.set('desde', campoDesde.value);
+      destino.searchParams.set('hasta', campoHasta.value);
+    }
+    return destino.toString();
+  }
+
+  function actualizarRango(datos) {
+    if (datos.primera_semana_disponible) {
+      campoDesde.min = datos.primera_semana_disponible;
+      campoHasta.min = datos.primera_semana_disponible;
+    }
+    if (datos.ultima_semana_disponible) {
+      campoDesde.max = datos.ultima_fecha_disponible || datos.ultima_semana_disponible;
+      campoHasta.max = datos.ultima_fecha_disponible || datos.ultima_semana_disponible;
+    }
+    const inicio = datos.desde_seleccionado || datos.primera_semana;
+    const fin = datos.hasta_seleccionado || datos.ultima_semana;
+    if (inicio) campoDesde.value = inicio;
+    if (fin) campoHasta.value = fin;
+    campoDesde.disabled = !datos.primera_semana_disponible;
+    campoHasta.disabled = !datos.ultima_semana_disponible;
   }
 
   function nivelDeConfianza(mae, promedio) {
@@ -103,22 +133,29 @@
     botonRecalcular.disabled = true;
     botonExplicar.disabled = true;
     resultados = [];
+    document.getElementById('tablaPronostico').style.display = 'none';
+    document.getElementById('notaPronostico').style.display = 'none';
+    document.getElementById('periodoPronostico').style.display = 'none';
     avance(0, 2, 'Preparando tus ventas…');
 
     try {
-      base = await pedir(tarjeta.dataset.urlBase);
+      base = await pedir(urlConRango(tarjeta.dataset.urlBase));
       if (esta !== corrida) return;
+      actualizarRango(base);
       if (base.estado === 'sin_ventas') {
         document.getElementById('vacioPronostico').style.display = '';
         document.getElementById('tablaPronostico').style.display = 'none';
-        avance(1, 1, 'Todavía no hay ventas para pronosticar.');
+        document.getElementById('notaPronostico').style.display = 'none';
+        document.getElementById('periodoPronostico').style.display = 'none';
+        botonExplicar.disabled = true;
+        avance(1, 1, 'No hay ventas en las semanas seleccionadas.');
         return;
       }
       document.getElementById('vacioPronostico').style.display = 'none';
       armarTabla();
       avance(1, 2, 'Historial listo. Calculando el pronóstico ARIMA…');
       const url = tarjeta.dataset.urlModelo.replace('CLAVE', 'arima');
-      const respuesta = await pedir(url);
+      const respuesta = await pedir(urlConRango(url));
       if (esta !== corrida) return;
       resultados = respuesta.resultados;
       dibujarTabla();
@@ -126,13 +163,32 @@
       botonExplicar.disabled = false;
     } catch (error) {
       if (esta === corrida) {
-        avance(0, 1, 'No pude calcular el pronóstico. Revisa tu conexión e inténtalo otra vez.');
+        avance(0, 1, 'No pude calcular el pronóstico: ' + error.message);
       }
     } finally {
       if (esta === corrida) botonRecalcular.disabled = false;
     }
   }
 
+  function cambiarRango(campo) {
+    if (campoDesde.value && campoHasta.value && campoDesde.value > campoHasta.value) {
+      if (campo === campoDesde) campoHasta.value = campoDesde.value;
+      else campoDesde.value = campoHasta.value;
+    }
+    botonExplicar.disabled = true;
+    calcular();
+  }
+
   botonRecalcular.addEventListener('click', calcular);
+  campoDesde.addEventListener('change', function () { cambiarRango(campoDesde); });
+  campoHasta.addEventListener('change', function () { cambiarRango(campoHasta); });
+  botonExplicar.addEventListener('click', function () {
+    if (typeof window.explicarConAvi === 'function') {
+      window.explicarConAvi('pronostico', {
+        desde: campoDesde.value,
+        hasta: campoHasta.value,
+      });
+    }
+  });
   calcular();
 })();

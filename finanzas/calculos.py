@@ -580,14 +580,51 @@ def limpiar_dia_atipico(ventas_por_dia):
     return limpias, True
 
 
-def series_de_los_mas_vendidos(negocio, limite=10, semanas_historial=None):
+def series_de_los_mas_vendidos(negocio, limite=10, semanas_historial=None, desde=None, hasta=None):
     """Las series semanales (unidades vendidas por semana) de los productos más vendidos, ya
     limpias de ventas atípicas, y qué productos tienen historia suficiente para pronosticarse."""
-    filtro = ItemVenta.objects.filter(
+    filtro_completo = ItemVenta.objects.filter(
         venta__negocio=negocio,
         venta__estado=Venta.Estado.COBRADA,
         producto__negocio=negocio,
         producto__activo=True,
+    )
+    periodo_completo = filtro_completo.order_by().aggregate(
+        primera=Min(TruncDate("venta__creado_en")),
+        ultima=Max(TruncDate("venta__creado_en")),
+    )
+    primer_dia_disponible = periodo_completo["primera"]
+    ultimo_dia_disponible = periodo_completo["ultima"]
+    if hasattr(primer_dia_disponible, "date"):
+        primer_dia_disponible = primer_dia_disponible.date()
+    if hasattr(ultimo_dia_disponible, "date"):
+        ultimo_dia_disponible = ultimo_dia_disponible.date()
+    if primer_dia_disponible is None or ultimo_dia_disponible is None:
+        return {"estado": "sin_ventas", "productos": []}
+
+    primera_semana_disponible = primer_dia_disponible - timedelta(days=primer_dia_disponible.weekday())
+    ultima_semana_disponible = ultimo_dia_disponible - timedelta(days=ultimo_dia_disponible.weekday())
+    if (desde is None) != (hasta is None):
+        raise ValueError("Debes indicar tanto la semana inicial como la semana final.")
+    if desde is not None:
+        if not isinstance(desde, date) or not isinstance(hasta, date):
+            raise ValueError("El rango del pronóstico debe contener fechas válidas.")
+        primera_semana = desde - timedelta(days=desde.weekday())
+        ultima_semana = hasta - timedelta(days=hasta.weekday())
+        if primera_semana > ultima_semana:
+            primera_semana, ultima_semana = ultima_semana, primera_semana
+        if primera_semana < primera_semana_disponible or ultima_semana > ultima_semana_disponible:
+            raise ValueError("El rango debe estar dentro de las semanas con ventas disponibles.")
+    else:
+        ultima_semana = ultima_semana_disponible
+        if semanas_historial is None:
+            primera_semana = primera_semana_disponible
+        else:
+            primera_semana = ultima_semana - timedelta(weeks=semanas_historial - 1)
+
+    filtro = filtro_completo.filter(
+        venta__creado_en__date__gte=primera_semana,
+        venta__creado_en__date__lt=ultima_semana + timedelta(weeks=1),
     )
     populares = list(
         filtro.order_by().values("producto_id", "producto__nombre")
@@ -595,7 +632,15 @@ def series_de_los_mas_vendidos(negocio, limite=10, semanas_historial=None):
         .order_by("-unidades", "producto_id")[:limite]
     )
     if not populares:
-        return {"estado": "sin_ventas", "productos": []}
+        return {
+            "estado": "sin_ventas",
+            "productos": [],
+            "primera_semana_disponible": primera_semana_disponible,
+            "ultima_semana_disponible": ultima_semana_disponible,
+            "primera_semana": primera_semana,
+            "ultima_semana": ultima_semana,
+            "semanas_historial": (ultima_semana - primera_semana).days // 7 + 1,
+        }
 
     ids = [producto["producto_id"] for producto in populares]
     dias = list(
@@ -613,22 +658,11 @@ def series_de_los_mas_vendidos(negocio, limite=10, semanas_historial=None):
         )
         for fila in dias
     ]
-    periodo_ventas = filtro.order_by().aggregate(
-        primera=Min(TruncDate("venta__creado_en")),
-        ultima=Max(TruncDate("venta__creado_en")),
-    )
-    primer_dia = periodo_ventas["primera"]
+    periodo_ventas = filtro.order_by().aggregate(ultima=Max(TruncDate("venta__creado_en")))
     ultimo_dia = periodo_ventas["ultima"]
-    if hasattr(primer_dia, "date"):
-        primer_dia = primer_dia.date()
     if hasattr(ultimo_dia, "date"):
         ultimo_dia = ultimo_dia.date()
-    ultima_semana = ultimo_dia - timedelta(days=ultimo_dia.weekday())
-    if semanas_historial is None:
-        primera_semana = primer_dia - timedelta(days=primer_dia.weekday())
-        semanas_historial = (ultima_semana - primera_semana).days // 7 + 1
-    else:
-        primera_semana = ultima_semana - timedelta(weeks=semanas_historial - 1)
+    semanas_historial = (ultima_semana - primera_semana).days // 7 + 1
 
     por_producto = {producto_id: {} for producto_id in ids}
     primer_dia_por_producto = {}
@@ -671,6 +705,8 @@ def series_de_los_mas_vendidos(negocio, limite=10, semanas_historial=None):
         "ultima_semana": ultima_semana,
         "semana_pronostico": ultima_semana + timedelta(weeks=1),
         "semanas_historial": semanas_historial,
+        "primera_semana_disponible": primera_semana_disponible,
+        "ultima_semana_disponible": ultima_semana_disponible,
         "minimo_de_dias": _minimo_de_dias(),
     }
 
@@ -706,9 +742,9 @@ def _cambio_porcentual_semanal(pronostico, ultima_semana_real):
     return round((pronostico - ultima_semana_real) / ultima_semana_real * 100)
 
 
-def pronostico_ventas_negocio(negocio, limite=10, semanas_historial=26):
+def pronostico_ventas_negocio(negocio, limite=10, semanas_historial=26, desde=None, hasta=None):
     """Pronostico ARIMA para los productos más vendidos, con su error MAE y confianza."""
-    base = series_de_los_mas_vendidos(negocio, limite, semanas_historial)
+    base = series_de_los_mas_vendidos(negocio, limite, semanas_historial, desde, hasta)
     if base["estado"] == "sin_ventas":
         return {"estado": "sin_ventas", "productos": [], "modelos": MODELOS_PRONOSTICO}
 

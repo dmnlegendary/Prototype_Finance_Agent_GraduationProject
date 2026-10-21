@@ -6,7 +6,7 @@
   <div class="fin-title"><i class="bi bi-graph-up-arrow"></i> Pronóstico de Ventas</div>
   <span class="badge-ia-local"><i class="bi bi-cpu-fill"></i> Modelo estadístico local: ARIMA</span>
 </div>
-<p class="fin-subtitle">Estimación de las unidades que podrías vender la próxima semana de tus productos más vendidos, con ARIMA y tus ventas cobradas.</p>
+<p class="fin-subtitle">Estimación de las unidades que podrías vender la próxima semana con ARIMA y tus ventas cobradas.</p>
 
 <div class="fin-callout alerta">
   <i class="bi bi-exclamation-triangle-fill"></i> <strong>Es una estimación de apoyo.</strong>
@@ -15,8 +15,8 @@
 </div>
 
 <div class="fin-callout">
-  <i class="bi bi-info-circle-fill"></i> Se toman los 10 productos con más unidades vendidas y todo su historial semanal disponible en la base de datos.
-  Un producto necesita al menos <strong id="minimoDias">30</strong> días de historia; si tiene menos, se muestra "Datos insuficientes".
+  <i class="bi bi-info-circle-fill"></i> Se toman los 10 productos con más unidades vendidas dentro del periodo elegido.
+  Un producto necesita al menos <strong id="minimoDias">30</strong> días de historia en ese periodo; si tiene menos, se muestra "Datos insuficientes".
   Si un solo día se vendió la mitad o más de todo lo del producto (una venta muy rara), ese día se ajusta para que no engañe al modelo.
   Se utiliza ARIMA(1,1,1), un modelo de series temporales que incorpora diferenciación y dependencia entre observaciones.
   Se eligió como método único por su uso establecido en pronósticos de series temporales; esto no significa que se haya demostrado superior con datos reales de este negocio.
@@ -26,13 +26,24 @@
 <div class="fin-card" id="tarjetaPronostico"
      data-url-base="{% url 'finanzas:pronostico_base' %}"
      data-url-modelo="{% url 'finanzas:pronostico_modelo' 'CLAVE' %}">
+  <div style="display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+    <div class="fin-form-group" style="margin:0;">
+      <label for="pronosticoDesde">Semana inicial</label>
+      <input type="date" id="pronosticoDesde" disabled>
+    </div>
+    <div class="fin-form-group" style="margin:0;">
+      <label for="pronosticoHasta">Semana final</label>
+      <input type="date" id="pronosticoHasta" disabled>
+    </div>
+    <small>Se consideran semanas completas, de lunes a domingo.</small>
+  </div>
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
     <h3 style="margin:0;">Pronóstico semanal con ARIMA</h3>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button type="button" class="fin-btn-primary" id="btnRecalcular" style="width:auto;padding:9px 16px;" disabled>
         <i class="bi bi-arrow-repeat"></i> Volver a calcular
       </button>
-      <button type="button" class="btn-avi-explica" id="btnExplicarPronostico" style="margin-bottom:0;" onclick="explicarConAvi('pronostico')" disabled>
+      <button type="button" class="btn-avi-explica" id="btnExplicarPronostico" style="margin-bottom:0;" disabled>
         <i class="bi bi-stars"></i> Explícame mi pronóstico
       </button>
     </div>
@@ -42,7 +53,7 @@
   <div class="fin-progreso"><div class="fin-progreso-barra" id="barraPronostico" style="width:0%;"></div></div>
 
   <p class="fin-pronostico-periodo" id="periodoPronostico" style="display:none;"></p>
-  <p class="fin-pronostico-vacio" id="vacioPronostico" style="display:none;">Aún no hay ventas cobradas para generar un pronóstico.</p>
+  <p class="fin-pronostico-vacio" id="vacioPronostico" style="display:none;">No hay ventas cobradas en las semanas seleccionadas.</p>
 
   <div class="fin-tabla-scroll" id="tablaPronostico" style="display:none;">
     <table class="fin-pronostico-tabla">

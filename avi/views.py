@@ -1,7 +1,7 @@
 import hashlib
 import json
 import logging
-from datetime import timedelta
+from datetime import date, timedelta
 
 from django.contrib.auth.decorators import login_required
 from django.http import Http404, JsonResponse
@@ -159,7 +159,22 @@ def explicar(request, tipo):
     if negocio is None:
         return JsonResponse({"respuesta": "Primero completa los datos de tu negocio."})
 
-    datos = services.datos_para_explicar(negocio, tipo)
+    desde = hasta = None
+    if tipo == "pronostico" and ("desde" in request.GET or "hasta" in request.GET):
+        texto_desde = request.GET.get("desde")
+        texto_hasta = request.GET.get("hasta")
+        if not texto_desde or not texto_hasta:
+            return JsonResponse({"error": "Selecciona tanto la semana inicial como la semana final."}, status=400)
+        try:
+            desde = date.fromisoformat(texto_desde)
+            hasta = date.fromisoformat(texto_hasta)
+        except ValueError:
+            return JsonResponse({"error": "El rango del pronóstico contiene una fecha inválida."}, status=400)
+
+    try:
+        datos = services.datos_para_explicar(negocio, tipo, desde=desde, hasta=hasta)
+    except ValueError as error:
+        return JsonResponse({"error": str(error)}, status=400)
 
     # sin ningún producto con historia suficiente no hay nada que explicar (y no se gasta una llamada a la IA)
     if tipo == "pronostico" and not any(p["se_espera_la_proxima_semana"] is not None for p in datos["productos"]):

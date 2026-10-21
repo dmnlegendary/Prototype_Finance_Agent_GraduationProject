@@ -1153,14 +1153,18 @@ def construir_mensaje_resumen(datos):
     return texto
 
 
-def datos_para_explicar(negocio, tipo):
+def datos_para_explicar(negocio, tipo, desde=None, hasta=None):
     """Los números que se le mandan a la IA para que explique el dashboard o los reportes."""
     hoy = timezone.localdate()
     tasa_isr = calculos.tasa_isr_del_negocio(negocio, hoy)
     inicio_mes = calculos.primer_dia_del_mes(hoy)
 
     if tipo == "pronostico":
-        pronostico = calculos.pronostico_cacheado(negocio)
+        pronostico = (
+            calculos.pronostico_ventas_negocio(negocio, desde=desde, hasta=hasta)
+            if desde is not None and hasta is not None
+            else calculos.pronostico_cacheado(negocio)
+        )
         productos = [
             {
                 "producto": p["nombre"],

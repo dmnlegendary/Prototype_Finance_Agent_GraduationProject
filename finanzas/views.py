@@ -353,6 +353,19 @@ def pronostico_ventas(request):
     return render(request, "finanzas/pronostico_ventas.html", {"activo": "pronostico"})
 
 
+def _rango_pronostico(request):
+    texto_desde = request.GET.get("desde")
+    texto_hasta = request.GET.get("hasta")
+    if not texto_desde and not texto_hasta:
+        return None, None
+    if not texto_desde or not texto_hasta:
+        raise ValueError("Selecciona tanto la semana inicial como la semana final.")
+    try:
+        return date.fromisoformat(texto_desde), date.fromisoformat(texto_hasta)
+    except ValueError as error:
+        raise ValueError("El rango del pronóstico contiene una fecha inválida.") from error
+
+
 @login_required
 @require_GET
 def pronostico_base(request):
@@ -361,14 +374,39 @@ def pronostico_base(request):
     if negocio is None:
         return JsonResponse({"estado": "sin_ventas"}, status=404)
 
-    base = calculos.series_de_los_mas_vendidos(negocio)
+    try:
+        desde, hasta = _rango_pronostico(request)
+        base = calculos.series_de_los_mas_vendidos(negocio, desde=desde, hasta=hasta)
+    except ValueError as error:
+        return JsonResponse({"error": str(error)}, status=400)
     if base["estado"] == "sin_ventas":
-        return JsonResponse({"estado": "sin_ventas"})
+        return JsonResponse({
+            "estado": "sin_ventas",
+            **{
+                clave: base[clave].isoformat()
+                for clave in (
+                    "primera_semana_disponible", "ultima_semana_disponible",
+                    "primera_semana", "ultima_semana",
+                )
+                if clave in base
+            },
+            "ultima_fecha_disponible": (
+                base["ultima_semana_disponible"] + timedelta(days=6)
+            ).isoformat() if "ultima_semana_disponible" in base else None,
+            "semanas_historial": base.get("semanas_historial", 0),
+        })
     return JsonResponse({
         "estado": "ok",
         "inicio_historial": base["primera_semana"].strftime("%d/%m/%Y"),
         "ultima_semana": base["ultima_semana"].strftime("%d/%m/%Y"),
         "semana_pronostico": base["semana_pronostico"].strftime("%d/%m/%Y"),
+        "desde_seleccionado": base["primera_semana"].isoformat(),
+        "hasta_seleccionado": base["ultima_semana"].isoformat(),
+        "primera_semana_disponible": base["primera_semana_disponible"].isoformat(),
+        "ultima_semana_disponible": base["ultima_semana_disponible"].isoformat(),
+        "ultima_fecha_disponible": (
+            base["ultima_semana_disponible"] + timedelta(days=6)
+        ).isoformat(),
         "semanas_historial": base["semanas_historial"],
         "minimo_de_dias": base["minimo_de_dias"],
         "umbrales": {nivel: float(limite) for limite, nivel in calculos.NIVELES_DE_CONFIANZA},
@@ -389,7 +427,15 @@ def pronostico_modelo(request, clave):
     negocio = _negocio_o_none(request)
     if negocio is None or clave not in {modelo["clave"] for modelo in calculos.MODELOS_PRONOSTICO}:
         raise Http404("Ese modelo no existe.")
-    return JsonResponse({"clave": clave, "resultados": calculos.pronostico_de_un_modelo(negocio, clave)})
+    try:
+        desde, hasta = _rango_pronostico(request)
+        base = calculos.series_de_los_mas_vendidos(negocio, desde=desde, hasta=hasta)
+    except ValueError as error:
+        return JsonResponse({"error": str(error)}, status=400)
+    return JsonResponse({
+        "clave": clave,
+        "resultados": calculos.pronostico_de_un_modelo(negocio, clave, base=base),
+    })
 
 
 MESES_ABREVIADOS = [

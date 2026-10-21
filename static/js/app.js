@@ -263,10 +263,11 @@ function mostrarResumenAvi() {
 }
 
 // Explicación del dashboard ('dashboard') o de los reportes financieros ('reportes')
-function explicarConAvi(tipo) {
+function explicarConAvi(tipo, parametros) {
+  const consulta = parametros ? '?' + new URLSearchParams(parametros).toString() : '';
   mostrarModalAvi(
     tipo === 'reportes' ? 'Tus reportes, explicados' : (tipo === 'pronostico' ? 'Tu pronóstico, explicado' : 'Tu negocio, explicado'),
-    '/avi/explicar/' + tipo + '/',
+    '/avi/explicar/' + tipo + '/' + consulta,
     tipo === 'pronostico' ? 'Revisando tu pronóstico…' : 'Revisando tus números…',
     'No pude explicarte tus números. Intenta de nuevo.',
     false

@@ -308,8 +308,8 @@ def tools_openai(pantalla=None):
 
 
 def tools_gemini(pantalla=None):
-    """Formato que espera la API de Gemini (google-generativeai)."""
-    return [{"function_declarations": funciones_de(pantalla)}]
+    """Formato de herramientas que espera la Interactions API de Gemini."""
+    return [{"type": "function", **funcion} for funcion in funciones_de(pantalla)]
 
 
 # ------------------------------------------------------------- apoyo

@@ -1,7 +1,7 @@
 """
 Wrappers para hablar con la API de ChatGPT o de Gemini, con function calling
 ya declarado (ver services.py). Para que esto funcione de verdad falta:
-  1. pip install -r requirements.txt (ya incluye openai y google-generativeai)
+  1. pip install -r requirements.txt (ya incluye openai y google-genai)
   2. tener las llaves de las APIs: corre `python manage.py configurar_ia`
 """
 import json
@@ -64,6 +64,8 @@ MENSAJE_SIN_LLAVE = (
 
 # cuántas veces seguidas puede la IA pedir funciones antes de darle una respuesta al usuario
 MAXIMO_DE_RONDAS = 3
+MODELO_GEMINI = "gemini-3.8-flash"
+TIEMPO_ESPERA_GEMINI_MS = 300_000
 
 SYSTEM_PROMPT = (
     "Eres marIA, el Asistente Virtual Inteligente (AVI) de una tienda de abarrotes. "
@@ -182,14 +184,6 @@ def preguntar_chatgpt(mensaje, negocio, pantalla=None, funciones_ejecutadas=None
     return "No pude terminar lo que me pediste. Intenta decírmelo de forma más sencilla.", funciones_ejecutadas
 
 
-def _texto_de_gemini(respuesta):
-    try:
-        return respuesta.text
-    except ValueError:
-        # Gemini a veces contesta sin texto (por ejemplo si bloquea la respuesta)
-        return ""
-
-
 def preguntar_gemini(mensaje, negocio, pantalla=None, funciones_ejecutadas=None):
     """Regresa (respuesta_en_texto, nombres_de_funciones_ejecutadas)."""
     if funciones_ejecutadas is None:
@@ -198,48 +192,57 @@ def preguntar_gemini(mensaje, negocio, pantalla=None, funciones_ejecutadas=None)
     if not llave:
         return MENSAJE_SIN_LLAVE, []
 
-    import google.generativeai as genai
+    from google import genai
+    from google.genai import types
 
-    genai.configure(api_key=llave)
-    modelo = genai.GenerativeModel(
-        "gemini-2.5-flash",
-        tools=services.tools_gemini(pantalla),
-        system_instruction=_instrucciones(negocio, pantalla),
+    cliente = genai.Client(
+        api_key=llave,
+        http_options=types.HttpOptions(timeout=TIEMPO_ESPERA_GEMINI_MS),
     )
     historial = [
-        {"role": "user" if previo.rol == previo.Rol.USUARIO else "model", "parts": [previo.mensaje]}
+        f"{'Usuario' if previo.rol == previo.Rol.USUARIO else 'marIA'}: {previo.mensaje}"
         for previo in services.historial_reciente(negocio)
     ]
-    # Gemini exige que la conversación empiece con un mensaje del usuario
-    while historial and historial[0]["role"] == "model":
-        historial.pop(0)
-    chat = modelo.start_chat(history=historial)
-    respuesta = con_reintentos(lambda: chat.send_message(mensaje, request_options={"timeout": 30}))
+    historial.append(f"Usuario: {mensaje}")
+    entrada = "Conversación reciente:\n" + "\n".join(historial)
+    herramientas = services.tools_gemini(pantalla)
+    instrucciones = _instrucciones(negocio, pantalla)
+    respuesta = con_reintentos(lambda: cliente.interactions.create(
+        model=MODELO_GEMINI,
+        input=entrada,
+        tools=herramientas,
+        system_instruction=instrucciones,
+    ))
 
     for _ in range(MAXIMO_DE_RONDAS):
-        llamadas = [
-            parte.function_call
-            for parte in respuesta.candidates[0].content.parts
-            if getattr(parte, "function_call", None)
-        ]
+        llamadas = [paso for paso in respuesta.steps or [] if paso.type == "function_call"]
         if not llamadas:
-            return _texto_de_gemini(respuesta) or "No supe qué responder, ¿me lo repites?", funciones_ejecutadas
+            return respuesta.output_text or "No supe qué responder, ¿me lo repites?", funciones_ejecutadas
 
         ejecuciones = []
-        partes_respuesta = []
-        for fn in llamadas:
-            resultado = services.ejecutar_funcion(fn.name, dict(fn.args), negocio)
-            ejecuciones.append((fn.name, resultado))
-            partes_respuesta.append(genai.protos.Part(
-                function_response=genai.protos.FunctionResponse(name=fn.name, response=resultado),
-            ))
+        resultados = []
+        for llamada in llamadas:
+            resultado = services.ejecutar_funcion(llamada.name, dict(llamada.arguments or {}), negocio)
+            ejecuciones.append((llamada.name, resultado))
+            resultados.append({
+                "type": "function_result",
+                "name": llamada.name,
+                "call_id": llamada.id,
+                "result": resultado,
+            })
         funciones_ejecutadas += [nombre for nombre, _ in ejecuciones]
 
         directa = services.respuesta_directa(ejecuciones)
         if directa:
             return directa, funciones_ejecutadas
 
-        respuesta = con_reintentos(lambda: chat.send_message(genai.protos.Content(parts=partes_respuesta)))
+        respuesta = con_reintentos(lambda: cliente.interactions.create(
+            model=MODELO_GEMINI,
+            previous_interaction_id=respuesta.id,
+            input=resultados,
+            tools=herramientas,
+            system_instruction=instrucciones,
+        ))
 
     return "No pude terminar lo que me pediste. Intenta decírmelo de forma más sencilla.", funciones_ejecutadas
 
@@ -269,11 +272,19 @@ def preguntar_ia(mensaje, negocio, pantalla=None):
 
 
 def _texto_con_gemini(prompt):
-    import google.generativeai as genai
+    from google import genai
+    from google.genai import types
 
-    genai.configure(api_key=llaves.obtener(llaves.LlaveIA.GEMINI))
-    modelo_gemini = genai.GenerativeModel("gemini-2.5-flash", system_instruction=PROMPT_RESUMEN)
-    return con_reintentos(lambda: modelo_gemini.generate_content(prompt, request_options={"timeout": 30})).text
+    cliente = genai.Client(
+        api_key=llaves.obtener(llaves.LlaveIA.GEMINI),
+        http_options=types.HttpOptions(timeout=TIEMPO_ESPERA_GEMINI_MS),
+    )
+    respuesta = con_reintentos(lambda: cliente.interactions.create(
+        model=MODELO_GEMINI,
+        input=prompt,
+        system_instruction=PROMPT_RESUMEN,
+    ))
+    return respuesta.output_text
 
 
 def _texto_con_chatgpt(prompt):

@@ -197,14 +197,14 @@ Estas ideas siguen las heurísticas de usabilidad de Nielsen [11] (hablar el len
 | Bootstrap 5.3 [4] y Bootstrap Icons | Estilos base e iconos. |
 | Google Fonts (Inter) | Tipografía. |
 | API de OpenAI (modelo `gpt-4o-mini`) | Asistente con ChatGPT. |
-| API de Google (modelo `gemini-2.5-flash`) | Asistente con Gemini. |
+| API de Google (Interactions API, `google-genai`, modelo `gemini-3.8-flash`) | Asistente con Gemini. |
 | Web Speech API del navegador | Dictado por voz. |
 | `python-dotenv` | Leer las llaves de las API desde el archivo `.env`. |
 | Git y GitHub | Control de versiones y repositorio. |
 | Entorno virtual de Python (`venv`) | Mantener las librerías del proyecto separadas de las del resto de la computadora. |
 | Otras herramientas de apoyo | **[COMPLETAR: lo que hayan usado y deban declarar según el reglamento de su escuela]** |
 
-Las librerías externas del proyecto están en el archivo `requirements.txt`: Django, openai, google-generativeai y python-dotenv.
+Las librerías externas del proyecto están en el archivo `requirements.txt`: Django, openai, google-genai y python-dotenv.
 
 ### 3.5.2 Tamaño del proyecto
 

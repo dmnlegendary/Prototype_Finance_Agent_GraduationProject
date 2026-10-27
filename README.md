@@ -102,6 +102,8 @@ Si el stock ideal se deja en 0, el sistema usa 4 veces el mínimo. Las alertas a
 
 Todo lo que se puede hacer a mano en el sistema se puede pedir por el chat (escrito o con el micrófono): agregar o quitar productos de la caja, cambiar cantidades, cobrar, cancelar la venta, dar de alta o modificar productos, sumar piezas al inventario, dar de baja, crear categorías y proveedores, registrar gastos, ver ventas, alertas, finanzas, punto de equilibrio y precios sugeridos. La lista completa está en `avi/services.py` (`FUNCIONES`).
 
+Gemini se conecta con el paquete `google-genai` y el modelo `gemini-3.8-flash`; ChatGPT queda como respaldo si Gemini falla.
+
 Para responder rápido:
 
 - Las acciones se contestan con el mensaje de la propia función, sin una segunda llamada a la IA.

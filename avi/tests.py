@@ -1,6 +1,7 @@
 import json
 from datetime import timedelta
 from decimal import Decimal
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.test import SimpleTestCase, TestCase, override_settings
@@ -15,7 +16,8 @@ from ventas.models import ItemVenta, Venta
 
 from . import services
 from .clients import (
-    MENSAJE_SIN_LLAVE, SinLlaveError, con_reintentos, generar_texto, mensaje_de_error, modelos_en_orden, preguntar_ia,
+    MENSAJE_SIN_LLAVE, SinLlaveError, _texto_con_gemini, con_reintentos, generar_texto, mensaje_de_error,
+    modelos_en_orden, preguntar_gemini, preguntar_ia,
 )
 from .models import ExplicacionIA, HistorialConversacion, ResumenDiario
 
@@ -208,6 +210,60 @@ class RespaldoEntreModelosTests(SimpleTestCase):
     @patch("avi.clients._texto_con_gemini", side_effect=Exception("429 quota"))
     def test_los_resumenes_tambien_pasan_a_chatgpt(self, _gemini, _chatgpt):
         self.assertEqual(generar_texto("explica"), "Resumen de ChatGPT")
+
+
+@override_settings(GEMINI_API_KEY="llave-de-gemini")
+class GeminiInteractionsTests(SimpleTestCase):
+    @patch("google.genai.Client")
+    @patch("avi.services.respuesta_directa", return_value=None)
+    @patch("avi.services.ejecutar_funcion", return_value={"total": 100})
+    @patch("avi.services.historial_reciente", return_value=[])
+    def test_el_chat_envia_herramientas_y_devuelve_resultados_a_interactions(
+        self, _historial, _ejecutar, _directa, cliente_clase,
+    ):
+        cliente = cliente_clase.return_value
+        cliente.interactions.create.side_effect = [
+            SimpleNamespace(
+                id="interaccion-1",
+                steps=[SimpleNamespace(
+                    type="function_call",
+                    id="llamada-1",
+                    name="consultar_ventas_hoy",
+                    arguments={},
+                )],
+                output_text=None,
+            ),
+            SimpleNamespace(id="interaccion-2", steps=[], output_text="Vendiste 100 pesos."),
+        ]
+
+        with patch("avi.clients._instrucciones", return_value="Contexto de prueba"):
+            respuesta = preguntar_gemini("¿Cuánto vendí?", None)
+
+        self.assertEqual(respuesta, ("Vendiste 100 pesos.", ["consultar_ventas_hoy"]))
+        llamadas = cliente.interactions.create.call_args_list
+        self.assertEqual(llamadas[0].kwargs["model"], "gemini-3.8-flash")
+        self.assertEqual(llamadas[0].kwargs["tools"][0]["type"], "function")
+        self.assertEqual(llamadas[1].kwargs["previous_interaction_id"], "interaccion-1")
+        self.assertEqual(llamadas[1].kwargs["input"], [{
+            "type": "function_result",
+            "name": "consultar_ventas_hoy",
+            "call_id": "llamada-1",
+            "result": {"total": 100},
+        }])
+
+    @patch("google.genai.Client")
+    def test_el_resumen_usa_interactions_con_instrucciones(self, cliente_clase):
+        cliente = cliente_clase.return_value
+        cliente.interactions.create.return_value = SimpleNamespace(output_text="Resumen listo.")
+
+        with override_settings(GEMINI_API_KEY="llave-de-gemini"):
+            respuesta = _texto_con_gemini("Resume los datos")
+
+        self.assertEqual(respuesta, "Resumen listo.")
+        llamada = cliente.interactions.create.call_args.kwargs
+        self.assertEqual(llamada["model"], "gemini-3.8-flash")
+        self.assertEqual(llamada["input"], "Resume los datos")
+        self.assertTrue(llamada["system_instruction"])
 
 
 class RespuestaDirectaTests(SimpleTestCase):

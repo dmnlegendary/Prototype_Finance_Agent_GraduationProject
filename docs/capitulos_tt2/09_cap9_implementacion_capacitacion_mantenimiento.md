@@ -2,14 +2,15 @@
 
 ## 9.1 Implementación y despliegue
 
-Hasta ahora el sistema se ha ejecutado completo en una computadora local: el servidor de Django y la base de datos PostgreSQL funcionan en el mismo equipo y se abren desde el navegador de esa misma computadora. Esto es lo que se usó para el desarrollo y para las pruebas. El siguiente paso es llevar la parte visual a Azure, manteniendo el servidor y la base de datos en el equipo local, que es lo que se describe en esta sección.
+Hasta ahora el sistema se ha ejecutado completo en una computadora local: el servidor de Django y la base de datos PostgreSQL funcionan en el mismo equipo y se abren desde el navegador de esa misma computadora. Esto es lo que se usó para el desarrollo y para las pruebas. El plan original era publicar la parte visual en Azure, pero el equipo perdió los créditos que la escuela daba para ese servicio, y pagarlo habría elevado el costo del proyecto justo cuando el objetivo es que el sistema no tenga costos fijos de servidor. Por eso se cambió la arquitectura: el sistema completo corre en una computadora de la red del equipo y Cloudflare se usa únicamente como puente para que se pueda entrar desde internet, como se describe en esta sección.
 
 ### 9.1.1 Arquitectura de despliegue
 
-La idea es dividir el sistema en dos partes. El frontend, es decir, lo que se ve en el navegador (las pantallas, los estilos y el JavaScript), se publicaría en un servicio de Azure. El backend, que es el servidor de Django con la lógica del negocio y la base de datos, seguiría en la computadora de la tienda. Dejar los datos en el equipo local tiene dos ventajas: la información del negocio no sale de la tienda y no se paga por una base de datos en la nube. El diagrama de despliegue está en la sección 4.7.
+El servidor de Django, con la lógica del negocio, las pantallas y la base de datos PostgreSQL, se ejecuta en una computadora que pertenece a uno de los integrantes del equipo (en adelante, el servidor local). Esa computadora no se publica directamente en internet. En su lugar, un programa de Cloudflare llamado `cloudflared` crea un túnel: la computadora abre una conexión de salida hacia Cloudflare y, por esa conexión, Cloudflare le entrega las peticiones que llegan a la dirección pública del sistema. El navegador del tendero solo conoce esa dirección de Cloudflare, que además pone el certificado HTTPS.
 
-Hay un detalle por resolver. En el sistema actual, Django es quien genera las pantallas, así que no es tan directo mover "solo el frontend". Hay dos caminos: publicar en Azure únicamente los archivos estáticos (hojas de estilo, scripts e imágenes) y dejar que Django siga armando las páginas, o convertir las pantallas en una aplicación independiente que consuma la API en JSON del backend. El primero es más sencillo y el segundo es más parecido a una arquitectura separada. [DECIDIR cuál van a hacer y ajustar esta sección]
+Esta forma de conectar tiene varias ventajas para el proyecto. No hace falta abrir puertos en el router ni tener una dirección IP pública, algo que normalmente no se tiene en una red doméstica. La información del negocio no sale del servidor local, y no se paga hosting ni una base de datos en la nube. Además, como el tendero y el servidor se hablan siempre a través de un mismo dominio, no hay que configurar CORS ni resolver cookies entre dominios. La contraparte es que el sistema depende de que esa computadora esté encendida y con internet, un riesgo que se retoma en la sección 9.3. El diagrama de despliegue está en la sección 4.7.
 
+Aunque la primera idea era un frontend independiente, en el sistema actual Django es quien genera las pantallas, así que el frontend y el backend se despliegan juntos. Convertir las pantallas en una aplicación separada que consuma la API en JSON habría exigido reescribir la interfaz, y se dejó como trabajo futuro.
 ### 9.1.2 Instalación del backend local
 
 Para instalar el sistema en una computadora nueva se necesita Python 3.12 o posterior y, si se va a usar PostgreSQL, instalarlo y crear la base de datos con el archivo `database/crear_base.sql`, como se explica en la guía de la carpeta `database`. Si no se configura una base de datos, el sistema usa SQLite y funciona igual, aunque más lento con muchos datos. Después se ejecutan estos comandos desde la carpeta del proyecto.
@@ -29,28 +30,31 @@ El primer comando crea un entorno virtual para que las bibliotecas del proyecto 
 
 Con la configuración actual el sistema solo acepta conexiones desde la misma computadora. Si se quisiera usar desde una tableta o un celular conectado a la misma red de la tienda, habría que permitir la dirección del equipo en la configuración de Django y arrancar el servidor para que acepte conexiones de la red. [COMPLETAR si se va a hacer así y probarlo]
 
-### 9.1.3 Publicación del frontend en Azure
+### 9.1.3 Publicación con Cloudflare
 
-[COMPLETAR cuando se haga el despliegue: qué servicio de Azure se usó, cómo se subieron los archivos, la dirección final y los problemas que aparecieron]
+Para publicar el sistema se necesita una cuenta de Cloudflare y un dominio administrado ahí. En la cuenta se crea un túnel y se asocia un nombre público (por ejemplo, un subdominio del dominio del proyecto) con la dirección local donde corre Django. En la computadora del servidor se instala `cloudflared`, se autentica con el túnel y se deja ejecutando como servicio para que arranque junto con el equipo. Para las demostraciones sin dominio propio, Cloudflare también ofrece túneles rápidos con una dirección temporal. [COMPLETAR cuando se haga el despliegue: dominio utilizado, nombre del túnel, forma de ejecutar `cloudflared` como servicio y los problemas que aparecieron]
 
-### 9.1.4 Comunicación entre frontend y backend
+Del lado de Django se configura el `.env` para que el sistema acepte la dirección pública: `ALLOWED_HOSTS` y `CSRF_TRUSTED_ORIGINS` con el dominio en `https://`, `DJANGO_DEBUG=False`, una `DJANGO_SECRET_KEY` fija y `USAR_HTTPS=True`. Cloudflare avisa al servidor que la conexión original fue segura mediante el encabezado `X-Forwarded-Proto`, que la configuración del proyecto ya reconoce, así que no se produce un ciclo de redirecciones. Con `DJANGO_DEBUG=False`, Django no sirve los archivos de estilos y scripts por sí solo, por lo que hace falta un servidor para ellos, por ejemplo WhiteNoise, que todavía no está incluido en las dependencias. [DECIDIR si se usa WhiteNoise o un servidor web como nginx]
 
-Hoy el navegador y el servidor están en el mismo origen, así que las peticiones funcionan sin configuración extra, y el sistema se protege con la sesión y con el código de seguridad de Django. Cuando el frontend esté en Azure y el backend en la tienda, el navegador va a hacer peticiones a otro dominio, y habrá que resolver tres cosas: permitir ese origen en el servidor (lo que se conoce como CORS), usar conexiones seguras con HTTPS y lograr que Azure, o más bien el navegador del tendero, pueda llegar al equipo de la tienda desde internet. Esto último es lo más delicado, porque un equipo en una red doméstica normalmente no es accesible desde fuera. [DECIDIR cómo se va a resolver y escribir aquí la solución elegida]
+### 9.1.4 Comunicación entre el navegador y el servidor
 
+Como el navegador solo ve la dirección de Cloudflare y las pantallas las genera el mismo servidor, las peticiones son del mismo origen y se protegen con la sesión y con el código de seguridad de Django, igual que cuando todo corre en una sola computadora. El túnel cifra el tramo entre Cloudflare y el servidor local, y el HTTPS cifra el tramo entre el navegador y Cloudflare, de manera que las contraseñas y la sesión no viajan en claro. La contraseña de la base de datos y las llaves de las APIs de IA se quedan en la computadora local y no se publican en Cloudflare.
+
+Con la configuración actual, además, el sistema solo acepta conexiones desde la misma computadora. Para usarlo desde una tableta o un celular de la misma red de la tienda, sin pasar por internet, habría que permitir la dirección del equipo en la configuración de Django y arrancar el servidor para que acepte conexiones de la red. [COMPLETAR si se va a hacer así y probarlo]
 ### 9.1.5 Costos del despliegue
 
-El sistema se diseñó para que no tenga costos fijos de servidor: no se compra hosting ni se paga una base de datos en la nube. Los costos que quedan son los del equipo que ya tiene la tienda, el internet, la electricidad y el uso de las APIs de IA. La Tabla 9.1 retoma las cifras del análisis de factibilidad del capítulo 3. [CONFIRMAR que estos montos coinciden con el capítulo 3 y agregar el costo de Azure una vez que se defina el servicio]
+El sistema se diseñó para que no tenga costos fijos de servidor: no se compra hosting ni se paga una base de datos en la nube. Los costos que quedan son los del equipo que ya tiene el servidor local, el internet, la electricidad y el uso de las APIs de IA. Cloudflare Tunnel está disponible sin costo, y el único gasto adicional que podría haber es el del dominio, si no se usa uno que ya exista. La Tabla 9.1 retoma las cifras del análisis de factibilidad del capítulo 3. [CONFIRMAR que estos montos coinciden con el capítulo 3 y agregar el costo del dominio]
 
 Tabla 9.1. Costos considerados para el piloto.
 
 | Concepto | Tipo | Monto (MXN) |
 |---|---|---|
-| Computadora de la tienda | Recurso que ya existía | 10,000.00 |
+| Computadora que funciona como servidor | Recurso que ya existía | 10,000.00 |
 | Licencias de software (Python, Django, PostgreSQL) | Software libre | 0.00 |
 | Uso de las APIs de IA | Operación | 750.00 |
 | Internet | Operación | 800.00 |
 | Electricidad del equipo | Operación | 600.00 |
-| Frontend en Azure | Operación | [COMPLETAR] |
+| Dominio para el túnel de Cloudflare | Operación | [COMPLETAR] |
 
 ### 9.1.6 Verificación posterior al despliegue
 
@@ -110,3 +114,7 @@ Como el sistema se presenta como prototipo académico, no se necesita un contrat
 El aviso podría decir lo siguiente.
 
 Este sistema es un prototipo desarrollado con fines académicos en la Escuela Superior de Cómputo del Instituto Politécnico Nacional. Los cálculos de utilidad, punto de equilibrio, precios sugeridos y pronósticos de venta son estimaciones que se hacen con los datos que usted captura y no sustituyen la asesoría de un contador. El cálculo del ISR de RESICO es solo una referencia para planear su efectivo, y el pago de sus impuestos es responsabilidad suya ante el SAT. Los pronósticos no garantizan ventas futuras, y la decisión de cuánto comprar es de usted. Los datos que capture en el sistema se usan únicamente para su funcionamiento y no se comparten con otras tiendas. Cuando usa el asistente, parte de la información de su tienda, como los productos, las ventas del día y los resultados que usted consulta, se envía a Google y a OpenAI para generar las respuestas.
+
+### 9.3.7 Disponibilidad del servidor local
+
+Como el sistema corre en una computadora y se publica con un túnel de Cloudflare, su disponibilidad depende de tres cosas: que el equipo esté encendido, que tenga internet y que el programa `cloudflared` esté en ejecución. Por eso no se puede prometer la disponibilidad del 99.5 % del requisito RNF-08 con esta infraestructura, y en el documento debe presentarse como un objetivo y no como una garantía. Para reducir el impacto de una caída, el mostrador puede seguir cobrando sin conexión y sincronizar después (sección 6.8), `cloudflared` y el servidor de Django pueden configurarse para que arranquen solos al encender el equipo, y la base de datos debe respaldarse con la frecuencia que se indicó en la sección 9.3.1, guardando una copia fuera de esa computadora.

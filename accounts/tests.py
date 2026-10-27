@@ -323,3 +323,24 @@ class TerminosYGuiaDeColoresTests(TestCase):
         self.assertContains(self.client.get(reverse("ventas:punto_de_venta")), 'id="modal-guia-colores"')
         self.client.post(reverse("accounts:guia_colores_vista"))
         self.assertNotContains(self.client.get(reverse("ventas:punto_de_venta")), 'id="modal-guia-colores"')
+
+
+class CatalogoPrecargadoEnUnaBaseNuevaTests(TestCase):
+    """En una base de datos nueva nadie corrió seed_catalogo: el paso 3 debe cargar el catálogo solo."""
+
+    def setUp(self):
+        self.usuario, self.negocio = crear_negocio()
+        self.client.force_login(self.usuario)
+
+    def test_si_el_catalogo_esta_vacio_se_carga_al_abrir_el_paso_3(self):
+        self.assertEqual(ProductoCatalogo.objects.count(), 0)
+        respuesta = self.client.get(reverse("accounts:productos_precargados"))
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertGreater(ProductoCatalogo.objects.count(), 100)
+        self.assertGreater(len(respuesta.context["productos_catalogo"]), 100)
+
+    def test_abrirlo_otra_vez_no_duplica_nada(self):
+        self.client.get(reverse("accounts:productos_precargados"))
+        cuantos = ProductoCatalogo.objects.count()
+        self.client.get(reverse("accounts:productos_precargados"))
+        self.assertEqual(ProductoCatalogo.objects.count(), cuantos)

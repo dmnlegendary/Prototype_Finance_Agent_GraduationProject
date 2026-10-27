@@ -132,7 +132,7 @@ def estado_del_carrito(negocio, carrito=1):
             "cantidad": texto_numero(item.cantidad),
             "precio_unitario": str(item.precio_unitario),
             "subtotal": str(item.subtotal),
-            "disponible": None if producto.pendiente_validacion else texto_numero(producto.cantidad_actual),
+            "disponible": None if producto.sin_control_de_stock else texto_numero(producto.cantidad_actual),
         })
     contadores = {
         n: ItemVenta.objects.filter(
@@ -167,7 +167,7 @@ def crear_no_encontrado(negocio, nombre, precio):
     """El producto "no encontrado": se crea (o se reutiliza si ya había uno con ese nombre
     pendiente de validar) con lo mínimo: nombre y precio. No lleva control de existencias."""
     existente = Producto.objects.filter(
-        negocio=negocio, pendiente_validacion=True, nombre__iexact=nombre,
+        negocio=negocio, pendiente_validacion=True, activo=False, nombre__iexact=nombre,
     ).first()
     if existente is not None:
         if existente.precio_venta != precio:

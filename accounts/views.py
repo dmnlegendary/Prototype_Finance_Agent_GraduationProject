@@ -11,7 +11,7 @@ from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
 from core import cache_negocio
-from inventario.datos_base import preparar_negocio
+from inventario.datos_base import cargar_catalogo, preparar_negocio
 from inventario.compras import a_decimal, mensaje_si_vende_bajo_el_costo, registrar_compra
 from inventario.models import MINIMO_POR_DEFECTO, Categoria, Producto, ProductoCatalogo
 from inventario.movimientos import registrar_entradas_iniciales
@@ -64,6 +64,10 @@ def productos_precargados(request):
     negocio = getattr(request.user, "negocio", None)
     if negocio is None:
         return redirect("accounts:datos_negocio")
+
+    # en una base de datos nueva el catálogo todavía no existe: se carga solo, sin acordarse del comando seed_catalogo
+    if not ProductoCatalogo.objects.exists():
+        cargar_catalogo()
 
     errores = []
     elegidos = []

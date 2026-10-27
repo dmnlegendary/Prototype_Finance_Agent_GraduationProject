@@ -54,7 +54,7 @@ Tabla 7.1. Rutas principales.
 | `/finanzas/` | Inicio del agente financiero |
 | `/finanzas/gastos/` | Registro de gastos |
 | `/finanzas/reportes/` | Reportes de 1, 3, 6 o 12 meses, o de un rango de meses elegido |
-| `/finanzas/reportes/ventas/` | Reporte de ventas por periodo, con exportación a CSV |
+| `/finanzas/reportes/ventas/` | Reporte de ventas entre dos fechas: lo vendido, la ganancia, los productos que más se mueven y las ventas de cada día |
 | `/finanzas/equilibrio/`, `/finanzas/precios/` | Punto de equilibrio y precios sugeridos |
 | `/finanzas/pronostico/` | Pronóstico semanal de ventas con ARIMA |
 | `/avi/chat/` | Recibe el mensaje del tendero y regresa la respuesta del asistente |

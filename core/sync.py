@@ -76,7 +76,7 @@ def _venta(negocio, usuario, datos):
         item = ItemVenta.objects.create(
             venta=venta, producto=producto, cantidad=cantidad, precio_unitario=precio, costo_unitario=producto.costo,
         )
-        if not producto.pendiente_validacion:
+        if not producto.sin_control_de_stock:
             # la venta ya ocurrió: no se puede rechazar, pero el inventario nunca queda en negativo
             if cantidad > producto.cantidad_actual:
                 faltantes.append(producto.nombre)

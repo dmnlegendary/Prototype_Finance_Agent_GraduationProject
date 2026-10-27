@@ -42,8 +42,8 @@ class SinExistencias(Exception):
 
 def verificar_existencias(producto, cantidad_total):
     """Lanza SinExistencias si `cantidad_total` es más de lo que hay. Los productos
-    "no encontrados" (pendientes de validar) no llevan control de existencias."""
-    if producto.pendiente_validacion:
+    "no encontrados" (inactivos y pendientes de validar) no llevan control de existencias."""
+    if producto.sin_control_de_stock:
         return
     if cantidad_total > producto.cantidad_actual:
         raise SinExistencias(producto, producto.cantidad_actual, cantidad_total)
@@ -79,7 +79,7 @@ def cobrar_venta(venta):
         for item in items:
             producto = bloqueados[item.producto_id]
             nivel_antes = producto.nivel_stock
-            if not producto.pendiente_validacion:
+            if not producto.sin_control_de_stock:
                 producto.cantidad_actual = producto.cantidad_actual - item.cantidad
                 producto.save(update_fields=["cantidad_actual", "actualizado_en"])
                 movimiento = registrar_movimiento(

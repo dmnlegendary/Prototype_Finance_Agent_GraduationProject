@@ -403,3 +403,42 @@ class CobroDuplicadoTests(TestCase):
         self.assertEqual(respuesta.json()["error"], "ya_cobrada")
         self.producto.refresh_from_db()
         self.assertEqual(self.producto.cantidad_actual, Decimal("8"))
+
+
+class ProductosPendientesQueLlegaronDelCsvTests(ApiDeVentasBase):
+    """Los productos que se crean al importar el CSV de ventas quedan activos y pendientes de validar,
+    con cero piezas. A diferencia del "no encontrado", esos SÍ se controlan: no se venden sin piezas."""
+
+    def setUp(self):
+        super().setUp()
+        self.importado = Producto.objects.create(
+            negocio=self.negocio, nombre="Galletas importadas", costo=Decimal("0"), precio_venta=Decimal("12"),
+            cantidad_actual=Decimal("0"), pendiente_validacion=True,
+        )
+
+    def test_un_importado_sin_piezas_pide_agregar_al_inventario(self):
+        respuesta = self.agregar(producto=self.importado)
+        self.assertEqual(respuesta.status_code, 409)
+        self.assertEqual(respuesta.json()["error"], "sin_existencias")
+        self.assertEqual(ItemVenta.objects.count(), 0)
+
+    def test_el_no_encontrado_si_se_puede_cobrar_sin_piezas(self):
+        respuesta = self.post("ventas:api_no_encontrado", [1], {"nombre": "Bolsa de hielo", "precio": "20"})
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(self.post("ventas:api_cobrar", [1]).status_code, 200)
+
+    def test_un_no_encontrado_nunca_se_confunde_con_un_importado_del_mismo_nombre(self):
+        self.post("ventas:api_no_encontrado", [1], {"nombre": "galletas importadas", "precio": "12"})
+        self.assertEqual(Producto.objects.filter(nombre__iexact="galletas importadas").count(), 2)
+
+    def test_al_agregarle_piezas_y_costo_queda_validado_y_ya_descuenta(self):
+        from inventario.compras import agregar_existencias
+
+        agregar_existencias(self.importado, 5, costo="8")
+        self.importado.refresh_from_db()
+        self.assertFalse(self.importado.pendiente_validacion)
+
+        self.assertEqual(self.agregar(producto=self.importado, cantidad=2).status_code, 200)
+        self.assertEqual(self.post("ventas:api_cobrar", [1]).status_code, 200)
+        self.importado.refresh_from_db()
+        self.assertEqual(self.importado.cantidad_actual, Decimal("3"))

@@ -48,7 +48,7 @@ Para cambiar una cantidad se escribe el número directamente en el cuadro del pr
 
 Los productos que se venden a granel, como el frijol o el azúcar, se capturan en gramos. Al tocarlos aparece una ventana donde se escribe cuántos gramos pide el cliente, con atajos de un cuarto, medio y un kilo, y el sistema calcula el importe.
 
-Cuando todo está listo se presiona **Cobrar**. El sistema descuenta las piezas del inventario y muestra el ticket, con su folio, la fecha y la hora, el nombre de la tienda, los productos y el total. El ticket se puede imprimir con la opción normal del navegador. Si se presiona **Cancelar venta**, la caja se vacía sin cobrar nada. Para evitar cobros dobles, el botón de cobrar se desactiva en cuanto se presiona.
+Cuando todo está listo se presiona **Cobrar**. El sistema descuenta las piezas del inventario y avisa abajo en la pantalla con «Venta cobrada», el folio y el total, para no estorbar al siguiente cobro. Con el botón **Ver ticket** de ese aviso se abre el ticket, con su folio, la fecha y la hora, el nombre de la tienda, los productos y el total. El ticket se puede imprimir con la opción normal del navegador. Si se presiona **Cancelar venta**, la caja se vacía sin cobrar nada. Para evitar cobros dobles, el botón de cobrar se desactiva en cuanto se presiona.
 
 [Insertar captura: ticket de una venta]
 

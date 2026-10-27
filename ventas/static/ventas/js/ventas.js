@@ -292,7 +292,39 @@ function mostrarTicket(t, pendiente) {
     nota.textContent = 'Venta guardada sin internet. Se actualizará el sistema una vez que haya conexión.';
     caja.appendChild(nota);
   }
-  openModal('ticket');
+  avisoDeTicket(t, pendiente);
+}
+
+// El ticket no se abre solo (estorbaría en pleno cobro): sale un aviso abajo con el botón "Ver ticket".
+function avisoDeTicket(t, pendiente) {
+  let pila = document.querySelector('.notif-flotante-wrap');
+  if (!pila) {
+    pila = document.createElement('div');
+    pila.className = 'notif-flotante-wrap';
+    document.body.appendChild(pila);
+  }
+
+  const aviso = document.createElement('div');
+  aviso.className = 'notif-flotante';
+  // por defecto el aviso se apaga a los 4 segundos; aquí se deja más tiempo para alcanzar a tocar el botón
+  aviso.style.animation = 'toast-in .25s ease, notif-out .3s ease 9.7s forwards';
+
+  const icono = document.createElement('i');
+  icono.className = 'bi bi-check-circle-fill';
+  const texto = document.createElement('span');
+  const folio = t.folio ? ' · Folio #' + String(t.folio).padStart(4, '0') : '';
+  texto.textContent = (pendiente ? 'Venta guardada sin internet' : 'Venta cobrada') + folio + ' · $' + Number(t.total).toFixed(2);
+  const boton = document.createElement('button');
+  boton.type = 'button';
+  boton.className = 'notif-flotante-link';
+  boton.textContent = 'Ver ticket';
+  boton.onclick = function () { aviso.remove(); openModal('ticket'); };
+
+  aviso.appendChild(icono);
+  aviso.appendChild(texto);
+  aviso.appendChild(boton);
+  pila.appendChild(aviso);
+  setTimeout(function () { aviso.remove(); }, 10000);
 }
 
 // ------------------------------------------------------------------ búsqueda, Enter y código de barras

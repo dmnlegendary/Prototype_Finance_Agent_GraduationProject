@@ -167,8 +167,13 @@ function enviarMensajeAvi(event) {
 
   const csrftoken = document.querySelector('#aviForm input[name=csrfmiddlewaretoken]').value;
 
+  // si la respuesta tarda más de 100 segundos (el límite de Cloudflare) se corta y se avisa, en vez de dejar el "Pensando…" para siempre
+  const control = new AbortController();
+  const limite = setTimeout(function () { control.abort(); }, 100000);
+
   fetch('/avi/chat/', {
     method: 'POST',
+    signal: control.signal,
     headers: {
       'Content-Type': 'application/json',
       'X-CSRFToken': csrftoken,
@@ -185,10 +190,13 @@ function enviarMensajeAvi(event) {
       burbujaCargando.textContent = limpiarTextoIA(datos.respuesta);
       if (datos.refrescar) refrescarVistaActual();
     })
-    .catch(function () {
-      burbujaCargando.textContent = 'No pude conectarme con el asistente. Intenta de nuevo.';
+    .catch(function (error) {
+      burbujaCargando.textContent = error && error.name === 'AbortError'
+        ? 'La IA tardó demasiado en contestar. Intenta de nuevo.'
+        : 'No pude conectarme con el asistente. Intenta de nuevo.';
     })
     .finally(function () {
+      clearTimeout(limite);
       chat.scrollTop = chat.scrollHeight;
     });
 

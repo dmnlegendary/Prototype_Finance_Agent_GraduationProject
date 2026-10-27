@@ -21,7 +21,7 @@ ALLOWED_HOSTS = [host.strip() for host in os.environ.get("ALLOWED_HOSTS", "127.0
 CSRF_TRUSTED_ORIGINS = [origen.strip() for origen in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if origen.strip()]
 
 # HTTPS: con USAR_HTTPS=True en el .env todo viaja cifrado (la contraseña y la sesión nunca van en claro).
-# Se activa cuando el sistema se publica detrás de un certificado (por ejemplo, en Azure).
+# Se activa cuando el sistema se publica detrás de un certificado (por ejemplo, el de Cloudflare cuando se usa un túnel).
 USAR_HTTPS = os.environ.get("USAR_HTTPS", "False") == "True"
 if USAR_HTTPS:
     SECURE_SSL_REDIRECT = True

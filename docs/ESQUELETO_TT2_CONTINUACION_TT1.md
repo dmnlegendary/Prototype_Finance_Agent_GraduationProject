@@ -20,8 +20,8 @@ Etiquetas para los evaluadores: **[ANÁLISIS]** análisis cuantitativo y cualita
 
 - **Preliminares:** [AJUSTAR] actualizar glosario y lista de abreviaciones (agregar: MVT, ORM, API, LLM, function calling, CSV, POS, PWA, CORS, RESICO si no está).
 - **Índices:** [AJUSTAR] el índice de figuras y de tablas se rehacen al final (capturas reales de pantalla en lugar de mockups).
-- **1.6 Propuesta de solución y 1.7 Metodología:** [AJUSTAR] la solución final es un sistema web con frontend en Azure y backend local; la metodología se amplía en 5.1 y la evolución del sistema en 5.2.
-- **2. Marco teórico:** [AJUSTAR] 2.4 y 2.5 (nube y Azure) quedan; agregar la justificación de la arquitectura híbrida (frontend en nube, backend local). Secciones nuevas:
+- **1.6 Propuesta de solución y 1.7 Metodología:** [AJUSTAR] la solución final es un sistema web que corre en una computadora del equipo y se publica con un túnel de Cloudflare, sin servicios de pago.
+- **2. Marco teórico:** [AJUSTAR] 2.4 y 2.5 (nube y Azure): ya no aplican como plataforma de despliegue, hay que reemplazarlas por Cloudflare Tunnel y justificar por qué se dejó Azure (se perdieron los créditos de la escuela y se buscó no tener costos fijos).
   - 2.11 Framework Django y patrón MVT.
   - 2.12 Modelos de lenguaje y *function calling* (cómo el asistente ejecuta acciones del sistema).
   - 2.13 Trabajo sin conexión (almacenamiento local en el navegador y sincronización).
@@ -41,7 +41,7 @@ Etiquetas para los evaluadores: **[ANÁLISIS]** análisis cuantitativo y cualita
   - 4.4 Diagrama de componentes: actualizar con la capa de sincronización sin conexión, el módulo del asistente y las APIs externas.
   - 4.5 **[DISEÑO] [NUEVO]** Diagramas de secuencia (no hay diagrama de clases): cobrar una venta con la regla de oro, chat con function calling (Gemini y respaldo con ChatGPT) y sincronización sin conexión. [DECIDIR si son tres o menos]
   - 4.6 Diagrama de actividades: actualizar los flujos que cambiaron (venta con dos carritos, alta con compra automática, importar CSV).
-  - 4.7 Diagrama de despliegue: actualizar a frontend en Azure y backend local.
+  - 4.7 Diagrama de despliegue: actualizar a servidor local (Django y PostgreSQL) publicado con un túnel de Cloudflare.
   - 4.8 Mockups: reemplazar por capturas del sistema final.
   - 4.9 Arquitectura: agregar la capa de sincronización sin conexión y el respaldo de modelos de IA.
   - 4.10 **[DISEÑO] [AGENTE]** Clasificación de marIA: dónde actúa como asistente (responde y ejecuta lo que se le pide) y dónde como agente (calcula y recomienda por sí mismo). Se apoya en el diagrama de componentes (4.4), sin diagrama nuevo.
@@ -148,9 +148,9 @@ Etiquetas para los evaluadores: **[ANÁLISIS]** análisis cuantitativo y cualita
 ### Capítulo 9. Implementación, capacitación y mantenimiento
 
 **9.1 Implementación y despliegue** [NUEVO]
-- 9.1.1 Arquitectura de despliegue: frontend en Azure y backend local **[DISEÑO]**
+- 9.1.1 Arquitectura de despliegue: servidor local publicado con un túnel de Cloudflare **[DISEÑO]**
 - 9.1.2 Instalación del backend local (requisitos, dependencias, migraciones, configuración de llaves de IA)
-- 9.1.3 Publicación del frontend en Azure [COMPLETAR, semana del despliegue]
+- 9.1.3 Publicación con Cloudflare [COMPLETAR, semana del despliegue]
 - 9.1.4 Comunicación entre frontend y backend (HTTPS, CORS, acceso al equipo local) [DECIDIR cómo se conectan]
 - 9.1.5 Costos reales del despliegue (enlazar con el análisis de costos del capítulo 3)
 - 9.1.6 Verificación posterior al despliegue

@@ -21,9 +21,10 @@ class SinLlaveError(Exception):
 
 
 # pistas en el texto del error de una falla "pasajera" (saturación, límite por minuto, red)
-# que vale la pena volver a intentar unos segundos después
+# que vale la pena volver a intentar unos segundos después. El "timeout" NO está: si la IA ya
+# tardó todo el tiempo permitido, mejor pasar de una vez al otro modelo que esperar otra vez.
 FALLAS_PASAJERAS = (
-    "429", "500", "502", "503", "504", "timeout", "timed out", "overloaded", "unavailable",
+    "429", "500", "502", "503", "504", "overloaded", "unavailable",
     "rate limit", "resource exhausted", "connection", "temporarily",
 )
 
@@ -65,7 +66,11 @@ MENSAJE_SIN_LLAVE = (
 # cuántas veces seguidas puede la IA pedir funciones antes de darle una respuesta al usuario
 MAXIMO_DE_RONDAS = 3
 MODELO_GEMINI = "gemini-3.8-flash"
-TIEMPO_ESPERA_GEMINI_MS = 300_000
+# Gemini tiene 40 segundos y ChatGPT 30: así, aunque fallen los dos, la respuesta llega (o el aviso de error)
+# antes de los 100 segundos que Cloudflare le da a una petición; con más tiempo el tendero se queda sin respuesta.
+TIEMPO_ESPERA_GEMINI_MS = 40_000
+# qué tanto "piensa" Gemini antes de contestar: bajo es mucho más rápido y alcanza para un asistente de tienda
+NIVEL_DE_PENSAMIENTO = "low"
 
 SYSTEM_PROMPT = (
     "Eres marIA, el Asistente Virtual Inteligente (AVI) de una tienda de abarrotes. "
@@ -135,6 +140,19 @@ def _instrucciones(negocio, pantalla=None):
         + "\n\nDatos de la tienda ahorita (úsalos para contestar sin ejecutar funciones cuando te alcancen):\n"
         + services.contexto_negocio(negocio)
     )
+
+
+def _crear_interaccion(cliente, **datos):
+    """Una llamada a la Interactions API de Gemini con poco "pensamiento", para que conteste rápido.
+    Si la versión instalada no acepta ese ajuste, se vuelve a llamar sin él."""
+    try:
+        return cliente.interactions.create(generation_config={"thinking_level": NIVEL_DE_PENSAMIENTO}, **datos)
+    except TypeError:
+        return cliente.interactions.create(**datos)
+    except Exception as error:
+        if "thinking" in str(error).lower():
+            return cliente.interactions.create(**datos)
+        raise
 
 
 def preguntar_chatgpt(mensaje, negocio, pantalla=None, funciones_ejecutadas=None):
@@ -207,7 +225,7 @@ def preguntar_gemini(mensaje, negocio, pantalla=None, funciones_ejecutadas=None)
     entrada = "Conversación reciente:\n" + "\n".join(historial)
     herramientas = services.tools_gemini(pantalla)
     instrucciones = _instrucciones(negocio, pantalla)
-    respuesta = con_reintentos(lambda: cliente.interactions.create(
+    respuesta = con_reintentos(lambda: _crear_interaccion(cliente,
         model=MODELO_GEMINI,
         input=entrada,
         tools=herramientas,
@@ -236,7 +254,7 @@ def preguntar_gemini(mensaje, negocio, pantalla=None, funciones_ejecutadas=None)
         if directa:
             return directa, funciones_ejecutadas
 
-        respuesta = con_reintentos(lambda: cliente.interactions.create(
+        respuesta = con_reintentos(lambda: _crear_interaccion(cliente,
             model=MODELO_GEMINI,
             previous_interaction_id=respuesta.id,
             input=resultados,
@@ -279,7 +297,7 @@ def _texto_con_gemini(prompt):
         api_key=llaves.obtener(llaves.LlaveIA.GEMINI),
         http_options=types.HttpOptions(timeout=TIEMPO_ESPERA_GEMINI_MS),
     )
-    respuesta = con_reintentos(lambda: cliente.interactions.create(
+    respuesta = con_reintentos(lambda: _crear_interaccion(cliente,
         model=MODELO_GEMINI,
         input=prompt,
         system_instruction=PROMPT_RESUMEN,

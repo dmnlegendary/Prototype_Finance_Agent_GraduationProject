@@ -1,6 +1,6 @@
 Django>=5.1,<6.0
 openai
-google-genai
+google-genai>=2.3.0
 python-dotenv
 # Driver de PostgreSQL (solo se usa si en el .env se define DB_NAME)
 psycopg[binary]>=3.1

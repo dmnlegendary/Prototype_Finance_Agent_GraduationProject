@@ -663,6 +663,42 @@ class ErroresDeLaIaTests(SimpleTestCase):
             con_reintentos(llamada)
         self.assertEqual(len(intentos), 1)
 
+    @patch("avi.clients.time.sleep")
+    def test_no_reintenta_si_la_ia_ya_se_tardo_todo_el_tiempo(self, _espera):
+        # un timeout no se repite: se pasa al otro modelo en vez de esperar otra vez
+        intentos = []
+
+        def llamada():
+            intentos.append(1)
+            raise Exception("Request timed out")
+
+        with self.assertRaises(Exception):
+            con_reintentos(llamada)
+        self.assertEqual(len(intentos), 1)
+
+    def test_el_tiempo_de_espera_de_gemini_cabe_en_el_limite_de_cloudflare(self):
+        from avi import clients
+
+        # Gemini (y despues ChatGPT con 30 s) tienen que contestar antes de los 100 s que da Cloudflare
+        self.assertLessEqual(clients.TIEMPO_ESPERA_GEMINI_MS / 1000 + 30, 90)
+
+    def test_si_gemini_no_acepta_el_nivel_de_pensamiento_se_llama_sin_el(self):
+        from avi.clients import _crear_interaccion
+
+        llamadas = []
+
+        class Interacciones:
+            def create(self, **datos):
+                llamadas.append(datos)
+                if "generation_config" in datos:
+                    raise TypeError("unexpected keyword")
+                return "listo"
+
+        cliente = SimpleNamespace(interactions=Interacciones())
+        self.assertEqual(_crear_interaccion(cliente, model="modelo", input="hola"), "listo")
+        self.assertEqual(len(llamadas), 2)
+        self.assertNotIn("generation_config", llamadas[1])
+
 
 class ProveedoresYBusquedaDelAsistenteTests(TestCase):
     def setUp(self):

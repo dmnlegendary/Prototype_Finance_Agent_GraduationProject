@@ -92,7 +92,10 @@ def agregar_existencias(producto, cantidad, costo=None, motivo="Compra de mercan
     if precio_nuevo is not None:
         producto.precio_venta = precio_nuevo.quantize(CENTAVOS, rounding=ROUND_HALF_UP)
     producto.cantidad_actual = producto.cantidad_actual + cantidad
-    producto.save(update_fields=["cantidad_actual", "costo", "precio_venta", "actualizado_en"])
+    # un producto que llegó del CSV de ventas (activo y pendiente) queda validado en cuanto tiene piezas y costo
+    if producto.pendiente_validacion and producto.activo and producto.costo > 0:
+        producto.pendiente_validacion = False
+    producto.save(update_fields=["cantidad_actual", "costo", "precio_venta", "pendiente_validacion", "actualizado_en"])
 
     HistorialModificacionProducto.objects.create(
         producto=producto, usuario=producto.negocio.usuario,

@@ -142,6 +142,10 @@ Escuela Superior de Cómputo (ESCOM) — Instituto Politécnico Nacional.
 - **Costo por lotes (PEPS):** cada compra abre un lote con su propio costo y las ventas gastan primero el más viejo; si la coca costó 15 ayer y 17 hoy, las de ayer se venden con costo de 15. El kardex guarda el costo de cada movimiento.
 - **Cajas en lugar de carritos:** en pantalla y en el asistente se les dice «caja 1» y «caja 2». Si se apaga el wifi con productos en la caja, se conservan y se pueden cobrar sin internet.
 - **Listo para vender:** `python manage.py seed_catalogo --negocios` carga 20 categorías de productos, un catálogo de 186 productos con ícono y precio sugerido, y les agrega a las tiendas 24 proveedores comunes y 19 categorías de gastos (fijos o variables). Las tiendas nuevas los reciben solas al registrarse.
+- **Ticket como aviso:** al cobrar sale un aviso abajo (verde, con el folio y el total) y un botón «Ver ticket»; el ticket ya no se abre solo en medio de la pantalla.
+- **Catálogo que se carga solo:** si el catálogo precargado está vacío (base de datos nueva), el paso 3 del registro lo carga sin tener que correr `seed_catalogo`.
+- **Regla de oro también para los importados:** los productos que llegan del CSV de ventas (activos y pendientes de validar) no se venden sin piezas; solo el «producto no encontrado» se cobra sin existencias. Al agregarles piezas y costo quedan validados.
+- **Asistente más rápido:** Gemini piensa en nivel bajo y tiene 40 segundos de espera (ChatGPT 30), para que la respuesta llegue antes del límite de 100 segundos de Cloudflare; si Gemini no contesta, se pasa de inmediato a ChatGPT.
 - **Reglas de negocio:** el precio de venta nunca puede ser menor al de compra (alta, edición, resurtido, CSV y asistente), y el stock ideal es el promedio de lo que había después de cada carga de mercancía.
 - **Íconos de productos:** se eligen de una lista o se asignan solos según el nombre.
 - **Dictado como radio:** el micrófono del chat se mantiene presionado mientras se habla y se suelta al terminar.

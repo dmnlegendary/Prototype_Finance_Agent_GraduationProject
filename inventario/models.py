@@ -159,6 +159,13 @@ class Producto(ModeloBase):
         return self.cantidad_minima * 4
 
     @property
+    def sin_control_de_stock(self):
+        """Solo el producto "no encontrado" (se crea al cobrar, inactivo y pendiente) se puede vender
+        sin existencias. Los pendientes que están activos, como los que llegan del CSV de ventas,
+        sí se controlan: si no hay piezas, la caja pregunta cuántas se quieren agregar."""
+        return self.pendiente_validacion and not self.activo
+
+    @property
     def nivel_stock(self):
         """Semáforo del reabastecimiento: "rojo", "naranja", "amarillo" u "ok"."""
         # un producto "no encontrado" que aún no se valida no lleva control de stock
